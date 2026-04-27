@@ -1,9 +1,8 @@
-// src/components/ProtectedRoute.jsx
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
-const ProtectedRoute = ({ children, role }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem('portalToken');
   const userRole = localStorage.getItem('userRole');
 
@@ -17,9 +16,9 @@ const ProtectedRoute = ({ children, role }) => {
     return <Navigate to="/portal/login" replace />;
   }
 
-  if (role && userRole !== role) {
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
     Swal.fire({
-      title: 'Unauthorized',
+      title: 'Unauthorized Access',
       text: `You don't have permission to access this page.`,
       icon: 'error',
       confirmButtonColor: '#1e3c72'

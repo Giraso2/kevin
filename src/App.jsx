@@ -57,9 +57,34 @@ function App() {
             <AdminDashboard />
           </ProtectedRoute>
         } />
+        // In App.jsx, update the portal routes:
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Then wrap the dashboard routes:
+<Route path="/portal/student" element={
+  <ProtectedRoute allowedRoles={['student']}>
+    <StudentDashboard />
+  </ProtectedRoute>
+} />
+<Route path="/portal/teacher" element={
+  <ProtectedRoute allowedRoles={['teacher']}>
+    <TeacherDashboard />
+  </ProtectedRoute>
+} />
+<Route path="/portal/parent" element={
+  <ProtectedRoute allowedRoles={['parent']}>
+    <ParentDashboard />
+  </ProtectedRoute>
+} />
+<Route path="/portal/admin" element={
+  <ProtectedRoute allowedRoles={['admin']}>
+    <AdminDashboard />
+  </ProtectedRoute>
+} />
       </Routes>
     </Router>
   );
 }
+
 
 export default App;
