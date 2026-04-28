@@ -1,90 +1,91 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const Student = require('../models/Student');
-const Teacher = require('../models/Teacher');
-const Parent = require('../models/Parent');
-require('dotenv').config();
+const dotenv = require('dotenv');
 
-const seedData = async () => {
+dotenv.config();
+
+const seedDatabase = async () => {
   try {
+    // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
-    
-    // Clear existing data
-    await User.deleteMany({});
-    await Student.deleteMany({});
-    await Teacher.deleteMany({});
-    await Parent.deleteMany({});
-    
-    // Create Admin
-    const admin = await User.create({
-      fullName: 'Dr. Uwimana Jean Paul',
-      email: 'admin@essa.rw',
-      password: 'admin123',
-      role: 'admin',
-      phone: '+250788123456'
-    });
-    
-    // Create Student
-    const studentUser = await User.create({
-      fullName: 'Jean Paul Ndayisaba',
-      email: 'student@essa.rw',
-      password: 'student123',
-      role: 'student',
-      phone: '+250788123457'
-    });
-    
-    const student = await Student.create({
-      user: studentUser._id,
-      studentId: 'STU2024001',
-      grade: 'S6',
-      class: 'Software Development',
-      combination: 'Software Development'
-    });
-    
-    // Create Teacher
-    const teacherUser = await User.create({
-      fullName: 'Mukansanga Marie',
-      email: 'teacher@essa.rw',
-      password: 'teacher123',
-      role: 'teacher',
-      phone: '+250788123458'
-    });
-    
-    await Teacher.create({
-      user: teacherUser._id,
-      teacherId: 'TCH2024001',
-      subject: 'Mathematics',
-      department: 'Science',
-      qualification: 'Master\'s in Mathematics',
-      experience: 8,
-      classes: ['S4', 'S5', 'S6']
-    });
-    
-    // Create Parent
-    const parentUser = await User.create({
-      fullName: 'Habimana Jean',
-      email: 'parent@essa.rw',
-      password: 'parent123',
-      role: 'parent',
-      phone: '+250788123459'
-    });
-    
-    await Parent.create({
-      user: parentUser._id,
-      parentId: 'PRN2024001',
-      children: [student._id],
-      occupation: 'Business Owner',
-      relationship: 'Father'
-    });
-    
-    console.log('Seed data created successfully!');
+    console.log('✅ Connected to MongoDB');
+
+    const db = mongoose.connection.db;
+    const usersCollection = db.collection('users');
+
+    // Clear existing users
+    await usersCollection.deleteMany({});
+    console.log('🗑️ Cleared existing users');
+
+    // Hash passwords manually
+    const hashedPasswordStudent = await bcrypt.hash('student123', 10);
+    const hashedPasswordTeacher = await bcrypt.hash('teacher123', 10);
+    const hashedPasswordParent = await bcrypt.hash('parent123', 10);
+    const hashedPasswordAdmin = await bcrypt.hash('admin123', 10);
+
+    // Create users
+    const users = [
+      {
+        fullName: 'Jean Paul Ndayisaba',
+        email: 'student@essa.rw',
+        password: hashedPasswordStudent,
+        role: 'student',
+        phone: '+250788123457',
+        address: 'Kigali, Rwanda',
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        fullName: 'Mukansanga Marie',
+        email: 'teacher@essa.rw',
+        password: hashedPasswordTeacher,
+        role: 'teacher',
+        phone: '+250788123458',
+        address: 'Kigali, Rwanda',
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        fullName: 'Habimana Jean',
+        email: 'parent@essa.rw',
+        password: hashedPasswordParent,
+        role: 'parent',
+        phone: '+250788123459',
+        address: 'Kigali, Rwanda',
+        isActive: true,
+        createdAt: new Date()
+      },
+      {
+        fullName: 'Dr. Uwimana Jean Paul',
+        email: 'admin@essa.rw',
+        password: hashedPasswordAdmin,
+        role: 'admin',
+        phone: '+250788123456',
+        address: 'Kigali, Rwanda',
+        isActive: true,
+        createdAt: new Date()
+      }
+    ];
+
+    // Insert users
+    const result = await usersCollection.insertMany(users);
+    console.log(`✅ Created ${result.insertedCount} users`);
+
+    console.log('\n📊 Seed completed successfully!');
+    console.log('\n🔐 Demo Credentials:');
+    console.log('-------------------');
+    console.log('Student: student@essa.rw / student123');
+    console.log('Teacher: teacher@essa.rw / teacher123');
+    console.log('Parent: parent@essa.rw / parent123');
+    console.log('Admin: admin@essa.rw / admin123');
+    console.log('-------------------\n');
+
+    await mongoose.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error('Error seeding data:', error);
+    console.error('❌ Error seeding database:', error);
     process.exit(1);
   }
 };
 
-seedData();
+seedDatabase();
