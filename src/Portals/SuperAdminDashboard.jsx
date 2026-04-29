@@ -10,13 +10,8 @@ const SuperAdminDashboard = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [admins, setAdmins] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [disciplineCases, setDisciplineCases] = useState([]);
-  const [permissions, setPermissions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  const API_URL = 'http://localhost:5000/api';
-  const getToken = () => localStorage.getItem('portalToken');
 
   useEffect(() => {
     const handleResize = () => {
@@ -29,7 +24,7 @@ const SuperAdminDashboard = () => {
   }, []);
 
   useEffect(() => {
-    const token = getToken();
+    const token = localStorage.getItem('portalToken');
     const role = localStorage.getItem('userRole');
     const name = localStorage.getItem('userName');
     
@@ -41,108 +36,12 @@ const SuperAdminDashboard = () => {
       navigate('/portal/login');
     } else {
       setUserName(name || 'Super Administrator');
-      fetchAllData();
+      setLoading(false); // Immediately set loading to false
     }
   }, [navigate]);
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    const token = getToken();
-    
-    if (!token) {
-      console.error('No token found');
-      setLoading(false);
-      return;
-    }
-
-    await Promise.all([
-      fetchAdmins(),
-      fetchAnnouncements(),
-      fetchDisciplineCases(),
-      fetchPermissions()
-    ]);
-    
-    setLoading(false);
-  };
-
-  const fetchAdmins = async () => {
-    try {
-      const response = await fetch(`${API_URL}/super-admin/admins`, {
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAdmins(data);
-        console.log('Admins fetched:', data);
-      } else {
-        console.error('Failed to fetch admins:', response.status);
-      }
-    } catch (error) {
-      console.error('Error fetching admins:', error);
-    }
-  };
-
-  const fetchAnnouncements = async () => {
-    try {
-      const response = await fetch(`${API_URL}/super-admin/announcements`, {
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAnnouncements(data);
-        console.log('Announcements fetched:', data);
-      } else {
-        console.error('Failed to fetch announcements:', response.status);
-      }
-    } catch (error) {
-      console.error('Error fetching announcements:', error);
-    }
-  };
-
-  const fetchDisciplineCases = async () => {
-    try {
-      const response = await fetch(`${API_URL}/super-admin/discipline-cases`, {
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDisciplineCases(data.cases || []);
-        console.log('Discipline cases fetched:', data);
-      } else {
-        console.error('Failed to fetch discipline cases:', response.status);
-      }
-    } catch (error) {
-      console.error('Error fetching discipline cases:', error);
-    }
-  };
-
-  const fetchPermissions = async () => {
-    try {
-      const response = await fetch(`${API_URL}/super-admin/permissions`, {
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPermissions(data);
-        console.log('Permissions fetched:', data);
-      } else {
-        console.error('Failed to fetch permissions:', response.status);
-      }
-    } catch (error) {
-      console.error('Error fetching permissions:', error);
-    }
-  };
-
-  const handleCreateAdmin = async () => {
-    const { value: formValues } = await Swal.fire({
+  const handleCreateAdmin = () => {
+    Swal.fire({
       title: 'Create Sub-Admin',
       html: `
         <input type="text" id="fullName" class="swal2-input" placeholder="Full Name" required>
@@ -169,37 +68,26 @@ const SuperAdminDashboard = () => {
           Swal.showValidationMessage('Please fill required fields');
           return false;
         }
-        return { fullName, email, password, phone, role };
+        return { fullName, email, password, phone, role, id: Date.now() };
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const newAdmin = {
+          id: result.value.id,
+          fullName: result.value.fullName,
+          email: result.value.email,
+          role: result.value.role,
+          phone: result.value.phone,
+          isActive: true
+        };
+        setAdmins([...admins, newAdmin]);
+        Swal.fire('Success!', `${result.value.role} created successfully`, 'success');
       }
     });
-
-    if (formValues) {
-      try {
-        const response = await fetch(`${API_URL}/super-admin/create-admin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getToken()}`
-          },
-          body: JSON.stringify(formValues)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          Swal.fire('Success!', `${formValues.role} created successfully. They can login with email: ${formValues.email} and password: ${formValues.password}`, 'success');
-          fetchAdmins(); // Refresh the list
-        } else {
-          const error = await response.json();
-          Swal.fire('Error', error.message || 'Failed to create admin', 'error');
-        }
-      } catch (error) {
-        Swal.fire('Error', 'Network error. Please try again.', 'error');
-      }
-    }
   };
 
-  const handlePostAnnouncement = async () => {
-    const { value: formValues } = await Swal.fire({
+  const handlePostAnnouncement = () => {
+    Swal.fire({
       title: 'Post Announcement',
       html: `
         <input type="text" id="title" class="swal2-input" placeholder="Title" required>
@@ -222,33 +110,55 @@ const SuperAdminDashboard = () => {
           Swal.showValidationMessage('Please fill all fields');
           return false;
         }
-        return { title, content, audience: ['all'], priority };
+        return { title, content, priority, id: Date.now(), createdAt: new Date() };
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const newAnnouncement = {
+          id: result.value.id,
+          title: result.value.title,
+          content: result.value.content,
+          priority: result.value.priority,
+          createdAt: result.value.createdAt
+        };
+        setAnnouncements([newAnnouncement, ...announcements]);
+        Swal.fire('Success!', 'Announcement posted successfully', 'success');
       }
     });
+  };
 
-    if (formValues) {
-      try {
-        const response = await fetch(`${API_URL}/super-admin/announcements`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getToken()}`
-          },
-          body: JSON.stringify(formValues)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          Swal.fire('Success!', 'Announcement posted successfully', 'success');
-          fetchAnnouncements(); // Refresh the list
-        } else {
-          const error = await response.json();
-          Swal.fire('Error', error.message || 'Failed to post announcement', 'error');
-        }
-      } catch (error) {
-        Swal.fire('Error', 'Network error. Please try again.', 'error');
+  const handleDeleteAdmin = (adminId) => {
+    Swal.fire({
+      title: 'Delete Admin?',
+      text: 'Are you sure you want to remove this admin?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e74c3c',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setAdmins(admins.filter(admin => admin.id !== adminId));
+        Swal.fire('Deleted!', 'Admin has been removed.', 'success');
       }
-    }
+    });
+  };
+
+  const handleDeleteAnnouncement = (announcementId) => {
+    Swal.fire({
+      title: 'Delete Announcement?',
+      text: 'Are you sure you want to delete this announcement?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e74c3c',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setAnnouncements(announcements.filter(ann => ann.id !== announcementId));
+        Swal.fire('Deleted!', 'Announcement has been deleted.', 'success');
+      }
+    });
   };
 
   const handleLogout = () => {
@@ -272,14 +182,13 @@ const SuperAdminDashboard = () => {
     { id: 'overview', label: 'Overview', icon: 'fas fa-chart-line', color: '#3498db' },
     { id: 'admins', label: 'Manage Admins', icon: 'fas fa-users-cog', color: '#27ae60' },
     { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn', color: '#f39c12' },
-    { id: 'discipline', label: 'Discipline Cases', icon: 'fas fa-gavel', color: '#e74c3c' },
-    { id: 'permissions', label: 'Permissions', icon: 'fas fa-file-alt', color: '#9b59b6' },
     { id: 'profile', label: 'Profile', icon: 'fas fa-user-circle', color: '#34495e' }
   ];
 
   const sidebarWidth = sidebarCollapsed ? '80px' : '260px';
   const sidebarWidthMobile = mobileMenuOpen ? '260px' : '0px';
 
+  // Show loading only for a brief moment
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f4f8' }}>
@@ -499,14 +408,6 @@ const SuperAdminDashboard = () => {
                   <p>Sub-Admins</p>
                 </div>
                 <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
-                  <h3 style={{ fontSize: '1.8rem', color: '#1a3a5c' }}>{disciplineCases.length}</h3>
-                  <p>Discipline Cases</p>
-                </div>
-                <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
-                  <h3 style={{ fontSize: '1.8rem', color: '#1a3a5c' }}>{permissions.length}</h3>
-                  <p>Permission Requests</p>
-                </div>
-                <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
                   <h3 style={{ fontSize: '1.8rem', color: '#1a3a5c' }}>{announcements.length}</h3>
                   <p>Announcements</p>
                 </div>
@@ -541,25 +442,22 @@ const SuperAdminDashboard = () => {
                       <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
                       <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
                       <th style={{ padding: '12px', textAlign: 'left' }}>Role</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {admins.map(admin => (
-                      <tr key={admin._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                      <tr key={admin.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
                         <td style={{ padding: '12px' }}>{admin.fullName}</td>
                         <td style={{ padding: '12px' }}>{admin.email}</td>
                         <td style={{ padding: '12px' }}>{admin.role}</td>
                         <td style={{ padding: '12px' }}>
-                          <span style={{ 
-                            background: admin.isActive ? '#d4edda' : '#f8d7da', 
-                            color: admin.isActive ? '#155724' : '#721c24', 
-                            padding: '4px 12px', 
-                            borderRadius: '20px', 
-                            fontSize: '0.75rem' 
-                          }}>
-                            {admin.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                          <button 
+                            onClick={() => handleDeleteAdmin(admin.id)}
+                            style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -582,18 +480,27 @@ const SuperAdminDashboard = () => {
                 <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No announcements yet. Click "New Announcement" to post.</p>
               ) : (
                 announcements.map(ann => (
-                  <div key={ann._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem' }}>
+                  <div key={ann.id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem', position: 'relative' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h4 style={{ color: '#1a3a5c' }}>{ann.title}</h4>
-                      <span style={{ 
-                        background: ann.priority === 'urgent' ? '#e74c3c' : ann.priority === 'high' ? '#f39c12' : '#27ae60', 
-                        color: 'white', 
-                        padding: '2px 8px', 
-                        borderRadius: '4px', 
-                        fontSize: '0.7rem' 
-                      }}>
-                        {ann.priority}
-                      </span>
+                      <div>
+                        <span style={{ 
+                          background: ann.priority === 'urgent' ? '#e74c3c' : ann.priority === 'high' ? '#f39c12' : '#27ae60', 
+                          color: 'white', 
+                          padding: '2px 8px', 
+                          borderRadius: '4px', 
+                          fontSize: '0.7rem',
+                          marginRight: '8px'
+                        }}>
+                          {ann.priority}
+                        </span>
+                        <button 
+                          onClick={() => handleDeleteAnnouncement(ann.id)}
+                          style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     <p style={{ marginTop: '0.5rem', color: '#666' }}>{ann.content}</p>
                     <div style={{ fontSize: '0.7rem', color: '#999', marginTop: '0.5rem' }}>
@@ -601,94 +508,6 @@ const SuperAdminDashboard = () => {
                     </div>
                   </div>
                 ))
-              )}
-            </div>
-          )}
-
-          {/* Discipline Cases Tab */}
-          {activeTab === 'discipline' && (
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Discipline Cases</h3>
-              {disciplineCases.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No discipline cases reported.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '12px' }}>Student</th>
-                      <th style={{ padding: '12px' }}>Category</th>
-                      <th style={{ padding: '12px' }}>Description</th>
-                      <th style={{ padding: '12px' }}>Status</th>
-                      <th style={{ padding: '12px' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {disciplineCases.map(c => (
-                      <tr key={c._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <td style={{ padding: '12px' }}>{c.studentId?.fullName || 'N/A'}</td>
-                        <td style={{ padding: '12px' }}>{c.category}</td>
-                        <td style={{ padding: '12px' }}>{c.description}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ 
-                            background: c.status === 'pending' ? '#fff3cd' : '#d4edda', 
-                            color: c.status === 'pending' ? '#856404' : '#155724', 
-                            padding: '4px 12px', 
-                            borderRadius: '20px', 
-                            fontSize: '0.75rem' 
-                          }}>
-                            {c.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px' }}>{c.action || 'Pending review'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-
-          {/* Permissions Tab */}
-          {activeTab === 'permissions' && (
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-              <h3 style={{ marginBottom: '1rem' }}>Permission Requests</h3>
-              {permissions.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No permission requests.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '12px' }}>Requester</th>
-                      <th style={{ padding: '12px' }}>Type</th>
-                      <th style={{ padding: '12px' }}>Reason</th>
-                      <th style={{ padding: '12px' }}>From - To</th>
-                      <th style={{ padding: '12px' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {permissions.map(p => (
-                      <tr key={p._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <td style={{ padding: '12px' }}>{p.requesterName}</td>
-                        <td style={{ padding: '12px' }}>{p.type}</td>
-                        <td style={{ padding: '12px' }}>{p.reason}</td>
-                        <td style={{ padding: '12px' }}>
-                          {new Date(p.fromDate).toLocaleDateString()} - {new Date(p.toDate).toLocaleDateString()}
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ 
-                            background: p.status === 'pending' ? '#fff3cd' : p.status === 'approved' ? '#d4edda' : '#f8d7da', 
-                            color: p.status === 'pending' ? '#856404' : p.status === 'approved' ? '#155724' : '#721c24', 
-                            padding: '4px 12px', 
-                            borderRadius: '20px', 
-                            fontSize: '0.75rem' 
-                          }}>
-                            {p.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               )}
             </div>
           )}

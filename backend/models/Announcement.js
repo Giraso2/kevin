@@ -8,7 +8,6 @@ const announcementSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   isActive: { type: Boolean, default: true },
   expiresAt: Date,
-  attachments: [{ fileName: String, fileUrl: String }],
   createdAt: { type: Date, default: Date.now }
 });
 

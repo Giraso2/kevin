@@ -1,20 +1,17 @@
 const mongoose = require('mongoose');
 
 const gradeSchema = new mongoose.Schema({
-  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-  studentName: { type: String, required: true },
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   subject: { type: String, required: true },
   score: { type: Number, required: true, min: 0, max: 100 },
   grade: { type: String },
   term: { type: String, required: true },
   year: { type: Number, required: true },
-  teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  teacherName: { type: String, required: true },
-  remarks: { type: String, default: '' },
+  teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  remarks: String,
   createdAt: { type: Date, default: Date.now }
 });
 
-// Calculate letter grade before saving
 gradeSchema.pre('save', function(next) {
   if (this.score >= 80) this.grade = 'A';
   else if (this.score >= 75) this.grade = 'B+';
@@ -27,4 +24,4 @@ gradeSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Grade', gradeSchema);
+module.exports = mongoose.models.Grade || mongoose.model('Grade', gradeSchema);

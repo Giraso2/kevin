@@ -16,11 +16,7 @@ const disciplineSchema = new mongoose.Schema({
     default: 'pending' 
   },
   actionDetails: String,
-  status: { 
-    type: String, 
-    enum: ['pending', 'reviewed', 'resolved'], 
-    default: 'pending' 
-  },
+  status: { type: String, enum: ['pending', 'reviewed', 'resolved'], default: 'pending' },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: Date,
   createdAt: { type: Date, default: Date.now }

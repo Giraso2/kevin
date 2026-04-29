@@ -14,15 +14,10 @@ const permissionSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   fromDate: { type: Date, required: true },
   toDate: { type: Date, required: true },
-  status: { 
-    type: String, 
-    enum: ['pending', 'approved', 'rejected'], 
-    default: 'pending' 
-  },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: Date,
   rejectionReason: String,
-  attachment: String,
   createdAt: { type: Date, default: Date.now }
 });
 

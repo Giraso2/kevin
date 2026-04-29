@@ -1,31 +1,28 @@
-const express = require('express');
-const router = express.Router();
-const { protect } = require('../middleware/auth');
-const roleCheck = require('../middleware/roleCheck');
+const jwt = require('jsonwebtoken');
 
-// Placeholder controller functions
-const getDashboard = (req, res) => {
-  res.json({ message: 'Parent dashboard endpoint' });
+const authMiddleware = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+    req.userId = decoded.id;
+    req.userRole = decoded.role;
+    req.userName = decoded.name;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
 };
 
-const getChildren = (req, res) => {
-  res.json({ message: 'Get children endpoint' });
+const roleCheck = (roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.userRole)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    next();
+  };
 };
 
-const getChildGrades = (req, res) => {
-  res.json({ message: `Get grades for child ${req.params.childId}` });
-};
-
-const getChildAttendance = (req, res) => {
-  res.json({ message: `Get attendance for child ${req.params.childId}` });
-};
-
-router.use(protect);
-router.use(roleCheck('parent'));
-
-router.get('/dashboard', getDashboard);
-router.get('/children', getChildren);
-router.get('/children/:childId/grades', getChildGrades);
-router.get('/children/:childId/attendance', getChildAttendance);
-
-module.exports = router;
+module.exports = { authMiddleware, roleCheck };

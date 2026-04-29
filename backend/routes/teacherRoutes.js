@@ -3,13 +3,15 @@ const router = express.Router();
 const User = require('../models/User');
 const Student = require('../models/Student');
 const Class = require('../models/Class');
+const Parent = require('../models/Parent');
 const Assignment = require('../models/Assignment');
 const Attendance = require('../models/Attendance');
+const Grade = require('../models/Grade');
 const Discipline = require('../models/Discipline');
 const Permission = require('../models/Permission');
 const { authMiddleware, roleCheck } = require('../middleware/auth');
 
-// Create student
+// Create student with parent linking
 router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (req, res) => {
   try {
     const { fullName, email, password, studentId, classId, dateOfBirth, gender, parentEmail, parentName, parentPhone } = req.body;
@@ -21,7 +23,7 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
     });
     await studentUser.save();
     
-    // Create parent user if provided
+    // Create or find parent
     let parentId = null;
     if (parentEmail) {
       let parentUser = await User.findOne({ email: parentEmail });
@@ -41,10 +43,10 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
     
     // Create student profile
     const student = new Student({
-      userId: studentUser._id,
+      user: studentUser._id,
       studentId: studentId || `STU${Date.now()}`,
-      parentId,
       classId,
+      parent: parentId,
       dateOfBirth,
       gender
     });
@@ -59,11 +61,39 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
   }
 });
 
-// Get teacher's classes
-router.get('/my-classes', authMiddleware, roleCheck(['teacher']), async (req, res) => {
+// Get teacher's students
+router.get('/students', authMiddleware, roleCheck(['teacher']), async (req, res) => {
   try {
-    const classes = await Class.find({ teacher: req.userId }).populate('students');
-    res.json(classes);
+    const teacher = await User.findById(req.userId);
+    const classes = await Class.find({ teacher: req.userId });
+    const classIds = classes.map(c => c._id);
+    const students = await Student.find({ classId: { $in: classIds } }).populate('user', 'fullName email');
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Create assignment
+router.post('/assignments', authMiddleware, roleCheck(['teacher']), async (req, res) => {
+  try {
+    const { title, description, subject, classId, dueDate, totalPoints } = req.body;
+    const assignment = new Assignment({
+      title, description, subject, classId, teacherId: req.userId,
+      dueDate, totalPoints
+    });
+    await assignment.save();
+    res.json({ success: true, message: 'Assignment created', assignment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get assignments
+router.get('/assignments', authMiddleware, roleCheck(['teacher']), async (req, res) => {
+  try {
+    const assignments = await Assignment.find({ teacherId: req.userId }).sort({ createdAt: -1 });
+    res.json(assignments);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -73,7 +103,6 @@ router.get('/my-classes', authMiddleware, roleCheck(['teacher']), async (req, re
 router.post('/attendance', authMiddleware, roleCheck(['teacher']), async (req, res) => {
   try {
     const { classId, date, records } = req.body;
-    
     for (const record of records) {
       await Attendance.findOneAndUpdate(
         { studentId: record.studentId, date: new Date(date) },
@@ -81,53 +110,21 @@ router.post('/attendance', authMiddleware, roleCheck(['teacher']), async (req, r
         { upsert: true }
       );
     }
-    res.json({ success: true, message: 'Attendance marked successfully' });
+    res.json({ success: true, message: 'Attendance marked' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Create assignment
-router.post('/assignments', authMiddleware, roleCheck(['teacher']), async (req, res) => {
+// Add grade
+router.post('/grades', authMiddleware, roleCheck(['teacher']), async (req, res) => {
   try {
-    const { title, description, subject, classId, dueDate, totalPoints, attachments } = req.body;
-    const assignment = new Assignment({
-      title, description, subject, classId, teacherId: req.userId,
-      dueDate, totalPoints, attachments: attachments || []
+    const { studentId, subject, score, term, year, remarks } = req.body;
+    const grade = new Grade({
+      studentId, subject, score, term, year, teacherId: req.userId, remarks
     });
-    await assignment.save();
-    res.json({ success: true, message: 'Assignment created successfully', assignment });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get assignments for teacher's classes
-router.get('/assignments', authMiddleware, roleCheck(['teacher']), async (req, res) => {
-  try {
-    const classes = await Class.find({ teacher: req.userId });
-    const classIds = classes.map(c => c._id);
-    const assignments = await Assignment.find({ classId: { $in: classIds } }).sort({ createdAt: -1 });
-    res.json(assignments);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Grade assignment submission
-router.put('/assignments/:assignmentId/grade', authMiddleware, roleCheck(['teacher']), async (req, res) => {
-  try {
-    const { studentId, score, feedback } = req.body;
-    const assignment = await Assignment.findById(req.params.assignmentId);
-    
-    const submission = assignment.submissions.find(s => s.studentId.toString() === studentId);
-    if (submission) {
-      submission.score = score;
-      submission.feedback = feedback;
-      submission.status = 'graded';
-    }
-    await assignment.save();
-    res.json({ success: true, message: 'Submission graded successfully' });
+    await grade.save();
+    res.json({ success: true, message: 'Grade added', grade });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -136,12 +133,12 @@ router.put('/assignments/:assignmentId/grade', authMiddleware, roleCheck(['teach
 // Report discipline case
 router.post('/discipline', authMiddleware, roleCheck(['teacher']), async (req, res) => {
   try {
-    const { studentId, incidentDate, category, description } = req.body;
+    const { studentId, category, description } = req.body;
     const discipline = new Discipline({
-      studentId, reportedBy: req.userId, incidentDate, category, description
+      studentId, reportedBy: req.userId, incidentDate: new Date(), category, description
     });
     await discipline.save();
-    res.json({ success: true, message: 'Discipline case reported', discipline });
+    res.json({ success: true, message: 'Discipline case reported' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -153,45 +150,12 @@ router.post('/permissions', authMiddleware, roleCheck(['teacher', 'student']), a
     const { studentId, type, reason, fromDate, toDate } = req.body;
     const user = await User.findById(req.userId);
     const permission = new Permission({
-      requesterId: req.userId,
-      requesterName: user.fullName,
-      requesterRole: user.role,
-      studentId: studentId || null,
-      studentName: studentId ? null : user.fullName,
+      requesterId: req.userId, requesterName: user.fullName, requesterRole: user.role,
+      studentId, studentName: user.role === 'student' ? user.fullName : null,
       type, reason, fromDate, toDate
     });
     await permission.save();
-    res.json({ success: true, message: 'Permission request submitted', permission });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get student performance charts
-router.get('/student-performance/:classId', authMiddleware, roleCheck(['teacher']), async (req, res) => {
-  try {
-    const students = await Student.find({ classId: req.params.classId }).populate('userId', 'fullName');
-    const performance = [];
-    
-    for (const student of students) {
-      const assignments = await Assignment.find({ classId: req.params.classId });
-      const grades = [];
-      for (const assignment of assignments) {
-        const submission = assignment.submissions.find(s => s.studentId.toString() === student._id.toString());
-        if (submission && submission.score) {
-          grades.push(submission.score);
-        }
-      }
-      const avg = grades.length > 0 ? grades.reduce((a, b) => a + b, 0) / grades.length : 0;
-      performance.push({
-        studentId: student._id,
-        name: student.userId.fullName,
-        averageScore: avg.toFixed(1),
-        totalAssignments: assignments.length,
-        completedAssignments: grades.length
-      });
-    }
-    res.json(performance);
+    res.json({ success: true, message: 'Permission request submitted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
