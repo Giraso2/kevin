@@ -172,6 +172,43 @@ const AcademicAdminDashboard = () => {
     }
   };
 
+  // ==================== ASSIGN TEACHER TO CLASS ====================
+  const handleAssignTeacher = async (classItem) => {
+    if (teachers.length === 0) {
+      Swal.fire('No Teachers', 'Please create teachers first', 'warning');
+      return;
+    }
+    
+    const { value: teacherId } = await Swal.fire({
+      title: `Assign Teacher to ${classItem.grade} ${classItem.className}`,
+      input: 'select',
+      inputOptions: Object.fromEntries(teachers.map(t => [t._id, `${t.fullName} (${t.subject || 'General'})`])),
+      inputPlaceholder: 'Select a teacher',
+      showCancelButton: true,
+      confirmButtonText: 'Assign',
+      confirmButtonColor: '#27ae60'
+    });
+    
+    if (teacherId) {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/academic-admin/classes/${classItem._id}/assign-teacher`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ teacherId })
+      });
+      
+      if (response.ok) {
+        Swal.fire('Success!', 'Teacher assigned to class', 'success');
+        fetchAllData();
+      } else {
+        Swal.fire('Error', 'Failed to assign teacher', 'error');
+      }
+    }
+  };
+
   // Teacher Management
   const handleCreateTeacher = async () => {
     const { value: formValues } = await Swal.fire({
@@ -712,7 +749,7 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-        {/* Teachers Tab - Responsive Table */}
+        {/* Teachers Tab */}
         {activeTab === 'teachers' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
@@ -758,7 +795,7 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-        {/* Classes Tab */}
+        {/* Classes Tab - WITH ASSIGN TEACHER BUTTON */}
         {activeTab === 'classes' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
@@ -770,7 +807,7 @@ const AcademicAdminDashboard = () => {
             {classes.length === 0 ? (
               <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No classes created yet. Click "Add Class" to create one.</p>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                 <thead>
                   <tr style={{ background: '#1a3a5c', color: 'white' }}>
                     <th style={{ padding: '12px' }}>Grade</th>
@@ -788,9 +825,22 @@ const AcademicAdminDashboard = () => {
                       <td style={{ padding: '12px' }}>{c.academicYear}</td>
                       <td style={{ padding: '12px' }}>{c.teacher?.fullName || 'Not Assigned'}</td>
                       <td style={{ padding: '12px' }}>
-                        <button onClick={() => handleDeleteClass(c)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}>
-                          Delete
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button 
+                            onClick={() => handleAssignTeacher(c)} 
+                            style={{ background: '#3498db', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                            title="Assign Teacher"
+                          >
+                            <i className="fas fa-user-check"></i> Assign Teacher
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteClass(c)} 
+                            style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                            title="Delete Class"
+                          >
+                            <i className="fas fa-trash"></i> Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -869,7 +919,6 @@ const AcademicAdminDashboard = () => {
         {/* Chat Tab */}
         {activeTab === 'chat' && (
           <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : '70vh' }}>
-            {/* Users List */}
             <div style={{
               width: isMobile ? '100%' : '30%',
               borderRight: isMobile ? 'none' : '1px solid #e0e0e0',
@@ -900,7 +949,6 @@ const AcademicAdminDashboard = () => {
               )}
             </div>
 
-            {/* Chat Area */}
             <div style={{ width: isMobile ? '100%' : '70%', display: 'flex', flexDirection: 'column', height: isMobile ? '400px' : '100%' }}>
               {selectedUser ? (
                 <>
