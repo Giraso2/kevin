@@ -10,8 +10,11 @@ const SuperAdminDashboard = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [admins, setAdmins] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const API_URL = 'http://localhost:5000/api';
+  const getToken = () => localStorage.getItem('portalToken');
 
   useEffect(() => {
     const handleResize = () => {
@@ -24,24 +27,49 @@ const SuperAdminDashboard = () => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('portalToken');
+    const token = getToken();
     const role = localStorage.getItem('userRole');
     const name = localStorage.getItem('userName');
-    
-    console.log('SuperAdminDashboard mounted');
-    console.log('Token:', token ? 'exists' : 'not found');
-    console.log('Role:', role);
     
     if (!token || role !== 'super_admin') {
       navigate('/portal/login');
     } else {
       setUserName(name || 'Super Administrator');
-      setLoading(false); // Immediately set loading to false
+      fetchData();
     }
   }, [navigate]);
 
-  const handleCreateAdmin = () => {
-    Swal.fire({
+  const fetchData = async () => {
+    setLoading(true);
+    const token = getToken();
+    
+    try {
+      // Fetch admins
+      const adminsRes = await fetch(`${API_URL}/super-admin/admins`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (adminsRes.ok) {
+        const data = await adminsRes.json();
+        setAdmins(data);
+      }
+      
+      // Fetch announcements
+      const announcementsRes = await fetch(`${API_URL}/super-admin/announcements`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (announcementsRes.ok) {
+        const data = await announcementsRes.json();
+        setAnnouncements(data);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAdmin = async () => {
+    const { value: formValues } = await Swal.fire({
       title: 'Create Sub-Admin',
       html: `
         <input type="text" id="fullName" class="swal2-input" placeholder="Full Name" required>
@@ -68,26 +96,60 @@ const SuperAdminDashboard = () => {
           Swal.showValidationMessage('Please fill required fields');
           return false;
         }
-        return { fullName, email, password, phone, role, id: Date.now() };
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const newAdmin = {
-          id: result.value.id,
-          fullName: result.value.fullName,
-          email: result.value.email,
-          role: result.value.role,
-          phone: result.value.phone,
-          isActive: true
-        };
-        setAdmins([...admins, newAdmin]);
-        Swal.fire('Success!', `${result.value.role} created successfully`, 'success');
+        return { fullName, email, password, phone, role };
       }
     });
+
+    if (formValues) {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/super-admin/create-admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formValues)
+      });
+      
+      if (response.ok) {
+        Swal.fire('Success!', `${formValues.role} created successfully`, 'success');
+        fetchData();
+      } else {
+        const error = await response.json();
+        Swal.fire('Error', error.message, 'error');
+      }
+    }
   };
 
-  const handlePostAnnouncement = () => {
-    Swal.fire({
+  const handleDeleteAdmin = async (adminId, adminName) => {
+    const result = await Swal.fire({
+      title: 'Delete Admin?',
+      text: `Are you sure you want to delete ${adminName}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e74c3c',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel'
+    });
+    
+    if (result.isConfirmed) {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/super-admin/admins/${adminId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        Swal.fire('Deleted!', 'Admin has been removed.', 'success');
+        fetchData();
+      } else {
+        Swal.fire('Error', 'Failed to delete admin', 'error');
+      }
+    }
+  };
+
+  const handlePostAnnouncement = async () => {
+    const { value: formValues } = await Swal.fire({
       title: 'Post Announcement',
       html: `
         <input type="text" id="title" class="swal2-input" placeholder="Title" required>
@@ -110,42 +172,32 @@ const SuperAdminDashboard = () => {
           Swal.showValidationMessage('Please fill all fields');
           return false;
         }
-        return { title, content, priority, id: Date.now(), createdAt: new Date() };
+        return { title, content, audience: ['all'], priority };
       }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const newAnnouncement = {
-          id: result.value.id,
-          title: result.value.title,
-          content: result.value.content,
-          priority: result.value.priority,
-          createdAt: result.value.createdAt
-        };
-        setAnnouncements([newAnnouncement, ...announcements]);
+    });
+
+    if (formValues) {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/super-admin/announcements`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formValues)
+      });
+      
+      if (response.ok) {
         Swal.fire('Success!', 'Announcement posted successfully', 'success');
+        fetchData();
+      } else {
+        Swal.fire('Error', 'Failed to post announcement', 'error');
       }
-    });
+    }
   };
 
-  const handleDeleteAdmin = (adminId) => {
-    Swal.fire({
-      title: 'Delete Admin?',
-      text: 'Are you sure you want to remove this admin?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Delete',
-      cancelButtonText: 'Cancel'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setAdmins(admins.filter(admin => admin.id !== adminId));
-        Swal.fire('Deleted!', 'Admin has been removed.', 'success');
-      }
-    });
-  };
-
-  const handleDeleteAnnouncement = (announcementId) => {
-    Swal.fire({
+  const handleDeleteAnnouncement = async (id) => {
+    const result = await Swal.fire({
       title: 'Delete Announcement?',
       text: 'Are you sure you want to delete this announcement?',
       icon: 'warning',
@@ -153,12 +205,20 @@ const SuperAdminDashboard = () => {
       confirmButtonColor: '#e74c3c',
       confirmButtonText: 'Delete',
       cancelButtonText: 'Cancel'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setAnnouncements(announcements.filter(ann => ann.id !== announcementId));
-        Swal.fire('Deleted!', 'Announcement has been deleted.', 'success');
-      }
     });
+    
+    if (result.isConfirmed) {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/super-admin/announcements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        Swal.fire('Deleted!', 'Announcement has been deleted.', 'success');
+        fetchData();
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -188,7 +248,6 @@ const SuperAdminDashboard = () => {
   const sidebarWidth = sidebarCollapsed ? '80px' : '260px';
   const sidebarWidthMobile = mobileMenuOpen ? '260px' : '0px';
 
-  // Show loading only for a brief moment
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f4f8' }}>
@@ -202,96 +261,35 @@ const SuperAdminDashboard = () => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f0f4f8' }}>
-      {/* Mobile Overlay */}
       {mobileMenuOpen && (
-        <div 
-          onClick={() => setMobileMenuOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 998,
-          }}
-        />
+        <div onClick={() => setMobileMenuOpen(false)} style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 998
+        }} />
       )}
 
-      {/* Sidebar */}
       <aside style={{
         width: isMobile ? sidebarWidthMobile : sidebarWidth,
-        background: '#1a3a5c',
-        color: 'white',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        zIndex: 999,
-        transition: 'width 0.3s ease',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '2px 0 10px rgba(0,0,0,0.1)'
+        background: '#1a3a5c', color: 'white', position: 'fixed', left: 0, top: 0, bottom: 0,
+        zIndex: 999, transition: 'width 0.3s ease', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', boxShadow: '2px 0 10px rgba(0,0,0,0.1)'
       }}>
-        <div style={{ 
-          padding: sidebarCollapsed ? '1rem 0' : '1.5rem', 
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          textAlign: 'center',
-          position: 'relative'
-        }}>
+        <div style={{ padding: sidebarCollapsed ? '1rem 0' : '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', position: 'relative' }}>
           {!sidebarCollapsed && (
             <>
-              <div style={{ 
-                width: '60px', 
-                height: '60px', 
-                background: '#ffc107', 
-                borderRadius: '50%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                margin: '0 auto 1rem' 
-              }}>
+              <div style={{ width: '60px', height: '60px', background: '#ffc107', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                 <i className="fas fa-crown" style={{ fontSize: '2rem', color: '#1a3a5c' }}></i>
               </div>
               <h3 style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{userName}</h3>
               <p style={{ fontSize: '0.7rem', opacity: 0.8 }}>Super Admin</p>
             </>
           )}
-          {sidebarCollapsed && (
-            <div style={{ 
-              width: '40px', 
-              height: '40px', 
-              background: '#ffc107', 
-              borderRadius: '50%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              margin: '0 auto' 
-            }}>
-              <i className="fas fa-crown" style={{ fontSize: '1.2rem', color: '#1a3a5c' }}></i>
-            </div>
-          )}
-          
           {!isMobile && (
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              style={{
-                position: 'absolute',
-                bottom: '-12px',
-                right: '-12px',
-                width: '24px',
-                height: '24px',
-                background: '#ffc107',
-                border: 'none',
-                borderRadius: '50%',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#1a3a5c'
-              }}
-            >
+            <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{
+              position: 'absolute', bottom: '-12px', right: '-12px', width: '24px', height: '24px',
+              background: '#ffc107', border: 'none', borderRadius: '50%', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a3a5c'
+            }}>
               <i className={`fas fa-chevron-${sidebarCollapsed ? 'right' : 'left'}`} style={{ fontSize: '0.7rem' }}></i>
             </button>
           )}
@@ -299,27 +297,13 @@ const SuperAdminDashboard = () => {
 
         <nav style={{ flex: 1, padding: '1rem 0', overflowY: 'auto' }}>
           {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                if (isMobile) setMobileMenuOpen(false);
-              }}
+            <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                gap: '12px',
-                width: '100%',
-                padding: sidebarCollapsed ? '12px' : '12px 24px',
+                display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                gap: '12px', width: '100%', padding: sidebarCollapsed ? '12px' : '12px 24px',
                 background: activeTab === item.id ? 'rgba(255,255,255,0.1)' : 'transparent',
-                border: 'none',
-                color: 'white',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                fontSize: '0.9rem',
-                textAlign: 'left',
-                position: 'relative'
+                border: 'none', color: 'white', cursor: 'pointer', transition: 'all 0.3s ease',
+                fontSize: '0.9rem', textAlign: 'left', position: 'relative'
               }}
             >
               <i className={item.icon} style={{ width: '20px', color: item.color, fontSize: '1.1rem' }}></i>
@@ -329,52 +313,25 @@ const SuperAdminDashboard = () => {
         </nav>
 
         <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-              gap: '12px',
-              width: '100%',
-              padding: '12px',
-              background: '#e74c3c',
-              border: 'none',
-              borderRadius: '8px',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
+          <button onClick={handleLogout} style={{
+            display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+            gap: '12px', width: '100%', padding: '12px', background: '#e74c3c',
+            border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontSize: '0.9rem'
+          }}>
             <i className="fas fa-sign-out-alt"></i>
             {!sidebarCollapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main style={{
-        flex: 1,
-        marginLeft: isMobile ? '0' : sidebarWidth,
-        transition: 'margin-left 0.3s ease',
-        width: '100%'
-      }}>
+      <main style={{ flex: 1, marginLeft: isMobile ? '0' : sidebarWidth, transition: 'margin-left 0.3s ease', width: '100%' }}>
         <nav style={{
-          background: 'white',
-          padding: '1rem 1.5rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100
+          background: 'white', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 100
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button
-              onClick={() => isMobile ? setMobileMenuOpen(!mobileMenuOpen) : setSidebarCollapsed(!sidebarCollapsed)}
-              style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#1a3a5c' }}
-            >
+            <button onClick={() => isMobile ? setMobileMenuOpen(!mobileMenuOpen) : setSidebarCollapsed(!sidebarCollapsed)}
+              style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#1a3a5c' }}>
               <i className="fas fa-bars"></i>
             </button>
             <div>
@@ -394,12 +351,12 @@ const SuperAdminDashboard = () => {
         </nav>
 
         <div style={{ padding: '1.5rem' }}>
-          {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div>
               <div style={{ background: 'linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 100%)', borderRadius: '16px', padding: '1.5rem', marginBottom: '2rem', color: 'white' }}>
                 <h2>Welcome, {userName}! 👑</h2>
                 <p>You have full control over the school management system</p>
+                <p>Only Super Admin can create other administrators.</p>
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
@@ -424,7 +381,6 @@ const SuperAdminDashboard = () => {
             </div>
           )}
 
-          {/* Manage Admins Tab */}
           {activeTab === 'admins' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -434,28 +390,27 @@ const SuperAdminDashboard = () => {
                 </button>
               </div>
               {admins.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No admins created yet. Click "Add Admin" to create.</p>
+                <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No admins created yet.</p>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Role</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Action</th>
+                      <th style={{ padding: '12px' }}>Name</th>
+                      <th style={{ padding: '12px' }}>Email</th>
+                      <th style={{ padding: '12px' }}>Role</th>
+                      <th style={{ padding: '12px' }}>Phone</th>
+                      <th style={{ padding: '12px' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {admins.map(admin => (
-                      <tr key={admin.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                      <tr key={admin._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
                         <td style={{ padding: '12px' }}>{admin.fullName}</td>
                         <td style={{ padding: '12px' }}>{admin.email}</td>
                         <td style={{ padding: '12px' }}>{admin.role}</td>
+                        <td style={{ padding: '12px' }}>{admin.phone || '-'}</td>
                         <td style={{ padding: '12px' }}>
-                          <button 
-                            onClick={() => handleDeleteAdmin(admin.id)}
-                            style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}
-                          >
+                          <button onClick={() => handleDeleteAdmin(admin._id, admin.fullName)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}>
                             Delete
                           </button>
                         </td>
@@ -467,7 +422,6 @@ const SuperAdminDashboard = () => {
             </div>
           )}
 
-          {/* Announcements Tab */}
           {activeTab === 'announcements' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -477,27 +431,17 @@ const SuperAdminDashboard = () => {
                 </button>
               </div>
               {announcements.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No announcements yet. Click "New Announcement" to post.</p>
+                <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No announcements yet.</p>
               ) : (
                 announcements.map(ann => (
-                  <div key={ann.id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem', position: 'relative' }}>
+                  <div key={ann._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h4 style={{ color: '#1a3a5c' }}>{ann.title}</h4>
                       <div>
-                        <span style={{ 
-                          background: ann.priority === 'urgent' ? '#e74c3c' : ann.priority === 'high' ? '#f39c12' : '#27ae60', 
-                          color: 'white', 
-                          padding: '2px 8px', 
-                          borderRadius: '4px', 
-                          fontSize: '0.7rem',
-                          marginRight: '8px'
-                        }}>
+                        <span style={{ background: ann.priority === 'urgent' ? '#e74c3c' : ann.priority === 'high' ? '#f39c12' : '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', marginRight: '8px' }}>
                           {ann.priority}
                         </span>
-                        <button 
-                          onClick={() => handleDeleteAnnouncement(ann.id)}
-                          style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
-                        >
+                        <button onClick={() => handleDeleteAnnouncement(ann._id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>
                           Delete
                         </button>
                       </div>
@@ -512,7 +456,6 @@ const SuperAdminDashboard = () => {
             </div>
           )}
 
-          {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem' }}>
               <div style={{ textAlign: 'center', marginBottom: '2rem' }}>

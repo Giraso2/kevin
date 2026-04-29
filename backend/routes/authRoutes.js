@@ -12,22 +12,49 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password, role } = req.body;
     
+    console.log('Login attempt:', { email, role });
+    
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-    if (user.role !== role) return res.status(401).json({ message: 'Invalid role' });
-    if (!user.isActive) return res.status(401).json({ message: 'Account deactivated' });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    if (user.role !== role) {
+      return res.status(401).json({ message: 'Invalid role selected' });
+    }
+    
+    if (!user.isActive) {
+      return res.status(401).json({ message: 'Account deactivated' });
+    }
     
     const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
     
     user.lastLogin = new Date();
     await user.save();
     
     const token = generateToken(user._id, user.role, user.fullName);
-    res.json({ success: true, _id: user._id, fullName: user.fullName, email: user.email, role: user.role, token });
+    
+    console.log('Login successful:', { email, role });
+    
+    res.json({
+      success: true,
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      token
+    });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message });
   }
+});
+
+router.get('/test', (req, res) => {
+  res.json({ message: 'Auth routes working' });
 });
 
 module.exports = router;

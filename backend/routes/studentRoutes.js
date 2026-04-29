@@ -56,4 +56,8 @@ router.post('/assignments/:id/submit', authMiddleware, roleCheck(['student']), a
   }
 });
 
+router.get('/test', (req, res) => {
+  res.json({ message: 'Student routes working' });
+});
+
 module.exports = router;

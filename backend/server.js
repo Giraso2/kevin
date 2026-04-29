@@ -20,27 +20,37 @@ const User = require('./models/User');
 
 // Create default super admin if none exists
 const createDefaultSuperAdmin = async () => {
-  const existingSuperAdmin = await User.findOne({ role: 'super_admin' });
-  if (!existingSuperAdmin) {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    await User.create({
-      fullName: 'Super Administrator',
-      email: 'admin@essa.rw',
-      password: hashedPassword,
-      role: 'super_admin',
-      phone: '+250788123456',
-      isActive: true
-    });
-    console.log('\n✅ SUPER ADMIN CREATED!');
-    console.log('📧 Email: admin@essa.rw');
-    console.log('🔑 Password: admin123\n');
+  try {
+    const existingSuperAdmin = await User.findOne({ role: 'super_admin' });
+    if (!existingSuperAdmin) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await User.create({
+        fullName: 'Super Administrator',
+        email: 'admin@essa.rw',
+        password: hashedPassword,
+        role: 'super_admin',
+        phone: '+250788123456',
+        isActive: true
+      });
+      console.log('\n✅ SUPER ADMIN CREATED!');
+      console.log('📧 Email: admin@essa.rw');
+      console.log('🔑 Password: admin123\n');
+    } else {
+      console.log('\n✅ Super Admin already exists');
+      console.log('📧 Email: admin@essa.rw');
+      console.log('🔑 Password: admin123\n');
+    }
+  } catch (error) {
+    console.error('Error creating super admin:', error);
   }
 };
 
-// Import routes
+// Import routes - Check if files exist
 const authRoutes = require('./routes/authRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const academicAdminRoutes = require('./routes/academicAdminRoutes');
+const disciplineAdminRoutes = require('./routes/disciplineAdminRoutes');
+const accountsAdminRoutes = require('./routes/accountsAdminRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const parentRoutes = require('./routes/parentRoutes');
@@ -49,12 +59,20 @@ const parentRoutes = require('./routes/parentRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/academic-admin', academicAdminRoutes);
+app.use('/api/discipline-admin', disciplineAdminRoutes);
+app.use('/api/accounts-admin', accountsAdminRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/parent', parentRoutes);
 
+// Test route
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Server is running', timestamp: new Date().toISOString() });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
   await createDefaultSuperAdmin();
 });

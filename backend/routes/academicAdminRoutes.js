@@ -3,7 +3,6 @@ const router = express.Router();
 const User = require('../models/User');
 const Teacher = require('../models/Teacher');
 const Class = require('../models/Class');
-const Student = require('../models/Student');
 const { authMiddleware, roleCheck } = require('../middleware/auth');
 
 // Create teacher
@@ -78,7 +77,7 @@ router.post('/classes', authMiddleware, roleCheck(['academic_admin']), async (re
 // Get all classes
 router.get('/classes', authMiddleware, roleCheck(['academic_admin']), async (req, res) => {
   try {
-    const classes = await Class.find().populate('teacher', 'fullName').populate('students');
+    const classes = await Class.find().populate('teacher', 'fullName');
     res.json(classes);
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -2,17 +2,12 @@ const express = require('express');
 const router = express.Router();
 const Discipline = require('../models/Discipline');
 const Permission = require('../models/Permission');
-const Student = require('../models/Student');
-const Announcement = require('../models/Announcement');
 const { authMiddleware, roleCheck } = require('../middleware/auth');
 
 // Get all discipline cases
 router.get('/cases', authMiddleware, roleCheck(['discipline_admin', 'super_admin']), async (req, res) => {
   try {
-    const cases = await Discipline.find()
-      .populate('studentId', 'studentId')
-      .populate('reportedBy', 'fullName role')
-      .sort({ createdAt: -1 });
+    const cases = await Discipline.find().populate('studentId').populate('reportedBy', 'fullName').sort({ createdAt: -1 });
     res.json(cases);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -32,12 +27,7 @@ router.put('/cases/:caseId/review', authMiddleware, roleCheck(['discipline_admin
     disciplineCase.reviewedAt = new Date();
     await disciplineCase.save();
     
-    // If suspension or expulsion, update student status
-    if (action === 'suspension' || action === 'expulsion') {
-      await Student.findByIdAndUpdate(disciplineCase.studentId, { isActive: false });
-    }
-    
-    res.json({ success: true, message: `Case ${status} with action: ${action}`, disciplineCase });
+    res.json({ success: true, message: `Case ${status}`, disciplineCase });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -71,41 +61,8 @@ router.put('/permissions/:permissionId', authMiddleware, roleCheck(['discipline_
   }
 });
 
-// Get discipline stats by class
-router.get('/stats', authMiddleware, roleCheck(['discipline_admin', 'super_admin']), async (req, res) => {
-  try {
-    const cases = await Discipline.find().populate('studentId', 'classId');
-    const stats = {
-      total: cases.length,
-      pending: cases.filter(c => c.status === 'pending').length,
-      resolved: cases.filter(c => c.status === 'resolved').length,
-      byCategory: {},
-      byClass: {}
-    };
-    
-    for (const c of cases) {
-      stats.byCategory[c.category] = (stats.byCategory[c.category] || 0) + 1;
-    }
-    
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// School-wide announcement
-router.post('/announcements', authMiddleware, roleCheck(['discipline_admin', 'super_admin']), async (req, res) => {
-  try {
-    const { title, content, audience, priority } = req.body;
-    const announcement = new Announcement({
-      title, content, audience, priority,
-      createdBy: req.userId
-    });
-    await announcement.save();
-    res.json({ success: true, message: 'Announcement sent', announcement });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+router.get('/test', (req, res) => {
+  res.json({ message: 'Discipline admin routes working' });
 });
 
 module.exports = router;

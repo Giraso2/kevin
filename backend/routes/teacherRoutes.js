@@ -3,7 +3,6 @@ const router = express.Router();
 const User = require('../models/User');
 const Student = require('../models/Student');
 const Class = require('../models/Class');
-const Parent = require('../models/Parent');
 const Assignment = require('../models/Assignment');
 const Attendance = require('../models/Attendance');
 const Grade = require('../models/Grade');
@@ -16,14 +15,12 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
   try {
     const { fullName, email, password, studentId, classId, dateOfBirth, gender, parentEmail, parentName, parentPhone } = req.body;
     
-    // Create student user
     const studentUser = new User({
       fullName, email, password, role: 'student', phone: '',
       createdBy: req.userId
     });
     await studentUser.save();
     
-    // Create or find parent
     let parentId = null;
     if (parentEmail) {
       let parentUser = await User.findOne({ email: parentEmail });
@@ -41,7 +38,6 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
       parentId = parentUser._id;
     }
     
-    // Create student profile
     const student = new Student({
       user: studentUser._id,
       studentId: studentId || `STU${Date.now()}`,
@@ -52,7 +48,6 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
     });
     await student.save();
     
-    // Add student to class
     await Class.findByIdAndUpdate(classId, { $push: { students: student._id } });
     
     res.json({ success: true, message: 'Student created successfully', student: { ...student.toObject(), fullName, email } });
@@ -64,7 +59,6 @@ router.post('/create-student', authMiddleware, roleCheck(['teacher']), async (re
 // Get teacher's students
 router.get('/students', authMiddleware, roleCheck(['teacher']), async (req, res) => {
   try {
-    const teacher = await User.findById(req.userId);
     const classes = await Class.find({ teacher: req.userId });
     const classIds = classes.map(c => c._id);
     const students = await Student.find({ classId: { $in: classIds } }).populate('user', 'fullName email');
@@ -159,6 +153,10 @@ router.post('/permissions', authMiddleware, roleCheck(['teacher', 'student']), a
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+});
+
+router.get('/test', (req, res) => {
+  res.json({ message: 'Teacher routes working' });
 });
 
 module.exports = router;

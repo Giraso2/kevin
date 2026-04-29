@@ -1,6 +1,5 @@
-// src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
 // Pages
@@ -14,10 +13,11 @@ import ContactPage from './pages/ContactPage';
 
 // Portals
 import PortalLogin from './portals/PortalLogin';
-import StudentDashboard from './portals/StudentDashboard';
-import TeacherDashboard from './portals/TeacherDashboard';
-import ParentDashboard from './portals/ParentDashboard';
 import SuperAdminDashboard from './portals/SuperAdminDashboard';
+import AcademicAdminDashboard from './portals/AcademicAdminDashboard';
+import TeacherDashboard from './portals/TeacherDashboard';
+import StudentDashboard from './portals/StudentDashboard';
+import ParentDashboard from './portals/ParentDashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -34,8 +34,6 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   
   return children;
 };
-
-import { Navigate } from 'react-router-dom';
 
 function App() {
   return (
@@ -59,16 +57,25 @@ function App() {
             <SuperAdminDashboard />
           </ProtectedRoute>
         } />
-        <Route path="/portal/student" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <StudentDashboard />
+        
+        <Route path="/portal/academic-admin" element={
+          <ProtectedRoute allowedRoles={['academic_admin']}>
+            <AcademicAdminDashboard />
           </ProtectedRoute>
         } />
+        
         <Route path="/portal/teacher" element={
           <ProtectedRoute allowedRoles={['teacher']}>
             <TeacherDashboard />
           </ProtectedRoute>
         } />
+        
+        <Route path="/portal/student" element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <StudentDashboard />
+          </ProtectedRoute>
+        } />
+        
         <Route path="/portal/parent" element={
           <ProtectedRoute allowedRoles={['parent']}>
             <ParentDashboard />
