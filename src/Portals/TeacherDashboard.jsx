@@ -457,124 +457,212 @@ const TeacherDashboard = () => {
     }
   };
 
-  // Request Permission
-  const handleRequestPermission = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Request Permission',
-      html: `
-        <select id="type" class="swal2-select">
-          <option value="leave">Leave</option>
+  // Request Permission - Fixed Version
+const handleRequestPermission = async () => {
+  const { value: formValues } = await Swal.fire({
+    title: 'Request Permission',
+    html: `
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">Permission Type</label>
+        <select id="type" class="swal2-select" style="width: 100%; padding: 8px; margin-top: 5px;">
+          <option value="leave">Leave Request</option>
           <option value="early_dismissal">Early Dismissal</option>
           <option value="sports">Sports Event</option>
           <option value="event">School Event</option>
           <option value="other">Other</option>
         </select>
-        <textarea id="reason" class="swal2-textarea" placeholder="Reason for permission" required></textarea>
-        <input type="date" id="fromDate" class="swal2-input" required>
-        <input type="date" id="toDate" class="swal2-input" required>
-      `,
-      confirmButtonText: 'Submit Request',
-      confirmButtonColor: '#27ae60',
-      showCancelButton: true,
-      preConfirm: () => {
-        const type = document.getElementById('type').value;
-        const reason = document.getElementById('reason').value;
-        const fromDate = document.getElementById('fromDate').value;
-        const toDate = document.getElementById('toDate').value;
-        if (!reason || !fromDate || !toDate) {
-          Swal.showValidationMessage('Please fill all fields');
-          return false;
-               return { type, reason, fromDate, toDate };
+      </div>
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">Reason for Permission</label>
+        <textarea id="reason" class="swal2-textarea" placeholder="Please provide detailed reason..." style="width: 100%; padding: 8px; margin-top: 5px;" required></textarea>
+      </div>
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">From Date</label>
+        <input type="date" id="fromDate" class="swal2-input" style="width: 100%; padding: 8px; margin-top: 5px;" required>
+      </div>
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">To Date</label>
+        <input type="date" id="toDate" class="swal2-input" style="width: 100%; padding: 8px; margin-top: 5px;" required>
+      </div>
+    `,
+    confirmButtonText: 'Submit Request',
+    confirmButtonColor: '#27ae60',
+    showCancelButton: true,
+    width: '500px',
+    preConfirm: () => {
+      const type = document.getElementById('type').value;
+      const reason = document.getElementById('reason').value;
+      const fromDate = document.getElementById('fromDate').value;
+      const toDate = document.getElementById('toDate').value;
+      
+      if (!type || !reason || !fromDate || !toDate) {
+        Swal.showValidationMessage('Please fill all fields');
+        return false;
       }
-    });
+      
+      if (new Date(fromDate) > new Date(toDate)) {
+        Swal.showValidationMessage('From date cannot be after To date');
+        return false;
+      }
+      
+      return { type, reason, fromDate, toDate };
+    }
+  });
 
-    if (formValues) {
-      const token = getToken();
-      try {
-        const response = await fetch(`${API_URL}/teacher/permissions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(formValues)
+  if (formValues) {
+    const token = getToken();
+    try {
+      const response = await fetch(`${API_URL}/teacher/permissions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          type: formValues.type,
+          reason: formValues.reason,
+          fromDate: formValues.fromDate,
+          toDate: formValues.toDate
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        Swal.fire({
+          title: 'Request Submitted!',
+          text: 'Your permission request has been sent to Discipline Admin.',
+          icon: 'success',
+          confirmButtonColor: '#27ae60'
         });
-        
-        if (response.ok) {
-          Swal.fire('Request Submitted!', 'Your permission request has been sent to Discipline Admin.', 'success');
-        } else {
-          Swal.fire('Error', 'Failed to submit request', 'error');
-        }
-      } catch (error) {
-        Swal.fire('Error', 'Network error', 'error');
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.message || 'Failed to submit request',
+          icon: 'error',
+          confirmButtonColor: '#e74c3c'
+        });
       }
+    } catch (error) {
+      console.error('Error submitting permission:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Network error. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#e74c3c'
+      });
     }
-  };
-
-  // Report Misconduct
-  const handleReportMisconduct = async () => {
-    if (students.length === 0) {
-      Swal.fire('No Students', 'No students available to report', 'warning');
-      return;
-    }
-    
-    const { value: formValues } = await Swal.fire({
-      title: 'Report Student Misconduct',
-      html: `
-        <select id="studentId" class="swal2-select" required>
-          <option value="">Select Student</option>
-          ${students.map(s => `<option value="${s._id}">${s.user?.fullName || s.fullName}</option>`).join('')}
+  }
+};
+  // Report Misconduct - Fixed Version
+const handleReportMisconduct = async () => {
+  if (students.length === 0) {
+    Swal.fire('No Students', 'No students available to report', 'warning');
+    return;
+  }
+  
+  const { value: formValues } = await Swal.fire({
+    title: 'Report Student Misconduct',
+    html: `
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">Select Student</label>
+        <select id="studentId" class="swal2-select" style="width: 100%; padding: 8px; margin-top: 5px;" required>
+          <option value="">-- Select Student --</option>
+          ${students.map(s => `<option value="${s._id}">${s.user?.fullName || s.fullName} (${s.studentId})</option>`).join('')}
         </select>
-        <select id="category" class="swal2-select">
+      </div>
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">Violation Category</label>
+        <select id="category" class="swal2-select" style="width: 100%; padding: 8px; margin-top: 5px;">
           <option value="Late">Late to Class</option>
-          <option value="Misbehavior">Misbehavior</option>
+          <option value="Misbehavior">Misbehavior / Disruptive</option>
           <option value="Uniform Violation">Uniform Violation</option>
           <option value="Academic Dishonesty">Academic Dishonesty</option>
-          <option value="Fighting">Fighting</option>
+          <option value="Fighting">Fighting / Physical Altercation</option>
           <option value="Other">Other</option>
         </select>
-        <textarea id="description" class="swal2-textarea" placeholder="Describe the incident" required></textarea>
-        <input type="date" id="incidentDate" class="swal2-input" value="${new Date().toISOString().split('T')[0]}" required>
-      `,
-      confirmButtonText: 'Report Incident',
-      confirmButtonColor: '#e74c3c',
-      showCancelButton: true,
-      preConfirm: () => {
-        const studentId = document.getElementById('studentId').value;
-        const category = document.getElementById('category').value;
-        const description = document.getElementById('description').value;
-        const incidentDate = document.getElementById('incidentDate').value;
-        if (!studentId || !description) {
-          Swal.showValidationMessage('Please fill required fields');
-          return false;
-        }
-        return { studentId, category, description, incidentDate };
+      </div>
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">Description of Incident</label>
+        <textarea id="description" class="swal2-textarea" placeholder="Please describe what happened in detail..." style="width: 100%; padding: 8px; margin-top: 5px;" required></textarea>
+      </div>
+      <div style="text-align: left; margin-bottom: 10px;">
+        <label style="font-weight: bold;">Date of Incident</label>
+        <input type="date" id="incidentDate" class="swal2-input" value="${new Date().toISOString().split('T')[0]}" style="width: 100%; padding: 8px; margin-top: 5px;" required>
+      </div>
+    `,
+    confirmButtonText: 'Report Incident',
+    confirmButtonColor: '#e74c3c',
+    showCancelButton: true,
+    width: '550px',
+    preConfirm: () => {
+      const studentId = document.getElementById('studentId').value;
+      const category = document.getElementById('category').value;
+      const description = document.getElementById('description').value;
+      const incidentDate = document.getElementById('incidentDate').value;
+      
+      if (!studentId) {
+        Swal.showValidationMessage('Please select a student');
+        return false;
       }
-    });
-
-    if (formValues) {
-      const token = getToken();
-      try {
-        const response = await fetch(`${API_URL}/teacher/discipline`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(formValues)
-        });
-        
-        if (response.ok) {
-          Swal.fire('Report Submitted!', 'The discipline case has been reported to Discipline Admin.', 'success');
-        } else {
-          Swal.fire('Error', 'Failed to submit report', 'error');
-        }
-      } catch (error) {
-        Swal.fire('Error', 'Network error', 'error');
+      if (!description) {
+        Swal.showValidationMessage('Please provide a description of the incident');
+        return false;
       }
+      if (!incidentDate) {
+        Swal.showValidationMessage('Please select the incident date');
+        return false;
+      }
+      
+      return { studentId, category, description, incidentDate };
     }
-  };
+  });
 
+  if (formValues) {
+    const token = getToken();
+    try {
+      const response = await fetch(`${API_URL}/teacher/discipline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          studentId: formValues.studentId,
+          category: formValues.category,
+          description: formValues.description,
+          incidentDate: formValues.incidentDate
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        Swal.fire({
+          title: 'Report Submitted!',
+          text: 'The discipline case has been reported to Discipline Admin.',
+          icon: 'success',
+          confirmButtonColor: '#27ae60'
+        });
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.message || 'Failed to submit report',
+          icon: 'error',
+          confirmButtonColor: '#e74c3c'
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting discipline report:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Network error. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#e74c3c'
+      });
+    }
+  }
+};
   // Create Assignment
   const handleCreateAssignment = async () => {
     if (classes.length === 0) {
