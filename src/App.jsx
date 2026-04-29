@@ -18,22 +18,7 @@ import AcademicAdminDashboard from './portals/AcademicAdminDashboard';
 import TeacherDashboard from './portals/TeacherDashboard';
 import StudentDashboard from './portals/StudentDashboard';
 import ParentDashboard from './portals/ParentDashboard';
-
-// Protected Route Component
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const token = localStorage.getItem('portalToken');
-  const userRole = localStorage.getItem('userRole');
-  
-  if (!token) {
-    return <Navigate to="/portal/login" replace />;
-  }
-  
-  if (allowedRoles && !allowedRoles.includes(userRole)) {
-    return <Navigate to="/portal/login" replace />;
-  }
-  
-  return children;
-};
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -51,7 +36,7 @@ function App() {
         {/* Portal Login */}
         <Route path="/portal/login" element={<PortalLogin />} />
         
-        {/* Protected Portal Routes */}
+        {/* Protected Routes */}
         <Route path="/portal/super-admin" element={
           <ProtectedRoute allowedRoles={['super_admin']}>
             <SuperAdminDashboard />

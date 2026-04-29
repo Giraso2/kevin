@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem('portalToken');
   const userRole = localStorage.getItem('userRole');
-
+  
   if (!token) {
     Swal.fire({
       title: 'Access Denied',
@@ -15,17 +15,17 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     });
     return <Navigate to="/portal/login" replace />;
   }
-
+  
   if (allowedRoles && !allowedRoles.includes(userRole)) {
     Swal.fire({
-      title: 'Unauthorized Access',
+      title: 'Unauthorized',
       text: `You don't have permission to access this page.`,
       icon: 'error',
       confirmButtonColor: '#1e3c72'
     });
     return <Navigate to="/portal/login" replace />;
   }
-
+  
   return children;
 };
 

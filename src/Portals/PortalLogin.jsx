@@ -39,6 +39,7 @@ const PortalLogin = () => {
       const data = await response.json();
       
       if (response.ok) {
+        // Store user data
         localStorage.setItem('portalToken', data.token);
         localStorage.setItem('userRole', data.role);
         localStorage.setItem('userName', data.fullName);
@@ -69,12 +70,6 @@ const PortalLogin = () => {
               break;
             case 'academic_admin':
               navigate('/portal/academic-admin');
-              break;
-            case 'discipline_admin':
-              navigate('/portal/discipline-admin');
-              break;
-            case 'accounts_admin':
-              navigate('/portal/accounts-admin');
               break;
             case 'teacher':
               navigate('/portal/teacher');
@@ -109,27 +104,6 @@ const PortalLogin = () => {
     }
   };
 
-  const handleForgotPassword = async () => {
-    const { value: emailAddress } = await Swal.fire({
-      title: 'Reset Password',
-      input: 'email',
-      inputLabel: 'Enter your email address',
-      inputPlaceholder: 'your@email.com',
-      showCancelButton: true,
-      confirmButtonText: 'Send Reset Link',
-      confirmButtonColor: '#1e3c72'
-    });
-    
-    if (emailAddress) {
-      Swal.fire({
-        title: 'Reset Link Sent!',
-        text: `A password reset link has been sent to ${emailAddress}`,
-        icon: 'success',
-        confirmButtonColor: '#1e3c72'
-      });
-    }
-  };
-
   return (
     <>
       <Navbar />
@@ -160,39 +134,11 @@ const PortalLogin = () => {
                 <span>Academic Admin</span>
               </button>
               <button 
-                className={`role-btn ${selectedRole === 'discipline_admin' ? 'active' : ''}`}
-                onClick={() => setSelectedRole('discipline_admin')}
-              >
-                <i className="fas fa-gavel"></i>
-                <span>Discipline Admin</span>
-              </button>
-              <button 
-                className={`role-btn ${selectedRole === 'accounts_admin' ? 'active' : ''}`}
-                onClick={() => setSelectedRole('accounts_admin')}
-              >
-                <i className="fas fa-chart-line"></i>
-                <span>Accounts Admin</span>
-              </button>
-              <button 
                 className={`role-btn ${selectedRole === 'teacher' ? 'active' : ''}`}
                 onClick={() => setSelectedRole('teacher')}
               >
                 <i className="fas fa-chalkboard-user"></i>
                 <span>Teacher</span>
-              </button>
-              <button 
-                className={`role-btn ${selectedRole === 'student' ? 'active' : ''}`}
-                onClick={() => setSelectedRole('student')}
-              >
-                <i className="fas fa-user-graduate"></i>
-                <span>Student</span>
-              </button>
-              <button 
-                className={`role-btn ${selectedRole === 'parent' ? 'active' : ''}`}
-                onClick={() => setSelectedRole('parent')}
-              >
-                <i className="fas fa-users"></i>
-                <span>Parent</span>
               </button>
             </div>
 
@@ -234,9 +180,6 @@ const PortalLogin = () => {
                   />
                   <span>Remember me</span>
                 </label>
-                <button type="button" className="forgot-password" onClick={handleForgotPassword}>
-                  Forgot Password?
-                </button>
               </div>
 
               <button type="submit" className="login-btn" disabled={isLoading}>
@@ -252,16 +195,23 @@ const PortalLogin = () => {
               </button>
             </form>
 
-<div className="demo-info">
-  <p><i className="fas fa-info-circle"></i> Default Admin Credentials:</p>
-  <div className="demo-creds">
-    <div className="demo-cred">
-      <span className="role-badge super-admin">Super Admin</span>
-      <code>admin@essa.rw / admin123</code>
-    </div>
-  </div>
-  <p className="note">⚠️ Note: This is the only default account. All other users (Academic Admin, Discipline Admin, Accounts Admin, Teachers, Students, Parents) must be created by the Super Admin.</p>
-</div>
+            <div className="demo-info">
+              <p><i className="fas fa-info-circle"></i> Login Credentials:</p>
+              <div className="demo-creds">
+                <div className="demo-cred">
+                  <span className="role-badge super-admin">Super Admin</span>
+                  <code>admin@essa.rw / admin123</code>
+                </div>
+                <div className="demo-cred">
+                  <span className="role-badge academic">Academic Admin</span>
+                  <code>academic@essa.rw / academic123</code>
+                </div>
+                <div className="demo-cred">
+                  <span className="role-badge teacher">Teacher</span>
+                  <code>teacher@essa.rw / teacher123</code>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
