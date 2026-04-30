@@ -469,10 +469,20 @@ const AcademicAdminDashboard = () => {
                 <div key={page} style={{ background: '#f8f9fa', borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
                   <i className={`fas fa-${page === 'home' ? 'home' : page === 'about' ? 'info-circle' : page === 'academics' ? 'graduation-cap' : 'door-open'}`} style={{ fontSize: '2rem', color: '#1a3a5c' }}></i>
                   <h3>{page.charAt(0).toUpperCase() + page.slice(1)} Page</h3>
-                  <button onClick={() => handleEditPage(page)} style={{ marginTop: '10px', background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius
-                                      <button onClick={() => handleEditPage(page)} style={{ marginTop: '10px', background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
-                      Edit Content
-                    </button>
+                 <button
+  onClick={() => handleEditPage(page)}
+  style={{
+    marginTop: '10px',
+    background: '#3498db',
+    color: 'white',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '6px',
+    cursor: 'pointer'
+  }}
+>
+  Edit
+</button>
                   </div>
                 ))}
               </div>
@@ -528,7 +538,7 @@ const AcademicAdminDashboard = () => {
                 <h2>Class Performance</h2>
                 {classPerformance.length === 0 ? (
                   <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No class performance data available.</p>
-                ) : (
+                ) : 
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#1a3a5c', color: 'white' }}>
@@ -537,7 +547,7 @@ const AcademicAdminDashboard = () => {
                         <th style={{ padding: '10px' }}>Students</th>
                         <th style={{ padding: '10px' }}>Average Score</th>
                       <tr>
-                    </thead>
+                    </tr>
                     <tbody>
                       {classPerformance.map((c, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #e0e0e0' }}>
@@ -548,8 +558,8 @@ const AcademicAdminDashboard = () => {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                )}
+                  </tr>
+                }
               </div>
 
               <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
