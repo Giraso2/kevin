@@ -374,6 +374,114 @@ const AcademicAdminDashboard = () => {
       }
     }
   };
+  // Assign Teacher to Class - FIXED VERSION
+const handleAssignTeacher = async (classItem) => {
+  if (teachers.length === 0) {
+    Swal.fire({
+      title: 'No Teachers',
+      text: 'Please create teachers first before assigning them to classes.',
+      icon: 'warning',
+      confirmButtonColor: '#f39c12'
+    });
+    return;
+  }
+  
+  // Build teacher options for dropdown
+  const teacherOptions = {};
+  teachers.forEach(teacher => {
+    teacherOptions[teacher._id] = `${teacher.fullName} (${teacher.subject || 'General'})`;
+  });
+  
+  // Add option to remove teacher
+  teacherOptions['none'] = '-- Remove Teacher --';
+  
+  const { value: selectedTeacherId } = await Swal.fire({
+    title: `Assign Teacher to ${classItem.grade} ${classItem.className}`,
+    text: 'Select a teacher to assign to this class:',
+    input: 'select',
+    inputOptions: teacherOptions,
+    inputPlaceholder: 'Select a teacher',
+    showCancelButton: true,
+    confirmButtonText: 'Assign',
+    confirmButtonColor: '#27ae60',
+    cancelButtonText: 'Cancel',
+    preConfirm: (selected) => {
+      if (!selected) {
+        Swal.showValidationMessage('Please select a teacher');
+        return false;
+      }
+      return selected;
+    }
+  });
+  
+  if (selectedTeacherId) {
+    // Convert 'none' to null for removing teacher
+    const teacherIdToAssign = selectedTeacherId === 'none' ? null : selectedTeacherId;
+    
+    const token = getToken();
+    try {
+      // Show loading
+      Swal.fire({
+        title: 'Assigning...',
+        text: 'Please wait',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        willOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      const response = await fetch(`${API_URL}/academic-admin/classes/${classItem._id}/assign-teacher`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ teacherId: teacherIdToAssign })
+      });
+      
+      const data = await response.json();
+      
+      Swal.close();
+      
+      if (response.ok) {
+        // Update the class in the local state immediately
+        if (data.class) {
+          setClasses(prevClasses => 
+            prevClasses.map(c => 
+              c._id === data.class._id ? data.class : c
+            )
+          );
+        }
+        
+        Swal.fire({
+          title: 'Success!',
+          text: teacherIdToAssign ? 'Teacher assigned successfully' : 'Teacher removed from class',
+          icon: 'success',
+          confirmButtonColor: '#27ae60',
+          timer: 2000
+        });
+        
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.message || 'Failed to assign teacher',
+          icon: 'error',
+          confirmButtonColor: '#e74c3c'
+        });
+      }
+    } catch (error) {
+      Swal.close();
+      console.error('Error assigning teacher:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Network error. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#e74c3c'
+      });
+    }
+  }
+};
 
   // News Management
   const handleCreateNews = async () => {
@@ -745,19 +853,23 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-      {/* Classes Tab */}
-{activeTab === 'classes' && (
+    {activeTab === 'classes' && (
   <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+    
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
       <h2 style={{ margin: 0 }}>Classes</h2>
       <button onClick={handleCreateClass} style={{ background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
         <i className="fas fa-plus"></i> Create Class
       </button>
     </div>
+
     {classes.length === 0 ? (
-      <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No classes yet. Click "Create Class" to create one.</p>
+      <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+        No classes yet. Click "Create Class" to create one.
+      </p>
     ) : (
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+        
         <thead>
           <tr style={{ background: '#1a3a5c', color: 'white' }}>
             <th style={{ padding: '10px' }}>Grade</th>
@@ -765,33 +877,40 @@ const AcademicAdminDashboard = () => {
             <th style={{ padding: '10px' }}>Academic Year</th>
             <th style={{ padding: '10px' }}>Teacher</th>
             <th style={{ padding: '10px' }}>Actions</th>
-           </tr>
+          </tr>
         </thead>
+
         <tbody>
           {classes.map(c => (
             <tr key={c._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-              <td style={{ padding: '10px' }}>{c.grade} </td>
-              <td style={{ padding: '10px' }}>{c.className} </td>
-              <td style={{ padding: '10px' }}>{c.academicYear} </td>
+              <td style={{ padding: '10px' }}>{c.grade}</td>
+              <td style={{ padding: '10px' }}>{c.className}</td>
+              <td style={{ padding: '10px' }}>{c.academicYear}</td>
+
               <td style={{ padding: '10px' }}>
-                {c.teacherId?.fullName ? (
+                {c.teacherId && typeof c.teacherId === 'object' && c.teacherId.fullName ? (
                   <span style={{ color: '#27ae60', fontWeight: '500' }}>
                     <i className="fas fa-chalkboard-user"></i> {c.teacherId.fullName}
+                  </span>
+                ) : c.teacherId ? (
+                  <span style={{ color: '#27ae60', fontWeight: '500' }}>
+                    <i className="fas fa-chalkboard-user"></i> {c.teacherId}
                   </span>
                 ) : (
                   <span style={{ color: '#e74c3c' }}>Not Assigned</span>
                 )}
               </td>
+
               <td style={{ padding: '10px' }}>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button 
-                    onClick={() => handleAssignTeacher(c)} 
-                    style={{ 
-                      background: c.teacherId ? '#f39c12' : '#27ae60', 
-                      color: 'white', 
-                      border: 'none', 
-                      padding: '4px 10px', 
-                      borderRadius: '4px', 
+                  <button
+                    onClick={() => handleAssignTeacher(c)}
+                    style={{
+                      background: c.teacherId ? '#f39c12' : '#27ae60',
+                      color: 'white',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
                       cursor: 'pointer',
                       fontSize: '0.75rem'
                     }}
@@ -799,19 +918,36 @@ const AcademicAdminDashboard = () => {
                     <i className={`fas ${c.teacherId ? 'fa-exchange-alt' : 'fa-user-plus'}`}></i>
                     {c.teacherId ? ' Change Teacher' : ' Assign Teacher'}
                   </button>
-                  <button 
-                    onClick={() => handleDeleteClass(c)} 
-                    style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}
+
+                  <button
+                    onClick={() => handleDeleteClass(c)}
+                    style={{
+                      background: '#e74c3c',
+                      color: 'white',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem'
+                    }}
                   >
                     <i className="fas fa-trash"></i> Delete
                   </button>
+                  <button 
+  onClick={() => fetchAllData()} 
+  style={{ background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}
+>
+  <i className="fas fa-sync-alt"></i> Refresh
+</button>
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
+
       </table>
     )}
+    
   </div>
 )}
         {/* News Tab */}

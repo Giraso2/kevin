@@ -20,17 +20,19 @@ app.use(express.json());
 
 // ==================== MODELS ====================
 
+// User Schema
 const userSchema = new mongoose.Schema({
   fullName: String,
   email: { type: String, unique: true },
   password: String,
-  role: { type: String, enum: ['super_admin', 'academic_admin', 'discipline_admin', 'accounts_admin', 'teacher', 'student', 'parent'] },
+  role: String,
   phone: String,
   isActive: { type: Boolean, default: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now }
 });
 
+// Teacher Profile Schema
 const teacherProfileSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   fullName: String,
@@ -40,6 +42,7 @@ const teacherProfileSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Student Schema
 const studentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   studentId: String,
@@ -53,6 +56,7 @@ const studentSchema = new mongoose.Schema({
   enrollmentDate: { type: Date, default: Date.now }
 });
 
+// Class Schema
 const classSchema = new mongoose.Schema({
   className: String,
   grade: { type: String, enum: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] },
@@ -62,6 +66,7 @@ const classSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Assignment Schema
 const assignmentSchema = new mongoose.Schema({
   title: String,
   description: String,
@@ -80,6 +85,7 @@ const assignmentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Attendance Schema
 const attendanceSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
@@ -88,6 +94,7 @@ const attendanceSchema = new mongoose.Schema({
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
 
+// Grade Schema
 const gradeSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   subject: String,
@@ -99,6 +106,7 @@ const gradeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Discipline Schema
 const disciplineSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   studentName: String,
@@ -108,47 +116,51 @@ const disciplineSchema = new mongoose.Schema({
   description: String,
   action: String,
   actionDetails: String,
-  status: { type: String, enum: ['pending', 'reviewed', 'resolved'], default: 'pending' },
+  status: { type: String, default: 'pending' },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: Date,
   createdAt: { type: Date, default: Date.now }
 });
 
+// Permission Schema
 const permissionSchema = new mongoose.Schema({
   requesterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   requesterName: String,
   requesterRole: String,
-  type: { type: String, enum: ['leave', 'early_dismissal', 'sports', 'event', 'other'] },
+  type: String,
   reason: String,
   fromDate: Date,
   toDate: Date,
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  status: { type: String, default: 'pending' },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewedAt: Date,
   rejectionReason: String,
   createdAt: { type: Date, default: Date.now }
 });
 
+// Announcement Schema
 const announcementSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  audience: { type: [String], default: ['all'] },
-  priority: { type: String, enum: ['normal', 'high', 'urgent'], default: 'normal' },
+  title: String,
+  content: String,
+  audience: [String],
+  priority: { type: String, default: 'normal' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
 
+// News Schema
 const newsSchema = new mongoose.Schema({
   title: String,
   summary: String,
   content: String,
   image: String,
-  category: { type: String, enum: ['news', 'event', 'announcement'], default: 'news' },
+  category: { type: String, default: 'news' },
   date: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 });
 
+// Gallery Schema
 const gallerySchema = new mongoose.Schema({
   title: String,
   image: String,
@@ -156,6 +168,7 @@ const gallerySchema = new mongoose.Schema({
   date: { type: Date, default: Date.now }
 });
 
+// Message Schema
 const messageSchema = new mongoose.Schema({
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   senderName: String,
@@ -168,6 +181,7 @@ const messageSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Models
 const User = mongoose.model('User', userSchema);
 const TeacherProfile = mongoose.model('TeacherProfile', teacherProfileSchema);
 const Student = mongoose.model('Student', studentSchema);
@@ -185,11 +199,16 @@ const Message = mongoose.model('Message', messageSchema);
 // ==================== SOCKET.IO ====================
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
-  socket.on('join', (userId) => socket.join(userId));
+  socket.on('join', (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined room`);
+  });
   socket.on('sendMessage', (data) => {
     io.to(data.receiverId).emit('newMessage', data);
   });
-  socket.on('disconnect', () => console.log('🔌 Client disconnected:', socket.id));
+  socket.on('disconnect', () => {
+    console.log('🔌 Client disconnected:', socket.id);
+  });
 });
 
 // ==================== DATABASE CONNECTION ====================
@@ -230,8 +249,6 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ==================== SUPER ADMIN ROUTES ====================
-
-// Get admins
 app.get('/api/super-admin/admins', authMiddleware, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId);
@@ -243,7 +260,6 @@ app.get('/api/super-admin/admins', authMiddleware, async (req, res) => {
   }
 });
 
-// Create admin
 app.post('/api/super-admin/create-admin', authMiddleware, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId);
@@ -262,13 +278,11 @@ app.post('/api/super-admin/create-admin', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete admin
 app.delete('/api/super-admin/admins/:id', authMiddleware, async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// Create announcement
 app.post('/api/super-admin/announcements', authMiddleware, async (req, res) => {
   const { title, content, audience, priority } = req.body;
   const announcement = new Announcement({ title, content, audience: audience || ['all'], priority: priority || 'normal', createdBy: req.userId });
@@ -276,7 +290,6 @@ app.post('/api/super-admin/announcements', authMiddleware, async (req, res) => {
   res.json({ success: true, announcement });
 });
 
-// Get announcements
 app.get('/api/super-admin/announcements', authMiddleware, async (req, res) => {
   const announcements = await Announcement.find().sort({ createdAt: -1 });
   res.json(announcements);
@@ -287,69 +300,8 @@ app.get('/api/announcements', authMiddleware, async (req, res) => {
   res.json(announcements);
 });
 
-// Delete announcement
 app.delete('/api/super-admin/announcements/:id', authMiddleware, async (req, res) => {
   await Announcement.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
-
-// Get discipline cases
-app.get('/api/super-admin/discipline-cases', authMiddleware, async (req, res) => {
-  const cases = await Discipline.find().sort({ createdAt: -1 });
-  const stats = {
-    total: cases.length,
-    pending: cases.filter(c => c.status === 'pending').length,
-    resolved: cases.filter(c => c.status === 'resolved').length,
-    byCategory: {}
-  };
-  cases.forEach(c => {
-    stats.byCategory[c.category] = (stats.byCategory[c.category] || 0) + 1;
-  });
-  res.json({ cases, stats });
-});
-
-// Update discipline case
-app.put('/api/super-admin/discipline-cases/:id', authMiddleware, async (req, res) => {
-  const { action, actionDetails, status } = req.body;
-  const disciplineCase = await Discipline.findById(req.params.id);
-  if (!disciplineCase) return res.status(404).json({ message: 'Case not found' });
-  
-  disciplineCase.action = action;
-  disciplineCase.actionDetails = actionDetails;
-  disciplineCase.status = status;
-  disciplineCase.reviewedBy = req.userId;
-  disciplineCase.reviewedAt = new Date();
-  await disciplineCase.save();
-  res.json({ success: true });
-});
-
-// Get permissions
-app.get('/api/super-admin/permissions', authMiddleware, async (req, res) => {
-  const permissions = await Permission.find().sort({ createdAt: -1 });
-  const trends = {
-    total: permissions.length,
-    approved: permissions.filter(p => p.status === 'approved').length,
-    rejected: permissions.filter(p => p.status === 'rejected').length,
-    pending: permissions.filter(p => p.status === 'pending').length,
-    byType: {}
-  };
-  permissions.forEach(p => {
-    trends.byType[p.type] = (trends.byType[p.type] || 0) + 1;
-  });
-  res.json({ permissions, trends });
-});
-
-// Update permission
-app.put('/api/super-admin/permissions/:id', authMiddleware, async (req, res) => {
-  const { status, rejectionReason } = req.body;
-  const permission = await Permission.findById(req.params.id);
-  if (!permission) return res.status(404).json({ message: 'Permission not found' });
-  
-  permission.status = status;
-  permission.reviewedBy = req.userId;
-  permission.reviewedAt = new Date();
-  if (rejectionReason) permission.rejectionReason = rejectionReason;
-  await permission.save();
   res.json({ success: true });
 });
 
@@ -396,69 +348,34 @@ app.post('/api/academic-admin/classes', authMiddleware, async (req, res) => {
   await newClass.save();
   res.json({ success: true, class: newClass });
 });
-
-app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, async (req, res) => {
-  const { teacherId } = req.body;
-  const classItem = await Class.findById(req.params.classId);
-  if (!classItem) return res.status(404).json({ message: 'Class not found' });
-  classItem.teacherId = teacherId;
-  await classItem.save();
-  res.json({ success: true });
-});
-
-app.delete('/api/academic-admin/classes/:id', authMiddleware, async (req, res) => {
-  await Class.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
-// Assign teacher to class - FIXED VERSION
+// Assign teacher to class - FIXED to return populated teacher data
 app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, async (req, res) => {
   try {
     const { teacherId } = req.body;
     const classId = req.params.classId;
     
-    console.log('Assign teacher request:', { classId, teacherId });
+    console.log('Assigning teacher:', { classId, teacherId });
     
-    // Find the class
-    const classItem = await Class.findById(classId);
-    if (!classItem) {
+    // Update the class
+    const updatedClass = await Class.findByIdAndUpdate(
+      classId,
+      { teacherId: teacherId || null },
+      { new: true }  // This returns the updated document
+    );
+    
+    if (!updatedClass) {
       return res.status(404).json({ message: 'Class not found' });
     }
     
-    // Update the teacherId
-    classItem.teacherId = teacherId;
-    await classItem.save();
+    // Populate the teacher data
+    const populatedClass = await Class.findById(updatedClass._id).populate('teacherId', 'fullName');
     
-    console.log('Class updated:', classItem);
-    
-    // Get teacher details for response
-    let teacherDetails = null;
-    if (teacherId) {
-      const teacher = await User.findById(teacherId).select('fullName');
-      teacherDetails = teacher;
-    }
+    console.log('Class updated with teacher:', populatedClass);
     
     res.json({ 
       success: true, 
-      message: 'Teacher assigned successfully',
-      class: {
-        ...classItem.toObject(),
-        teacherId: teacherDetails
-      }
-    });
-  } catch (error) {
-    console.error('Assign teacher error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});    // Get teacher details for response
-    const teacher = await User.findById(teacherId).select('fullName');
-    
-    res.json({ 
-      success: true, 
-      message: 'Teacher assigned successfully',
-      class: {
-        ...classItem.toObject(),
-        teacherId: teacher
-      }
+      message: teacherId ? 'Teacher assigned successfully' : 'Teacher removed from class',
+      class: populatedClass
     });
   } catch (error) {
     console.error('Assign teacher error:', error);
@@ -535,7 +452,6 @@ app.get('/api/academic-admin/class-performance', authMiddleware, async (req, res
 });
 
 // ==================== TEACHER ROUTES ====================
-
 app.get('/api/teacher/students', authMiddleware, async (req, res) => {
   const students = await Student.find({ teacherId: req.userId }).populate('userId', 'fullName email');
   res.json(students);
@@ -548,7 +464,6 @@ app.get('/api/teacher/classes', authMiddleware, async (req, res) => {
 
 app.post('/api/teacher/create-student', authMiddleware, async (req, res) => {
   const { fullName, email, password, studentId, classId, parentName, parentPhone } = req.body;
-  
   const existing = await User.findOne({ email });
   if (existing) return res.status(400).json({ message: 'Email exists' });
   
@@ -654,7 +569,7 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
   res.json({ success: true, message });
 });
 
-// ==================== CREATE DEFAULT USERS ====================
+// ==================== CREATE DEFAULT SUPER ADMIN ====================
 const createDefaultSuperAdmin = async () => {
   const existing = await User.findOne({ email: 'admin@essa.rw' });
   if (!existing) {
