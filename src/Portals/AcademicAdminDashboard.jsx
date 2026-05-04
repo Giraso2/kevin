@@ -72,53 +72,36 @@ const AcademicAdminDashboard = () => {
     }
   }, [navigate]);
 
- 
- const fetchAllData = async () => {
-  const token = getToken();
-  try {
-    console.log('Fetching data...');
-    
-    // Fetch teachers
-    const teachersRes = await fetch(`${API_URL}/academic-admin/teachers-list`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (teachersRes.ok) {
-      const teachersData = await teachersRes.json();
-      console.log('Teachers loaded:', teachersData.length);
-      setTeachers(teachersData);
+  const fetchAllData = async () => {
+    const token = getToken();
+    try {
+      console.log('Fetching data...');
+      
+      const [teachersRes, classesRes, newsRes, galleryRes, perfRes, classPerfRes, annRes] = await Promise.all([
+        fetch(`${API_URL}/academic-admin/teachers-list`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/academic-admin/classes`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/academic-admin/news`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/academic-admin/gallery`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/academic-admin/students-performance`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/academic-admin/class-performance`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/announcements`, { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+      
+      if (teachersRes.ok) setTeachers(await teachersRes.json());
+      if (classesRes.ok) setClasses(await classesRes.json());
+      if (newsRes.ok) setNews(await newsRes.json());
+      if (galleryRes.ok) setGallery(await galleryRes.json());
+      if (perfRes.ok) setStudentPerformance(await perfRes.json());
+      if (classPerfRes.ok) setClassPerformance(await classPerfRes.json());
+      if (annRes.ok) setAnnouncements(await annRes.json());
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    // Fetch classes (with populated teacher info)
-    const classesRes = await fetch(`${API_URL}/academic-admin/classes`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (classesRes.ok) {
-      const classesData = await classesRes.json();
-      console.log('Classes loaded:', classesData);
-      setClasses(classesData);
-    }
-    
-    // Fetch other data...
-    const [newsRes, galleryRes, perfRes, classPerfRes, annRes] = await Promise.all([
-      fetch(`${API_URL}/academic-admin/news`, { headers: { 'Authorization': `Bearer ${token}` } }),
-      fetch(`${API_URL}/academic-admin/gallery`, { headers: { 'Authorization': `Bearer ${token}` } }),
-      fetch(`${API_URL}/academic-admin/students-performance`, { headers: { 'Authorization': `Bearer ${token}` } }),
-      fetch(`${API_URL}/academic-admin/class-performance`, { headers: { 'Authorization': `Bearer ${token}` } }),
-      fetch(`${API_URL}/announcements`, { headers: { 'Authorization': `Bearer ${token}` } })
-    ]);
-    
-    if (newsRes.ok) setNews(await newsRes.json());
-    if (galleryRes.ok) setGallery(await galleryRes.json());
-    if (perfRes.ok) setStudentPerformance(await perfRes.json());
-    if (classPerfRes.ok) setClassPerformance(await classPerfRes.json());
-    if (annRes.ok) setAnnouncements(await annRes.json());
-    
-  } catch (error) {
-    console.error('Error fetching data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const fetchUsers = async () => {
     const token = getToken();
     try {
@@ -225,10 +208,7 @@ const AcademicAdminDashboard = () => {
       try {
         const response = await fetch(`${API_URL}/academic-admin/create-teacher-credentials`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify(formValues)
         });
         
@@ -237,14 +217,7 @@ const AcademicAdminDashboard = () => {
         if (response.ok) {
           Swal.fire({
             title: 'Teacher Created!',
-            html: `
-              <div style="text-align: left;">
-                <p><strong>Name:</strong> ${formValues.fullName}</p>
-                <p><strong>Email:</strong> ${formValues.email}</p>
-                <p><strong>Password:</strong> ${formValues.password}</p>
-                <p><strong>Subject:</strong> ${formValues.subject}</p>
-              </div>
-            `,
+            html: `<div><p><strong>Name:</strong> ${formValues.fullName}</p><p><strong>Email:</strong> ${formValues.email}</p><p><strong>Password:</strong> ${formValues.password}</p><p><strong>Subject:</strong> ${formValues.subject}</p></div>`,
             icon: 'success'
           });
           fetchAllData();
@@ -291,18 +264,10 @@ const AcademicAdminDashboard = () => {
         <div style="text-align: left;">
           <input type="text" id="className" class="swal2-input" placeholder="Class Name (e.g., A, B, C)" required>
           <select id="grade" class="swal2-select" style="width: 100%; padding: 8px; margin: 5px 0;">
-            <option value="S1">S1</option>
-            <option value="S2">S2</option>
-            <option value="S3">S3</option>
-            <option value="S4">S4</option>
-            <option value="S5">S5</option>
-            <option value="S6">S6</option>
+            <option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option>
+            <option value="S4">S4</option><option value="S5">S5</option><option value="S6">S6</option>
           </select>
           <input type="text" id="academicYear" class="swal2-input" placeholder="Academic Year (e.g., 2026)" required>
-          <select id="teacherId" class="swal2-select" style="width: 100%; padding: 8px; margin: 5px 0;">
-            <option value="">Select Teacher (Optional)</option>
-            ${teachers.map(t => `<option value="${t._id}">${t.fullName} (${t.subject || 'General'})</option>`).join('')}
-          </select>
         </div>
       `,
       confirmButtonText: 'Create Class',
@@ -317,12 +282,7 @@ const AcademicAdminDashboard = () => {
           Swal.showValidationMessage('Please fill all required fields');
           return false;
         }
-        return {
-          className,
-          grade,
-          academicYear,
-          teacherId: document.getElementById('teacherId').value || null
-        };
+        return { className, grade, academicYear, teacherId: null };
       }
     });
 
@@ -330,10 +290,7 @@ const AcademicAdminDashboard = () => {
       const token = getToken();
       const response = await fetch(`${API_URL}/academic-admin/classes`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formValues)
       });
       
@@ -346,8 +303,6 @@ const AcademicAdminDashboard = () => {
       }
     }
   };
-
-
 
   const handleDeleteClass = async (classItem) => {
     const result = await Swal.fire({
@@ -374,131 +329,96 @@ const AcademicAdminDashboard = () => {
       }
     }
   };
+
   // Assign Teacher to Class - FIXED VERSION
-const handleAssignTeacher = async (classItem) => {
-  if (teachers.length === 0) {
-    Swal.fire({
-      title: 'No Teachers',
-      text: 'Please create teachers first before assigning them to classes.',
-      icon: 'warning',
-      confirmButtonColor: '#f39c12'
-    });
-    return;
-  }
-  
-  // Build teacher options for dropdown
-  const teacherOptions = {};
-  teachers.forEach(teacher => {
-    teacherOptions[teacher._id] = `${teacher.fullName} (${teacher.subject || 'General'})`;
-  });
-  
-  // Add option to remove teacher
-  teacherOptions['none'] = '-- Remove Teacher --';
-  
-  const { value: selectedTeacherId } = await Swal.fire({
-    title: `Assign Teacher to ${classItem.grade} ${classItem.className}`,
-    text: 'Select a teacher to assign to this class:',
-    input: 'select',
-    inputOptions: teacherOptions,
-    inputPlaceholder: 'Select a teacher',
-    showCancelButton: true,
-    confirmButtonText: 'Assign',
-    confirmButtonColor: '#27ae60',
-    cancelButtonText: 'Cancel',
-    preConfirm: (selected) => {
-      if (!selected) {
-        Swal.showValidationMessage('Please select a teacher');
-        return false;
-      }
-      return selected;
+  const handleAssignTeacher = async (classItem) => {
+    if (teachers.length === 0) {
+      Swal.fire({ title: 'No Teachers', text: 'Please create teachers first.', icon: 'warning' });
+      return;
     }
-  });
-  
-  if (selectedTeacherId) {
-    // Convert 'none' to null for removing teacher
-    const teacherIdToAssign = selectedTeacherId === 'none' ? null : selectedTeacherId;
     
+    const teacherOptions = {};
+    teachers.forEach(teacher => {
+      teacherOptions[teacher._id] = `${teacher.fullName} (${teacher.subject || 'General'})`;
+    });
+    teacherOptions['none'] = '-- Remove Teacher --';
+    
+    const { value: selectedTeacherId } = await Swal.fire({
+      title: `Assign Teacher to ${classItem.grade} ${classItem.className}`,
+      text: 'Select a teacher:',
+      input: 'select',
+      inputOptions: teacherOptions,
+      showCancelButton: true,
+      confirmButtonText: 'Assign',
+      confirmButtonColor: '#27ae60',
+      preConfirm: (selected) => {
+        if (!selected) {
+          Swal.showValidationMessage('Please select a teacher');
+          return false;
+        }
+        return selected;
+      }
+    });
+    
+    if (selectedTeacherId) {
+      const teacherIdToAssign = selectedTeacherId === 'none' ? null : selectedTeacherId;
+      const token = getToken();
+      
+      try {
+        Swal.fire({ title: 'Assigning...', allowOutsideClick: false, showConfirmButton: false, willOpen: () => Swal.showLoading() });
+        
+        const response = await fetch(`${API_URL}/academic-admin/classes/${classItem._id}/assign-teacher`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ teacherId: teacherIdToAssign })
+        });
+        
+        const data = await response.json();
+        Swal.close();
+        
+        if (response.ok) {
+          // Update the class in local state
+          setClasses(prevClasses => prevClasses.map(c => c._id === data.class._id ? data.class : c));
+          Swal.fire({ title: 'Success!', text: teacherIdToAssign ? 'Teacher assigned successfully' : 'Teacher removed', icon: 'success', timer: 2000 });
+        } else {
+          Swal.fire({ title: 'Error', text: data.message || 'Failed to assign teacher', icon: 'error' });
+        }
+      } catch (error) {
+        Swal.close();
+        Swal.fire({ title: 'Error', text: 'Network error. Please try again.', icon: 'error' });
+      }
+    }
+  };
+
+  // Manual refresh for classes
+  const handleRefreshClasses = async () => {
     const token = getToken();
+    Swal.fire({ title: 'Refreshing...', allowOutsideClick: false, showConfirmButton: false, willOpen: () => Swal.showLoading() });
+    
     try {
-      // Show loading
-      Swal.fire({
-        title: 'Assigning...',
-        text: 'Please wait',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        willOpen: () => {
-          Swal.showLoading();
-        }
-      });
-      
-      const response = await fetch(`${API_URL}/academic-admin/classes/${classItem._id}/assign-teacher`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ teacherId: teacherIdToAssign })
-      });
-      
-      const data = await response.json();
-      
-      Swal.close();
-      
-      if (response.ok) {
-        // Update the class in the local state immediately
-        if (data.class) {
-          setClasses(prevClasses => 
-            prevClasses.map(c => 
-              c._id === data.class._id ? data.class : c
-            )
-          );
-        }
-        
-        Swal.fire({
-          title: 'Success!',
-          text: teacherIdToAssign ? 'Teacher assigned successfully' : 'Teacher removed from class',
-          icon: 'success',
-          confirmButtonColor: '#27ae60',
-          timer: 2000
-        });
-        
-      } else {
-        Swal.fire({
-          title: 'Error',
-          text: data.message || 'Failed to assign teacher',
-          icon: 'error',
-          confirmButtonColor: '#e74c3c'
-        });
+      const classesRes = await fetch(`${API_URL}/academic-admin/classes`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (classesRes.ok) {
+        const classesData = await classesRes.json();
+        setClasses(classesData);
+        Swal.close();
+        Swal.fire({ title: 'Refreshed!', text: 'Class list updated', icon: 'success', timer: 1500 });
       }
     } catch (error) {
       Swal.close();
-      console.error('Error assigning teacher:', error);
-      Swal.fire({
-        title: 'Error',
-        text: 'Network error. Please try again.',
-        icon: 'error',
-        confirmButtonColor: '#e74c3c'
-      });
+      Swal.fire('Error', 'Failed to refresh', 'error');
     }
-  }
-};
+  };
 
   // News Management
   const handleCreateNews = async () => {
     const { value: formValues } = await Swal.fire({
       title: 'Create News/Event',
       html: `
-        <div style="text-align: left;">
-          <input type="text" id="title" class="swal2-input" placeholder="Title" required>
-          <textarea id="summary" class="swal2-textarea" placeholder="Short Summary" required></textarea>
-          <textarea id="content" class="swal2-textarea" placeholder="Full Content"></textarea>
-          <input type="text" id="image" class="swal2-input" placeholder="Image URL">
-          <select id="category" class="swal2-select" style="width: 100%; padding: 8px; margin: 5px 0;">
-            <option value="news">News</option>
-            <option value="event">Event</option>
-            <option value="announcement">Announcement</option>
-          </select>
-        </div>
+        <input type="text" id="title" class="swal2-input" placeholder="Title" required>
+        <textarea id="summary" class="swal2-textarea" placeholder="Short Summary" required></textarea>
+        <textarea id="content" class="swal2-textarea" placeholder="Full Content"></textarea>
+        <input type="text" id="image" class="swal2-input" placeholder="Image URL">
+        <select id="category" class="swal2-select"><option value="news">News</option><option value="event">Event</option><option value="announcement">Announcement</option></select>
       `,
       confirmButtonText: 'Publish',
       confirmButtonColor: '#27ae60',
@@ -524,10 +444,7 @@ const handleAssignTeacher = async (classItem) => {
       const token = getToken();
       const response = await fetch(`${API_URL}/academic-admin/news`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formValues)
       });
       
@@ -552,15 +469,12 @@ const handleAssignTeacher = async (classItem) => {
     
     if (result.isConfirmed) {
       const token = getToken();
-      const response = await fetch(`${API_URL}/academic-admin/news/${newsItem._id}`, {
+      await fetch(`${API_URL}/academic-admin/news/${newsItem._id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      if (response.ok) {
-        Swal.fire('Deleted!', 'News removed', 'success');
-        fetchAllData();
-      }
+      Swal.fire('Deleted!', 'News removed', 'success');
+      fetchAllData();
     }
   };
 
@@ -569,16 +483,9 @@ const handleAssignTeacher = async (classItem) => {
     const { value: formValues } = await Swal.fire({
       title: 'Add Gallery Image',
       html: `
-        <div style="text-align: left;">
-          <input type="text" id="title" class="swal2-input" placeholder="Image Title" required>
-          <input type="text" id="image" class="swal2-input" placeholder="Image URL" required>
-          <select id="category" class="swal2-select" style="width: 100%; padding: 8px; margin: 5px 0;">
-            <option value="academic">Academic</option>
-            <option value="sports">Sports</option>
-            <option value="cultural">Cultural</option>
-            <option value="events">Events</option>
-          </select>
-        </div>
+        <input type="text" id="title" class="swal2-input" placeholder="Image Title" required>
+        <input type="text" id="image" class="swal2-input" placeholder="Image URL" required>
+        <select id="category" class="swal2-select"><option value="academic">Academic</option><option value="sports">Sports</option><option value="cultural">Cultural</option><option value="events">Events</option></select>
       `,
       confirmButtonText: 'Add Image',
       confirmButtonColor: '#3498db',
@@ -591,10 +498,7 @@ const handleAssignTeacher = async (classItem) => {
           Swal.showValidationMessage('Please fill title and image URL');
           return false;
         }
-        return {
-          title, image,
-          category: document.getElementById('category').value
-        };
+        return { title, image, category: document.getElementById('category').value };
       }
     });
 
@@ -602,18 +506,13 @@ const handleAssignTeacher = async (classItem) => {
       const token = getToken();
       const response = await fetch(`${API_URL}/academic-admin/gallery`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formValues)
       });
       
       if (response.ok) {
         Swal.fire('Added!', 'Image added to gallery', 'success');
         fetchAllData();
-      } else {
-        Swal.fire('Error', 'Failed to add image', 'error');
       }
     }
   };
@@ -621,7 +520,7 @@ const handleAssignTeacher = async (classItem) => {
   const handleDeleteGalleryImage = async (image) => {
     const result = await Swal.fire({
       title: 'Delete Image?',
-      text: `Remove "${image.title}" from gallery?`,
+      text: `Remove "${image.title}"?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e74c3c',
@@ -630,15 +529,12 @@ const handleAssignTeacher = async (classItem) => {
     
     if (result.isConfirmed) {
       const token = getToken();
-      const response = await fetch(`${API_URL}/academic-admin/gallery/${image._id}`, {
+      await fetch(`${API_URL}/academic-admin/gallery/${image._id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      if (response.ok) {
-        Swal.fire('Deleted!', 'Image removed from gallery', 'success');
-        fetchAllData();
-      }
+      Swal.fire('Deleted!', 'Image removed', 'success');
+      fetchAllData();
     }
   };
 
@@ -672,12 +568,7 @@ const handleAssignTeacher = async (classItem) => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f0f4f8' }}>
-      {mobileMenuOpen && (
-        <div onClick={() => setMobileMenuOpen(false)} style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', zIndex: 998
-        }} />
-      )}
+      {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />}
 
       {/* Sidebar */}
       <aside style={{
@@ -717,9 +608,7 @@ const handleAssignTeacher = async (classItem) => {
               <i className={item.icon} style={{ width: '20px', color: item.color }}></i>
               {!sidebarCollapsed && <span>{item.label}</span>}
               {item.id === 'chat' && unreadCount > 0 && !sidebarCollapsed && (
-                <span style={{ marginLeft: 'auto', background: '#e74c3c', borderRadius: '50%', padding: '2px 6px', fontSize: '10px' }}>
-                  {unreadCount}
-                </span>
+                <span style={{ marginLeft: 'auto', background: '#e74c3c', borderRadius: '50%', padding: '2px 6px', fontSize: '10px' }}>{unreadCount}</span>
               )}
             </button>
           ))}
@@ -774,39 +663,27 @@ const handleAssignTeacher = async (classItem) => {
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(180px, 1fr))`, gap: '1rem', marginBottom: '20px' }}>
               <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
                 <i className="fas fa-chalkboard-user" style={{ fontSize: '2rem', color: '#27ae60' }}></i>
-                <h3>{teachers.length}</h3>
-                <p>Teachers</p>
+                <h3>{teachers.length}</h3><p>Teachers</p>
               </div>
               <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
                 <i className="fas fa-school" style={{ fontSize: '2rem', color: '#9b59b6' }}></i>
-                <h3>{classes.length}</h3>
-                <p>Classes</p>
+                <h3>{classes.length}</h3><p>Classes</p>
               </div>
               <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
                 <i className="fas fa-newspaper" style={{ fontSize: '2rem', color: '#f39c12' }}></i>
-                <h3>{news.length}</h3>
-                <p>News & Events</p>
+                <h3>{news.length}</h3><p>News & Events</p>
               </div>
               <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
                 <i className="fas fa-images" style={{ fontSize: '2rem', color: '#e74c3c' }}></i>
-                <h3>{gallery.length}</h3>
-                <p>Gallery Images</p>
+                <h3>{gallery.length}</h3><p>Gallery Images</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={handleCreateTeacher} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}>
-                <i className="fas fa-user-plus"></i> Add Teacher
-              </button>
-              <button onClick={handleCreateClass} style={{ background: '#3498db', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}>
-                <i className="fas fa-plus-circle"></i> Create Class
-              </button>
-              <button onClick={handleCreateNews} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}>
-                <i className="fas fa-newspaper"></i> Post News
-              </button>
-              <button onClick={handleAddGalleryImage} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}>
-                <i className="fas fa-image"></i> Add to Gallery
-              </button>
+              <button onClick={handleCreateTeacher} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-user-plus"></i> Add Teacher</button>
+              <button onClick={handleCreateClass} style={{ background: '#3498db', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-plus-circle"></i> Create Class</button>
+              <button onClick={handleCreateNews} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-newspaper"></i> Post News</button>
+              <button onClick={handleAddGalleryImage} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-image"></i> Add to Gallery</button>
             </div>
           </div>
         )}
@@ -814,25 +691,17 @@ const handleAssignTeacher = async (classItem) => {
         {/* Teachers Tab */}
         {activeTab === 'teachers' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h2>Teachers</h2>
-              <button onClick={handleCreateTeacher} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
-                <i className="fas fa-plus"></i> Add Teacher
-              </button>
+              <button onClick={handleCreateTeacher} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}><i className="fas fa-plus"></i> Add Teacher</button>
             </div>
             {teachers.length === 0 ? (
               <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No teachers yet. Click "Add Teacher" to create one.</p>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
-                <thead>
-                  <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                    <th style={{ padding: '10px' }}>Name</th>
-                    <th style={{ padding: '10px' }}>Email</th>
-                    <th style={{ padding: '10px' }}>Subject</th>
-                    <th style={{ padding: '10px' }}>Phone</th>
-                    <th style={{ padding: '10px' }}>Actions</th>
-                  </tr>
-                </thead>
+                <thead><tr style={{ background: '#1a3a5c', color: 'white' }}>
+                  <th style={{ padding: '10px' }}>Name</th><th style={{ padding: '10px' }}>Email</th><th style={{ padding: '10px' }}>Subject</th><th style={{ padding: '10px' }}>Phone</th><th style={{ padding: '10px' }}>Actions</th>
+                </tr></thead>
                 <tbody>
                   {teachers.map(t => (
                     <tr key={t._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
@@ -841,9 +710,7 @@ const handleAssignTeacher = async (classItem) => {
                       <td style={{ padding: '10px' }}>{t.subject || '-'}</td>
                       <td style={{ padding: '10px' }}>{t.phone || '-'}</td>
                       <td style={{ padding: '10px' }}>
-                        <button onClick={() => handleDeleteTeacher(t)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}>
-                          Delete
-                        </button>
+                        <button onClick={() => handleDeleteTeacher(t)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -853,126 +720,82 @@ const handleAssignTeacher = async (classItem) => {
           </div>
         )}
 
-    {activeTab === 'classes' && (
-  <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-    
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
-      <h2 style={{ margin: 0 }}>Classes</h2>
-      <button onClick={handleCreateClass} style={{ background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
-        <i className="fas fa-plus"></i> Create Class
-      </button>
-    </div>
+        {/* Classes Tab */}
+        {activeTab === 'classes' && (
+          <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+              <h2 style={{ margin: 0 }}>Classes</h2>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={handleRefreshClasses} style={{ background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+                  <i className="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button onClick={handleCreateClass} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+                  <i className="fas fa-plus"></i> Create Class
+                </button>
+              </div>
+            </div>
 
-    {classes.length === 0 ? (
-      <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-        No classes yet. Click "Create Class" to create one.
-      </p>
-    ) : (
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
-        
-        <thead>
-          <tr style={{ background: '#1a3a5c', color: 'white' }}>
-            <th style={{ padding: '10px' }}>Grade</th>
-            <th style={{ padding: '10px' }}>Class Name</th>
-            <th style={{ padding: '10px' }}>Academic Year</th>
-            <th style={{ padding: '10px' }}>Teacher</th>
-            <th style={{ padding: '10px' }}>Actions</th>
-          </tr>
-        </thead>
+            {classes.length === 0 ? (
+              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No classes yet. Click "Create Class" to create one.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+                <thead>
+                  <tr style={{ background: '#1a3a5c', color: 'white' }}>
+                    <th style={{ padding: '10px' }}>Grade</th><th style={{ padding: '10px' }}>Class Name</th>
+                    <th style={{ padding: '10px' }}>Academic Year</th><th style={{ padding: '10px' }}>Teacher</th><th style={{ padding: '10px' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classes.map(c => {
+                    let teacherDisplay = 'Not Assigned';
+                    let teacherColor = '#e74c3c';
+                    if (c.teacherId && typeof c.teacherId === 'object' && c.teacherId.fullName) {
+                      teacherDisplay = c.teacherId.fullName;
+                      teacherColor = '#27ae60';
+                    }
+                    return (
+                      <tr key={c._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                        <td style={{ padding: '10px' }}>{c.grade}</td>
+                        <td style={{ padding: '10px' }}>{c.className}</td>
+                        <td style={{ padding: '10px' }}>{c.academicYear}</td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ color: teacherColor, fontWeight: '500' }}><i className="fas fa-chalkboard-user"></i> {teacherDisplay}</span>
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button onClick={() => handleAssignTeacher(c)} style={{ background: c.teacherId ? '#f39c12' : '#27ae60', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                              <i className={`fas ${c.teacherId ? 'fa-exchange-alt' : 'fa-user-plus'}`}></i>
+                              {c.teacherId ? ' Change Teacher' : ' Assign Teacher'}
+                            </button>
+                            <button onClick={() => handleDeleteClass(c)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                              <i className="fas fa-trash"></i> Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
 
-        <tbody>
-          {classes.map(c => (
-            <tr key={c._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-              <td style={{ padding: '10px' }}>{c.grade}</td>
-              <td style={{ padding: '10px' }}>{c.className}</td>
-              <td style={{ padding: '10px' }}>{c.academicYear}</td>
-
-              <td style={{ padding: '10px' }}>
-                {c.teacherId && typeof c.teacherId === 'object' && c.teacherId.fullName ? (
-                  <span style={{ color: '#27ae60', fontWeight: '500' }}>
-                    <i className="fas fa-chalkboard-user"></i> {c.teacherId.fullName}
-                  </span>
-                ) : c.teacherId ? (
-                  <span style={{ color: '#27ae60', fontWeight: '500' }}>
-                    <i className="fas fa-chalkboard-user"></i> {c.teacherId}
-                  </span>
-                ) : (
-                  <span style={{ color: '#e74c3c' }}>Not Assigned</span>
-                )}
-              </td>
-
-              <td style={{ padding: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => handleAssignTeacher(c)}
-                    style={{
-                      background: c.teacherId ? '#f39c12' : '#27ae60',
-                      color: 'white',
-                      border: 'none',
-                      padding: '4px 10px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem'
-                    }}
-                  >
-                    <i className={`fas ${c.teacherId ? 'fa-exchange-alt' : 'fa-user-plus'}`}></i>
-                    {c.teacherId ? ' Change Teacher' : ' Assign Teacher'}
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteClass(c)}
-                    style={{
-                      background: '#e74c3c',
-                      color: 'white',
-                      border: 'none',
-                      padding: '4px 10px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem'
-                    }}
-                  >
-                    <i className="fas fa-trash"></i> Delete
-                  </button>
-                  <button 
-  onClick={() => fetchAllData()} 
-  style={{ background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}
->
-  <i className="fas fa-sync-alt"></i> Refresh
-</button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-
-      </table>
-    )}
-    
-  </div>
-)}
         {/* News Tab */}
         {activeTab === 'news' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h2>News & Events</h2>
-              <button onClick={handleCreateNews} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
-                <i className="fas fa-plus"></i> Post News
-              </button>
+              <button onClick={handleCreateNews} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}><i className="fas fa-plus"></i> Post News</button>
             </div>
             {news.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No news articles yet. Click "Post News" to create one.</p>
+              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No news articles yet.</p>
             ) : (
               news.map(item => (
-                <div key={item._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem' }}>
+                <div key={item._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <h3 style={{ margin: 0 }}>{item.title}</h3>
-                      <p style={{ margin: '5px 0', color: '#666' }}>{item.summary}</p>
-                      <small>{item.category} | {new Date(item.date).toLocaleDateString()}</small>
-                    </div>
-                    <button onClick={() => handleDeleteNews(item)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
-                      Delete
-                    </button>
+                    <div><h3 style={{ margin: 0 }}>{item.title}</h3><p style={{ margin: '5px 0', color: '#666' }}>{item.summary}</p><small>{item.category} | {new Date(item.date).toLocaleDateString()}</small></div>
+                    <button onClick={() => handleDeleteNews(item)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
                   </div>
                 </div>
               ))
@@ -983,26 +806,18 @@ const handleAssignTeacher = async (classItem) => {
         {/* Gallery Tab */}
         {activeTab === 'gallery' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h2>Gallery</h2>
-              <button onClick={handleAddGalleryImage} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
-                <i className="fas fa-plus"></i> Add Image
-              </button>
+              <button onClick={handleAddGalleryImage} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}><i className="fas fa-plus"></i> Add Image</button>
             </div>
             {gallery.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No images in gallery. Click "Add Image" to upload.</p>
+              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No images in gallery.</p>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(200px, 1fr))`, gap: '1rem' }}>
                 {gallery.map(img => (
                   <div key={img._id} style={{ background: '#f8f9fa', borderRadius: '8px', overflow: 'hidden', textAlign: 'center' }}>
                     <img src={img.image} alt={img.title} style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
-                    <div style={{ padding: '8px' }}>
-                      <p><strong>{img.title}</strong></p>
-                      <p style={{ fontSize: '0.7rem', color: '#666' }}>{img.category}</p>
-                      <button onClick={() => handleDeleteGalleryImage(img)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>
-                        Delete
-                      </button>
-                    </div>
+                    <div style={{ padding: '8px' }}><p><strong>{img.title}</strong></p><p style={{ fontSize: '0.7rem', color: '#666' }}>{img.category}</p><button onClick={() => handleDeleteGalleryImage(img)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>Delete</button></div>
                   </div>
                 ))}
               </div>
@@ -1010,41 +825,16 @@ const handleAssignTeacher = async (classItem) => {
           </div>
         )}
 
-        {/* Announcements Tab - NEW */}
+        {/* Announcements Tab */}
         {activeTab === 'announcements' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-            <h2 style={{ marginBottom: '1rem', color: '#1a3a5c' }}>School Announcements</h2>
+            <h2>School Announcements</h2>
             {announcements.length === 0 ? (
               <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No announcements yet.</p>
             ) : (
               announcements.map(ann => (
-                <div key={ann._id} style={{ 
-                  padding: '1rem', 
-                  borderBottom: '1px solid #e0e0e0', 
-                  marginBottom: '0.5rem',
-                  background: ann.priority === 'urgent' ? '#fff3cd' : 'transparent',
-                  borderRadius: '8px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <div>
-                      <h3 style={{ margin: 0, color: '#1a3a5c' }}>
-                        {ann.title}
-                        {ann.priority === 'urgent' && (
-                          <span style={{ marginLeft: '10px', background: '#e74c3c', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>URGENT</span>
-                        )}
-                        {ann.priority === 'high' && (
-                          <span style={{ marginLeft: '10px', background: '#f39c12', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>HIGH</span>
-                        )}
-                      </h3>
-                      <p style={{ margin: '8px 0', color: '#666' }}>{ann.content}</p>
-                      <small style={{ color: '#999' }}>
-                        Posted on {new Date(ann.createdAt).toLocaleDateString()} 
-                        {ann.audience && ann.audience.length > 0 && (
-                          <span style={{ marginLeft: '10px' }}>📢 To: {ann.audience.join(', ')}</span>
-                        )}
-                      </small>
-                    </div>
-                  </div>
+                <div key={ann._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem', background: ann.priority === 'urgent' ? '#fff3cd' : 'transparent', borderRadius: '8px' }}>
+                  <div><h3 style={{ margin: 0, color: '#1a3a5c' }}>{ann.title}{ann.priority === 'urgent' && <span style={{ marginLeft: '10px', background: '#e74c3c', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>URGENT</span>}</h3><p>{ann.content}</p><small>Posted on {new Date(ann.createdAt).toLocaleDateString()}</small></div>
                 </div>
               ))
             )}
@@ -1056,57 +846,16 @@ const handleAssignTeacher = async (classItem) => {
           <div>
             <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', marginBottom: '20px' }}>
               <h2>Class Performance</h2>
-              {classPerformance.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No class performance data available.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '10px' }}>Class</th>
-                      <th style={{ padding: '10px' }}>Teacher</th>
-                      <th style={{ padding: '10px' }}>Students</th>
-                      <th style={{ padding: '10px' }}>Average Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classPerformance.map((c, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <td style={{ padding: '10px' }}>{c.className}</td>
-                        <td style={{ padding: '10px' }}>{c.teacher}</td>
-                        <td style={{ padding: '10px' }}>{c.studentCount}</td>
-                        <td style={{ padding: '10px' }}>{c.averageScore}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {classPerformance.length === 0 ? <p style={{ textAlign: 'center', padding: '40px' }}>No data</p> : (
+                <table style={{ width: '100%' }}><thead><tr style={{ background: '#1a3a5c', color: 'white' }}><th>Class</th><th>Teacher</th><th>Students</th><th>Avg Score</th></tr></thead>
+                <tbody>{classPerformance.map((c, i) => <tr key={i}><td>{c.className}</td><td>{c.teacher}</td><td>{c.studentCount}</td><td>{c.averageScore}%</td></tr>)}</tbody></table>
               )}
             </div>
-
             <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-              <h2>Top Performing Students</h2>
-              {studentPerformance.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No student performance data available.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '10px' }}>Student ID</th>
-                      <th style={{ padding: '10px' }}>Name</th>
-                      <th style={{ padding: '10px' }}>Class</th>
-                      <th style={{ padding: '10px' }}>Average Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {studentPerformance.slice(0, 10).map((s, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <td style={{ padding: '10px' }}>{s.studentId}</td>
-                        <td style={{ padding: '10px' }}>{s.name}</td>
-                        <td style={{ padding: '10px' }}>{s.class}</td>
-                        <td style={{ padding: '10px' }}>{s.averageScore}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <h2>Top Students</h2>
+              {studentPerformance.length === 0 ? <p style={{ textAlign: 'center', padding: '40px' }}>No data</p> : (
+                <table style={{ width: '100%' }}><thead><tr style={{ background: '#1a3a5c', color: 'white' }}><th>ID</th><th>Name</th><th>Class</th><th>Avg</th></tr></thead>
+                <tbody>{studentPerformance.slice(0, 10).map((s, i) => <tr key={i}><td>{s.studentId}</td><td>{s.name}</td><td>{s.class}</td><td>{s.averageScore}%</td></tr>)}</tbody></table>
               )}
             </div>
           </div>
@@ -1115,30 +864,19 @@ const handleAssignTeacher = async (classItem) => {
         {/* Chat Tab */}
         {activeTab === 'chat' && (
           <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : '70vh' }}>
-            <div style={{
-              width: isMobile ? '100%' : '30%',
-              borderRight: isMobile ? 'none' : '1px solid #e0e0e0',
-              borderBottom: isMobile ? '1px solid #e0e0e0' : 'none',
-              overflowY: 'auto',
-              maxHeight: isMobile ? '200px' : 'auto'
-            }}>
-              <div style={{ padding: '1rem', background: '#f8f9fa', borderBottom: '1px solid #e0e0e0' }}>
-                <h3>Chats ({unreadCount} unread)</h3>
-              </div>
+            <div style={{ width: isMobile ? '100%' : '30%', borderRight: isMobile ? 'none' : '1px solid #e0e0e0', overflowY: 'auto' }}>
+              <div style={{ padding: '1rem', background: '#f8f9fa' }}>Chats ({unreadCount} unread)</div>
               {users.map(user => (
-                <div key={user._id} onClick={() => { setSelectedUser(user); fetchMessages(user._id); }}
-                  style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', cursor: 'pointer', background: selectedUser?._id === user._id ? '#f0f4f8' : 'white' }}>
-                  <strong>{user.fullName}</strong>
-                  <div style={{ fontSize: '0.8rem', color: '#666' }}>{user.role}</div>
+                <div key={user._id} onClick={() => { setSelectedUser(user); fetchMessages(user._id); }} style={{ padding: '1rem', cursor: 'pointer', background: selectedUser?._id === user._id ? '#f0f4f8' : 'white', borderBottom: '1px solid #e0e0e0' }}>
+                  <strong>{user.fullName}</strong><div style={{ fontSize: '0.8rem', color: '#666' }}>{user.role}</div>
                 </div>
               ))}
             </div>
-
-            <div style={{ width: isMobile ? '100%' : '70%', display: 'flex', flexDirection: 'column', height: isMobile ? '400px' : '100%' }}>
+            <div style={{ width: isMobile ? '100%' : '70%', display: 'flex', flexDirection: 'column' }}>
               {selectedUser ? (
                 <>
-                  <div style={{ padding: '1rem', background: '#1a3a5c', color: 'white' }}><strong>{selectedUser.fullName}</strong></div>
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+                  <div style={{ padding: '1rem', background: '#1a3a5c', color: 'white' }}>{selectedUser.fullName}</div>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', height: '300px' }}>
                     {messages.map(msg => (
                       <div key={msg._id} style={{ textAlign: msg.senderId === localStorage.getItem('userId') ? 'right' : 'left', marginBottom: '1rem' }}>
                         <div style={{ display: 'inline-block', maxWidth: '70%', padding: '8px 12px', borderRadius: '12px', background: msg.senderId === localStorage.getItem('userId') ? '#1a3a5c' : '#f0f4f8', color: msg.senderId === localStorage.getItem('userId') ? 'white' : '#333' }}>
@@ -1153,9 +891,8 @@ const handleAssignTeacher = async (classItem) => {
                   </div>
                 </>
               ) : (
-             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>
-  Select a user to chat
-</div>  )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>Select a user to chat</div>
+              )}
             </div>
           </div>
         )}
@@ -1163,16 +900,9 @@ const handleAssignTeacher = async (classItem) => {
         {/* Profile Tab */}
         {activeTab === 'profile' && (
           <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
-            <div style={{ width: '80px', height: '80px', background: '#ffc107', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-              <i className="fas fa-user-graduate" style={{ fontSize: '2.5rem', color: '#1a3a5c' }}></i>
-            </div>
-            <h2>{userName}</h2>
-            <p style={{ color: '#ffc107' }}>Academic Administrator</p>
-            <hr style={{ margin: '20px 0' }} />
-            <div style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto' }}>
-              <p><strong>Email:</strong> {localStorage.getItem('userEmail')}</p>
-              <p><strong>Role:</strong> Academic Admin</p>
-            </div>
+            <div style={{ width: '80px', height: '80px', background: '#ffc107', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}><i className="fas fa-user-graduate" style={{ fontSize: '2.5rem', color: '#1a3a5c' }}></i></div>
+            <h2>{userName}</h2><p style={{ color: '#ffc107' }}>Academic Administrator</p><hr />
+            <div style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto' }}><p><strong>Email:</strong> {localStorage.getItem('userEmail')}</p><p><strong>Role:</strong> Academic Admin</p></div>
           </div>
         )}
       </main>
