@@ -186,7 +186,7 @@ const Message = mongoose.model('Message', messageSchema);
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
   socket.on('join', (userId) => {
-    socket.join(userId);
+    if (userId) socket.join(userId);
     console.log(`User ${userId} joined room`);
   });
   socket.on('sendMessage', (data) => {
@@ -205,13 +205,17 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/essa_scho
 // ==================== MIDDLEWARE ====================
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
     req.userId = decoded.id;
     req.userRole = decoded.role;
+    req.userName = decoded.name;
     next();
   } catch (error) {
+    console.error('Auth error:', error.message);
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
@@ -237,14 +241,14 @@ app.post('/api/auth/login', async (req, res) => {
 // ==================== SUPER ADMIN ROUTES ====================
 app.get('/api/super-admin/admins', authMiddleware, async (req, res) => {
   const currentUser = await User.findById(req.userId);
-  if (currentUser.role !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+  if (currentUser?.role !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
   const admins = await User.find({ role: { $in: ['academic_admin', 'discipline_admin', 'accounts_admin'] } }).select('-password');
   res.json(admins);
 });
 
 app.post('/api/super-admin/create-admin', authMiddleware, async (req, res) => {
   const currentUser = await User.findById(req.userId);
-  if (currentUser.role !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+  if (currentUser?.role !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
   
   const { fullName, email, password, phone, role } = req.body;
   const existing = await User.findOne({ email });
@@ -283,15 +287,13 @@ app.delete('/api/super-admin/announcements/:id', authMiddleware, async (req, res
   res.json({ success: true });
 });
 
-// ==================== ACADEMIC ADMIN ROUTES (ONLY TEACHER MANAGEMENT) ====================
+// ==================== ACADEMIC ADMIN ROUTES ====================
 
-// Get all teachers
 app.get('/api/academic-admin/teachers-list', authMiddleware, async (req, res) => {
   const teachers = await TeacherProfile.find();
   res.json(teachers);
 });
 
-// Create teacher (Academic Admin creates teacher accounts)
 app.post('/api/academic-admin/create-teacher-credentials', authMiddleware, async (req, res) => {
   const { fullName, email, password, phone, subject } = req.body;
   const existing = await User.findOne({ email });
@@ -307,7 +309,6 @@ app.post('/api/academic-admin/create-teacher-credentials', authMiddleware, async
   res.json({ success: true, teacher: { _id: teacher._id, fullName, email, password: password || 'teacher123', subject: subject || 'General' } });
 });
 
-// Delete teacher
 app.delete('/api/academic-admin/teachers/:id', authMiddleware, async (req, res) => {
   const teacher = await TeacherProfile.findById(req.params.id);
   if (teacher) {
@@ -317,20 +318,26 @@ app.delete('/api/academic-admin/teachers/:id', authMiddleware, async (req, res) 
   res.json({ success: true });
 });
 
-// Get all classes (read-only for monitoring)
 app.get('/api/academic-admin/classes', authMiddleware, async (req, res) => {
   const classes = await Class.find().populate('teacherId', 'fullName');
   res.json(classes);
 });
 
-// ==================== TEACHER ROUTES (FULL CONTROL) ====================
+// ==================== TEACHER ROUTES ====================
 
-// Teacher creates a class
+// Teacher creates a class - FIXED
 app.post('/api/teacher/create-class', authMiddleware, async (req, res) => {
   try {
     const { className, grade, academicYear } = req.body;
     
+    console.log('Create class request from user:', req.userId);
+    
+    // Find the teacher
     const teacher = await User.findById(req.userId);
+    if (!teacher) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
     if (teacher.role !== 'teacher') {
       return res.status(403).json({ message: 'Only teachers can create classes' });
     }
@@ -353,7 +360,7 @@ app.post('/api/teacher/create-class', authMiddleware, async (req, res) => {
   }
 });
 
-// Teacher gets their own classes
+// Teacher gets their classes
 app.get('/api/teacher/classes', authMiddleware, async (req, res) => {
   try {
     const classes = await Class.find({ teacherId: req.userId }).populate('teacherId', 'fullName');
@@ -400,7 +407,7 @@ app.delete('/api/teacher/classes/:classId', authMiddleware, async (req, res) => 
   }
 });
 
-// Teacher adds a student to their class
+// Teacher adds a student
 app.post('/api/teacher/add-student', authMiddleware, async (req, res) => {
   try {
     const { fullName, email, password, studentId, classId, parentName, parentPhone } = req.body;
@@ -615,8 +622,8 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
   const receiver = await User.findById(receiverId);
   
   const message = new Message({
-    senderId: req.userId, senderName: sender.fullName, senderRole: sender.role,
-    receiverId, receiverName: receiver.fullName, receiverRole: receiver.role,
+    senderId: req.userId, senderName: sender?.fullName || 'Unknown', senderRole: sender?.role || 'unknown',
+    receiverId, receiverName: receiver?.fullName || 'Unknown', receiverRole: receiver?.role || 'unknown',
     content
   });
   await message.save();
@@ -646,7 +653,7 @@ const createDefaultUsers = async () => {
   const existingAcademicAdmin = await User.findOne({ email: 'academic@essa.rw' });
   if (!existingAcademicAdmin) {
     const hashedPassword = await bcrypt.hash('academic123', 10);
-    const academicUser = await User.create({
+    await User.create({
       fullName: 'Academic Administrator',
       email: 'academic@essa.rw',
       password: hashedPassword,
