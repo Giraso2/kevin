@@ -4,40 +4,8 @@ import Swal from 'sweetalert2';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
-// Import all images directly from assets folder
-import heroBg from '../assets/hero-bg.jpg';
-import campusImage from '../assets/campus.png';
-import studentsImage from '../assets/students.png';
-import classroomImg from '../assets/classroom.png';
-import libraryImg from '../assets/library.png';
-import footballImg from '../assets/football.png';
-import basketballImg from '../assets/basketball.png';
-import scienceLabImg from '../assets/science-lab.png';
-import musicImg from '../assets/music.png';
-import artImg from '../assets/art.png';
-import graduationImg from '../assets/graduation.png';
-import debateClubImg from '../assets/debate-club.png';
-import musicClubImg from '../assets/music-club.png';
-import sportsClubImg from '../assets/sports-club.png';
-
-// Fallback image URLs
-const fallbackImages = {
-  heroBg: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&h=800&fit=crop',
-  campusImage: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600&h=450&fit=crop',
-  studentsImage: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=500&h=350&fit=crop',
-  classroomImg: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=250&fit=crop',
-  libraryImg: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400&h=250&fit=crop',
-  scienceLabImg: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=400&h=250&fit=crop',
-  footballImg: 'https://images.unsplash.com/photo-1459865264687-595d652de67e?w=400&h=250&fit=crop',
-  musicImg: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=250&fit=crop',
-  graduationImg: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=250&fit=crop',
-  newsPlaceholder: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600&h=400&fit=crop'
-};
-
-// Helper function to get image with fallback
-const getImage = (localImg, fallbackUrl) => {
-  return localImg || fallbackUrl;
-};
+// API Base URL
+const API_URL = 'http://localhost:5000/api';
 
 const NewsPage = () => {
   const [activeCategory, setActiveCategory] = useState('all');
@@ -45,11 +13,10 @@ const NewsPage = () => {
   const [selectedNews, setSelectedNews] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [newsItems, setNewsItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const itemsPerPage = 6;
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
 
   // News categories
   const categories = [
@@ -61,171 +28,37 @@ const NewsPage = () => {
     { id: 'sports', name: 'Sports', icon: 'fas fa-futbol', color: '#f39c12' }
   ];
 
-  // News data with local images and fallbacks
-  const newsItems = [
-    {
-      id: 1,
-      title: 'ESSA Nyarugunga Wins National Science Competition',
-      category: 'achievement',
-      date: 'March 15, 2026',
-      author: 'Science Department',
-      image: getImage(scienceLabImg, fallbackImages.scienceLabImg),
-      summary: 'Our students won first place in the National Science Fair with their innovative water purification project. The team of S5 students developed a cost-effective water filtration system that can remove up to 99% of contaminants.',
-      content: `The National Science Competition brought together over 50 schools from across Rwanda. ESSA Nyarugunga's team, consisting of three S5 students, presented their innovative water purification project that uses locally available materials to create an affordable filtration system.
+  // Fetch news from API
+  useEffect(() => {
+    fetchNews();
+  }, []);
 
-The project impressed the judges with its practicality and potential impact on rural communities. The students spent three months developing and testing their prototype under the guidance of their physics teacher.
-
-"We are incredibly proud of our students' achievement," said the Headmaster. "This demonstrates the quality of science education at ESSA and our students' ability to apply theoretical knowledge to real-world problems."
-
-The winning team will represent Rwanda at the East African Science Competition later this year.`,
-      tags: ['Science', 'Competition', 'Innovation'],
-      views: 1245,
-      likes: 89
-    },
-    {
-      id: 2,
-      title: 'New Computer Laboratory Inaugurated',
-      category: 'announcement',
-      date: 'February 28, 2026',
-      author: 'ICT Department',
-      image: getImage(studentsImage, fallbackImages.studentsImage),
-      summary: 'State-of-the-art computer lab with 50 new computers was officially opened by the District Mayor. The facility will enhance ICT education for all students.',
-      content: `The new computer laboratory, funded by a partnership with the Rwanda ICT Chamber, features 50 high-performance computers, high-speed internet, and modern teaching equipment. The facility will serve students from both Ordinary and Advanced levels.
-
-The inauguration ceremony was attended by district officials, parents, and community members. The Mayor praised ESSA for its commitment to technology education.
-
-"This lab will enable our students to develop crucial digital skills needed for the 21st-century workforce," said the Head of ICT Department. "We plan to offer evening classes for community members as well."`,
-      tags: ['ICT', 'Infrastructure', 'Technology'],
-      views: 892,
-      likes: 67
-    },
-    {
-      id: 3,
-      title: 'Annual Parent-Teacher Conference Announced',
-      category: 'announcement',
-      date: 'February 10, 2026',
-      author: 'Administration',
-      image: getImage(classroomImg, fallbackImages.classroomImg),
-      summary: 'Annual parent-teacher conferences will be held on March 5-6, 2026. Parents are invited to discuss student progress and academic performance.',
-      content: `The annual parent-teacher conference is scheduled for March 5-6, 2026. This important event allows parents to meet with teachers, discuss their children's progress, and address any concerns.
-
-Each session will last 15 minutes per teacher. Parents are encouraged to schedule appointments in advance through the school portal. Report cards will be distributed during these meetings.
-
-"We value the partnership between school and home," said the Deputy Headmistress. "These conferences are crucial for ensuring student success."`,
-      tags: ['Parents', 'Conference', 'Academic'],
-      views: 567,
-      likes: 45
-    },
-    {
-      id: 4,
-      title: 'Cultural Day Celebration 2026',
-      category: 'event',
-      date: 'January 20, 2026',
-      author: 'Cultural Club',
-      image: getImage(musicImg, fallbackImages.musicImg),
-      summary: 'Students showcased Rwandan culture through music, dance, and art. The event was a great success with participation from all grades.',
-      content: `The annual Cultural Day celebration transformed the school into a vibrant showcase of Rwandan heritage. Students performed traditional dances, displayed artwork, and presented cultural artifacts.
-
-Special guest performers from the National Ballet also entertained the audience. Parents and community members were invited to participate in the festivities.
-
-"The event promotes cultural pride and unity among our students," said the Cultural Club patron. "It's wonderful to see our young people embracing their heritage."`,
-      tags: ['Culture', 'Event', 'Arts'],
-      views: 2341,
-      likes: 156
-    },
-    {
-      id: 5,
-      title: 'Scholarship Opportunities Announced',
-      category: 'announcement',
-      date: 'January 5, 2026',
-      author: 'Admissions Office',
-      image: getImage(studentsImage, fallbackImages.studentsImage),
-      summary: 'Merit-based scholarships available for outstanding students. Apply before March 31, 2026 for consideration.',
-      content: `ESSA Nyarugunga is pleased to announce scholarship opportunities for the 2026-2027 academic year. The scholarships are available for students with exceptional academic performance, leadership qualities, or special talents.
-
-Five full scholarships and ten partial scholarships will be awarded. Applicants must submit their academic records, recommendation letters, and a personal statement.
-
-"We believe every talented student deserves access to quality education regardless of financial background," said the Headmaster.`,
-      tags: ['Scholarships', 'Opportunities', 'Admissions'],
-      views: 3120,
-      likes: 203
-    },
-    {
-      id: 6,
-      title: 'Inter-School Debate Championship Victory',
-      category: 'achievement',
-      date: 'December 10, 2025',
-      author: 'Debate Club',
-      image: getImage(debateClubImg, 'https://images.unsplash.com/photo-1557425955-df376b88b5a5?w=600&h=400&fit=crop'),
-      summary: 'Our debate team emerged champions in the regional competition, defeating 15 other schools.',
-      content: `ESSA Nyarugunga's debate team won first place at the Regional Inter-School Debate Championship. The team argued for the motion "Technology is more beneficial than harmful to society" and impressed the judges with their reasoning and presentation skills.
-
-The team captain received the Best Speaker award. This is the third consecutive year our school has reached the finals.
-
-"We are immensely proud of our debaters," said the Debate Club patron. "Their critical thinking and public speaking skills have improved tremendously."`,
-      tags: ['Debate', 'Achievement', 'Competition'],
-      views: 978,
-      likes: 72
-    },
-    {
-      id: 7,
-      title: 'Sports Day 2026 - Record Breaking Performances',
-      category: 'sports',
-      date: 'March 20, 2026',
-      author: 'Sports Department',
-      image: getImage(footballImg, fallbackImages.footballImg),
-      summary: 'Annual Sports Day saw three school records broken in athletics. Students competed in various sports disciplines.',
-      content: `The 2026 Sports Day was a resounding success with outstanding performances across all disciplines. Three school records were broken in track events, including the 100m sprint and long jump.
-
-The event featured football, basketball, volleyball, athletics, and traditional games. The Blue House emerged as the overall champion.
-
-"Sports develop teamwork, discipline, and physical fitness," said the Sports Director. "We're seeing improved participation every year."`,
-      tags: ['Sports', 'Athletics', 'Records'],
-      views: 1543,
-      likes: 98
-    },
-    {
-      id: 8,
-      title: 'Computer Science Week Celebrated',
-      category: 'academic',
-      date: 'December 5, 2025',
-      author: 'ICT Department',
-      image: getImage(studentsImage, fallbackImages.studentsImage),
-      summary: 'Students participated in coding workshops, robotics demonstrations, and cybersecurity awareness sessions.',
-      content: `Computer Science Week featured a series of engaging activities designed to spark interest in technology fields. Students learned basic programming, built simple robots, and participated in a cybersecurity quiz.
-
-Guest speakers from local tech companies shared career insights. The week concluded with a coding competition.
-
-"We want to prepare our students for the digital economy," said the ICT teacher. "These skills are essential for their future careers."`,
-      tags: ['Computer Science', 'Technology', 'Workshops'],
-      views: 678,
-      likes: 54
-    },
-    {
-      id: 9,
-      title: 'Graduation Ceremony 2025',
-      category: 'event',
-      date: 'November 25, 2025',
-      author: 'Administration',
-      image: getImage(graduationImg, fallbackImages.graduationImg),
-      summary: '150 students graduated with flying colors. The ceremony was graced by the District Mayor.',
-      content: `The graduation ceremony for the 2025 cohort was a memorable event. 150 students received their certificates, with 25 achieving distinctions.
-
-The guest of honor, the District Mayor, encouraged graduates to pursue higher education and contribute to national development. Top-performing students received special awards.
-
-"We wish our graduates success in their future endeavors," said the Headmaster. "They will always be part of the ESSA family."`,
-      tags: ['Graduation', 'Event', 'Achievement'],
-      views: 2456,
-      likes: 189
+  const fetchNews = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/news/public`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setNewsItems(data.data);
+      } else {
+        setNewsItems([]);
+      }
+    } catch (error) {
+      console.error('Error fetching news:', error);
+      setError('Failed to load news. Please try again later.');
+      setNewsItems([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   // Filter news based on category and search
   const filteredNews = newsItems.filter(item => {
     const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+                          item.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
     return matchesCategory && matchesSearch;
   });
 
@@ -250,17 +83,33 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
     document.body.style.overflow = 'auto';
   };
 
-  const handleSubscribe = (e) => {
+  const handleSubscribe = async (e) => {
     e.preventDefault();
     const email = e.target.email.value;
     if (email) {
-      Swal.fire({
-        title: 'Subscribed!',
-        text: 'You have successfully subscribed to our newsletter.',
-        icon: 'success',
-        confirmButtonColor: '#1e3c72'
-      });
-      e.target.reset();
+      try {
+        const response = await fetch(`${API_URL}/subscriptions/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await response.json();
+        
+        Swal.fire({
+          title: data.success ? 'Subscribed!' : 'Already Subscribed',
+          text: data.message || 'You have successfully subscribed to our newsletter.',
+          icon: data.success ? 'success' : 'info',
+          confirmButtonColor: '#1e3c72'
+        });
+        e.target.reset();
+      } catch (error) {
+        Swal.fire({
+          title: 'Error',
+          text: 'Failed to subscribe. Please try again.',
+          icon: 'error',
+          confirmButtonColor: '#1e3c72'
+        });
+      }
     }
   };
 
@@ -275,6 +124,8 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
       confirmButtonColor: '#1e3c72'
     }).then((result) => {
       if (result.isConfirmed) {
+        // Copy link to clipboard
+        navigator.clipboard.writeText(window.location.href);
         Swal.fire('Shared!', 'Link copied to clipboard', 'success');
       }
     });
@@ -290,12 +141,38 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
     return cat ? cat.color : '#1a3a5c';
   };
 
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date TBD';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <div className="loading-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <div className="loading-spinner"></div>
+          <p>Loading news...</p>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+  const hasNews = newsItems.length > 0;
+  const featuredNews = hasNews ? newsItems[0] : null;
+
   return (
     <>
       <Navbar />
       
       {/* Hero Section */}
-      <section className="news-hero" style={{ backgroundImage: `url(${getImage(heroBg, fallbackImages.heroBg)})` }}>
+      <section className="news-hero">
         <div className="news-hero-overlay"></div>
         <div className="container news-hero-content">
           <div className="hero-badge">
@@ -305,16 +182,12 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
           <p>Stay updated with the latest happenings, achievements, and announcements from ESSA Nyarugunga</p>
           <div className="hero-stats">
             <div className="hero-stat">
-              <span className="stat-number">{newsItems.length}+</span>
+              <span className="stat-number">{newsItems.length}</span>
               <span className="stat-label">Articles Published</span>
             </div>
             <div className="hero-stat">
-              <span className="stat-number">5+</span>
+              <span className="stat-number">{categories.filter(c => c.id !== 'all').length}</span>
               <span className="stat-label">Categories</span>
-            </div>
-            <div className="hero-stat">
-              <span className="stat-number">10k+</span>
-              <span className="stat-label">Total Views</span>
             </div>
           </div>
         </div>
@@ -374,31 +247,48 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
         </div>
       </section>
 
-      {/* Featured News Section */}
-      {activeCategory === 'all' && searchTerm === '' && (
+      {/* No News Message */}
+      {!hasNews && (
+        <section className="no-news-section">
+          <div className="container">
+            <div className="no-news-card">
+              <i className="fas fa-newspaper"></i>
+              <h3>No News Published Yet</h3>
+              <p>There are currently no news articles or announcements. Please check back later for updates from ESSA Nyarugunga.</p>
+              <div className="no-news-illustration">
+                <i className="fas fa-clock"></i>
+                <span>Stay tuned for upcoming events and achievements!</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Featured News Section - Only if news exists */}
+      {hasNews && activeCategory === 'all' && searchTerm === '' && featuredNews && (
         <section className="featured-news">
           <div className="container">
             <div className="featured-card">
               <div className="featured-image">
-                <img src={newsItems[0].image} alt={newsItems[0].title} />
+                <img src={featuredNews.image || 'https://via.placeholder.com/800x400/1a3a5c/ffffff?text=ESSA+News'} alt={featuredNews.title} />
                 <div className="featured-badge">
-                  <i className={getCategoryIcon(newsItems[0].category)}></i>
+                  <i className={getCategoryIcon(featuredNews.category)}></i>
                   Featured Story
                 </div>
               </div>
               <div className="featured-content">
-                <div className="news-category" style={{ background: getCategoryColor(newsItems[0].category) }}>
-                  <i className={getCategoryIcon(newsItems[0].category)}></i>
-                  {newsItems[0].category.toUpperCase()}
+                <div className="news-category" style={{ background: getCategoryColor(featuredNews.category) }}>
+                  <i className={getCategoryIcon(featuredNews.category)}></i>
+                  {featuredNews.category?.toUpperCase() || 'NEWS'}
                 </div>
-                <h2>{newsItems[0].title}</h2>
+                <h2>{featuredNews.title}</h2>
                 <div className="news-meta">
-                  <span><i className="fas fa-calendar-alt"></i> {newsItems[0].date}</span>
-                  <span><i className="fas fa-user"></i> {newsItems[0].author}</span>
-                  <span><i className="fas fa-eye"></i> {newsItems[0].views} views</span>
+                  <span><i className="fas fa-calendar-alt"></i> {formatDate(featuredNews.date || featuredNews.createdAt)}</span>
+                  <span><i className="fas fa-user"></i> {featuredNews.author || 'ESSA Admin'}</span>
+                  <span><i className="fas fa-eye"></i> {featuredNews.views || 0} views</span>
                 </div>
-                <p>{newsItems[0].summary}</p>
-                <button onClick={() => handleNewsClick(newsItems[0])} className="read-more-btn">
+                <p>{featuredNews.summary}</p>
+                <button onClick={() => handleNewsClick(featuredNews)} className="read-more-btn">
                   Read Full Story <i className="fas fa-arrow-right"></i>
                 </button>
               </div>
@@ -408,101 +298,107 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
       )}
 
       {/* News Grid */}
-      <section className="news-grid-section">
-        <div className="container">
-          <div className="section-header">
-            <h2>
-              {activeCategory === 'all' ? 'Latest News' : categories.find(c => c.id === activeCategory)?.name}
-            </h2>
-            <p>{filteredNews.length} article(s) found</p>
-          </div>
-
-          {filteredNews.length > 0 ? (
-            <>
-              <div className="news-grid">
-                {paginatedNews.map((news, index) => (
-                  <div 
-                    key={news.id} 
-                    className="news-card"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <div className="news-image-wrapper">
-                      <img src={news.image} alt={news.title} />
-                      <div className="news-category-tag" style={{ background: getCategoryColor(news.category) }}>
-                        <i className={getCategoryIcon(news.category)}></i>
-                        {news.category}
-                      </div>
-                    </div>
-                    <div className="news-card-content">
-                      <div className="news-date">
-                        <i className="fas fa-calendar-alt"></i> {news.date}
-                      </div>
-                      <h3>{news.title}</h3>
-                      <p>{news.summary.substring(0, 120)}...</p>
-                      <div className="news-tags">
-                        {news.tags.slice(0, 3).map((tag, idx) => (
-                          <span key={idx} className="news-tag">#{tag}</span>
-                        ))}
-                      </div>
-                      <div className="news-card-footer">
-                        <div className="news-stats">
-                          <span><i className="fas fa-eye"></i> {news.views}</span>
-                          <span><i className="fas fa-heart"></i> {news.likes}</span>
-                        </div>
-                        <button onClick={() => handleNewsClick(news)} className="read-more">
-                          Read More <i className="fas fa-arrow-right"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="pagination">
-                  <button 
-                    onClick={() => handlePageChange(currentPage - 1)} 
-                    disabled={currentPage === 1}
-                    className="page-btn"
-                  >
-                    <i className="fas fa-chevron-left"></i> Previous
-                  </button>
-                  <div className="page-numbers">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`page-number ${currentPage === page ? 'active' : ''}`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                  </div>
-                  <button 
-                    onClick={() => handlePageChange(currentPage + 1)} 
-                    disabled={currentPage === totalPages}
-                    className="page-btn"
-                  >
-                    Next <i className="fas fa-chevron-right"></i>
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="no-results">
-              <i className="fas fa-search"></i>
-              <h3>No news found</h3>
-              <p>Try adjusting your search or filter criteria</p>
-              <button onClick={() => { setActiveCategory('all'); setSearchTerm(''); }} className="btn btn-primary">
-                Clear Filters
-              </button>
+      {hasNews && (
+        <section className="news-grid-section">
+          <div className="container">
+            <div className="section-header">
+              <h2>
+                {activeCategory === 'all' ? 'Latest News' : categories.find(c => c.id === activeCategory)?.name}
+              </h2>
+              <p>{filteredNews.length} article(s) found</p>
             </div>
-          )}
-        </div>
-      </section>
 
-      {/* Upcoming Events Section */}
+            {filteredNews.length > 0 ? (
+              <>
+                <div className="news-grid">
+                  {paginatedNews.map((news, index) => (
+                    <div 
+                      key={news._id || news.id} 
+                      className="news-card"
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      <div className="news-image-wrapper">
+                        <img 
+                          src={news.image || 'https://via.placeholder.com/400x250/1a3a5c/ffffff?text=ESSA+News'} 
+                          alt={news.title} 
+                        />
+                        <div className="news-category-tag" style={{ background: getCategoryColor(news.category) }}>
+                          <i className={getCategoryIcon(news.category)}></i>
+                          {news.category}
+                        </div>
+                      </div>
+                      <div className="news-card-content">
+                        <div className="news-date">
+                          <i className="fas fa-calendar-alt"></i> {formatDate(news.date || news.createdAt)}
+                        </div>
+                        <h3>{news.title}</h3>
+                        <p>{news.summary?.substring(0, 120)}...</p>
+                        {news.tags && news.tags.length > 0 && (
+                          <div className="news-tags">
+                            {news.tags.slice(0, 3).map((tag, idx) => (
+                              <span key={idx} className="news-tag">#{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="news-card-footer">
+                          <div className="news-stats">
+                            <span><i className="fas fa-eye"></i> {news.views || 0}</span>
+                          </div>
+                          <button onClick={() => handleNewsClick(news)} className="read-more">
+                            Read More <i className="fas fa-arrow-right"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="pagination">
+                    <button 
+                      onClick={() => handlePageChange(currentPage - 1)} 
+                      disabled={currentPage === 1}
+                      className="page-btn"
+                    >
+                      <i className="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <div className="page-numbers">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`page-number ${currentPage === page ? 'active' : ''}`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => handlePageChange(currentPage + 1)} 
+                      disabled={currentPage === totalPages}
+                      className="page-btn"
+                    >
+                      Next <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="no-results">
+                <i className="fas fa-search"></i>
+                <h3>No news found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+                <button onClick={() => { setActiveCategory('all'); setSearchTerm(''); }} className="btn btn-primary">
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Upcoming Events Section - Static for now */}
       <section className="upcoming-events">
         <div className="container">
           <div className="section-title">
@@ -543,17 +439,6 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
                 <p><i className="fas fa-map-marker-alt"></i> Various Classrooms</p>
               </div>
             </div>
-            <div className="event-item">
-              <div className="event-date">
-                <span className="event-day">25</span>
-                <span className="event-month">JUN</span>
-              </div>
-              <div className="event-details">
-                <h3>Sports Day 2026</h3>
-                <p><i className="fas fa-clock"></i> 8:00 AM - 4:00 PM</p>
-                <p><i className="fas fa-map-marker-alt"></i> School Playground</p>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -566,27 +451,29 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
               <i className="fas fa-times"></i>
             </button>
             <div className="modal-image">
-              <img src={selectedNews.image} alt={selectedNews.title} />
+              <img src={selectedNews.image || 'https://via.placeholder.com/800x400/1a3a5c/ffffff?text=ESSA+News'} alt={selectedNews.title} />
               <div className="modal-category" style={{ background: getCategoryColor(selectedNews.category) }}>
                 <i className={getCategoryIcon(selectedNews.category)}></i>
-                {selectedNews.category.toUpperCase()}
+                {selectedNews.category?.toUpperCase() || 'NEWS'}
               </div>
             </div>
             <div className="modal-body">
               <h2>{selectedNews.title}</h2>
               <div className="modal-meta">
-                <span><i className="fas fa-calendar-alt"></i> {selectedNews.date}</span>
-                <span><i className="fas fa-user"></i> {selectedNews.author}</span>
-                <span><i className="fas fa-eye"></i> {selectedNews.views} views</span>
+                <span><i className="fas fa-calendar-alt"></i> {formatDate(selectedNews.date || selectedNews.createdAt)}</span>
+                <span><i className="fas fa-user"></i> {selectedNews.author || 'ESSA Admin'}</span>
+                <span><i className="fas fa-eye"></i> {selectedNews.views || 0} views</span>
               </div>
               <div className="modal-content-text">
-                <p>{selectedNews.content}</p>
+                <p>{selectedNews.content || selectedNews.summary}</p>
               </div>
-              <div className="modal-tags">
-                {selectedNews.tags.map((tag, idx) => (
-                  <span key={idx} className="modal-tag">#{tag}</span>
-                ))}
-              </div>
+              {selectedNews.tags && selectedNews.tags.length > 0 && (
+                <div className="modal-tags">
+                  {selectedNews.tags.map((tag, idx) => (
+                    <span key={idx} className="modal-tag">#{tag}</span>
+                  ))}
+                </div>
+              )}
               <div className="modal-actions">
                 <button onClick={() => handleShare(selectedNews)} className="modal-share-btn">
                   <i className="fas fa-share-alt"></i> Share Article
@@ -601,6 +488,68 @@ The guest of honor, the District Mayor, encouraged graduates to pursue higher ed
       )}
 
       <Footer />
+
+      <style>{`
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 400px;
+          gap: 20px;
+        }
+        .loading-spinner {
+          width: 50px;
+          height: 50px;
+          border: 4px solid #e0e0e0;
+          border-top-color: #1a3a5c;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .no-news-section {
+          padding: 60px 0;
+        }
+        .no-news-card {
+          text-align: center;
+          background: white;
+          border-radius: 16px;
+          padding: 50px 30px;
+          max-width: 600px;
+          margin: 0 auto;
+          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+        .no-news-card i {
+          font-size: 4rem;
+          color: #1a3a5c;
+          margin-bottom: 20px;
+        }
+        .no-news-card h3 {
+          font-size: 1.5rem;
+          color: #1a3a5c;
+          margin-bottom: 15px;
+        }
+        .no-news-card p {
+          color: #666;
+          margin-bottom: 25px;
+        }
+        .no-news-illustration {
+          background: #f0f4f8;
+          padding: 15px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 20px;
+        }
+        .no-news-illustration i {
+          font-size: 1.2rem;
+          margin: 0;
+          color: #ffc107;
+        }
+      `}</style>
     </>
   );
 };
