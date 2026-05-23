@@ -37,39 +37,46 @@ const ContactPage = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ // In ContactPage.js, update handleSubmit function
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!formData.fullName || !formData.email || !formData.message) {
+    Swal.fire({
+      title: 'Incomplete Form',
+      text: 'Please fill in all required fields.',
+      icon: 'error',
+      confirmButtonColor: '#1e3c72'
+    });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    Swal.fire({
+      title: 'Invalid Email',
+      text: 'Please enter a valid email address.',
+      icon: 'error',
+      confirmButtonColor: '#1e3c72'
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    const response = await fetch('http://localhost:5000/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
     
-    // Validate form
-    if (!formData.fullName || !formData.email || !formData.message) {
-      Swal.fire({
-        title: 'Incomplete Form',
-        text: 'Please fill in all required fields.',
-        icon: 'error',
-        confirmButtonColor: '#1e3c72'
-      });
-      return;
-    }
-
-    // Validate email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      Swal.fire({
-        title: 'Invalid Email',
-        text: 'Please enter a valid email address.',
-        icon: 'error',
-        confirmButtonColor: '#1e3c72'
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Simulate form submission
-    setTimeout(() => {
+    const result = await response.json();
+    
+    if (result.success) {
       Swal.fire({
         title: 'Message Sent!',
-        html: `Thank you <strong>${formData.fullName}</strong> for contacting us.<br/><br/>We have received your message and will respond within 24 hours.`,
+        html: `Thank you <strong>${formData.fullName}</strong> for contacting us.<br/><br/>${result.message}`,
         icon: 'success',
         confirmButtonText: 'OK',
         confirmButtonColor: '#1e3c72'
@@ -82,10 +89,20 @@ const ContactPage = () => {
         subject: '',
         message: ''
       });
-      setIsSubmitting(false);
-    }, 1500);
-  };
-
+    } else {
+      throw new Error(result.message);
+    }
+  } catch (error) {
+    Swal.fire({
+      title: 'Error',
+      text: error.message || 'Failed to send message. Please try again.',
+      icon: 'error',
+      confirmButtonColor: '#1e3c72'
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const handleCallClick = () => {
     Swal.fire({
       title: 'Call Us',
