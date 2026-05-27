@@ -37,9 +37,8 @@ const SuperAdminDashboard = () => {
 
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth <= 768;
-      setIsMobile(mobile);
-      if (mobile) setMobileMenuOpen(false);
+      setIsMobile(window.innerWidth <= 1024);
+      if (window.innerWidth > 1024) setMobileMenuOpen(false);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -66,7 +65,7 @@ const SuperAdminDashboard = () => {
     if (!token || role !== 'super_admin') {
       navigate('/portal/login');
     } else {
-      setUserName(name || 'Super Administrator');
+      setUserName(name || 'Head Master');
       fetchAllData();
       fetchUsers();
       fetchUnreadCount();
@@ -203,17 +202,6 @@ const SuperAdminDashboard = () => {
     } catch (error) {
       Swal.fire('Error', 'Failed to send message', 'error');
     }
-  };
-
-  const handleOpenChatModal = (user = null) => {
-    if (user) setSelectedChatUser(user);
-    setIsChatModalOpen(true);
-  };
-
-  const handleCloseChatModal = () => {
-    setIsChatModalOpen(false);
-    setSelectedChatUser(null);
-    fetchUnreadCount();
   };
 
   const handleCreateAdmin = async () => {
@@ -422,16 +410,16 @@ const SuperAdminDashboard = () => {
   };
 
   const menuItems = [
-    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line', color: '#3498db' },
-    { id: 'admins', label: 'Sub-Admins', icon: 'fas fa-users-cog', color: '#27ae60' },
-    { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn', color: '#f39c12' },
-    { id: 'discipline', label: 'Discipline', icon: 'fas fa-gavel', color: '#e74c3c' },
-    { id: 'permissions', label: 'Permissions', icon: 'fas fa-file-alt', color: '#9b59b6' },
-    { id: 'messages', label: 'Messages', icon: 'fas fa-comments', color: '#1abc9c' },
-    { id: 'profile', label: 'Profile', icon: 'fas fa-user-cog', color: '#34495e' }
+    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
+    { id: 'admins', label: 'Sub-Admins', icon: 'fas fa-users-cog' },
+    { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn' },
+    { id: 'discipline', label: 'Discipline', icon: 'fas fa-gavel' },
+    { id: 'permissions', label: 'Permissions', icon: 'fas fa-file-alt' },
+    { id: 'messages', label: 'Messages', icon: 'fas fa-comments' },
+    { id: 'profile', label: 'Profile', icon: 'fas fa-user-cog' }
   ];
 
-  const sidebarWidth = sidebarCollapsed ? '80px' : '280px';
+  const sidebarWidth = sidebarCollapsed ? '80px' : '260px';
   const sidebarWidthMobile = mobileMenuOpen ? sidebarWidth : '0px';
 
   if (loading) {
@@ -447,12 +435,16 @@ const SuperAdminDashboard = () => {
     <div className="super-admin-dashboard">
       {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
 
+      {/* Sidebar */}
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} style={{ width: isMobile ? sidebarWidthMobile : sidebarWidth }}>
         <div className="sidebar-header">
           {!sidebarCollapsed && (
             <div className="logo-area">
               <div className="logo-icon"><i className="fas fa-crown"></i></div>
-              <div className="logo-text"><h3>ESSA Portal</h3><p>Super Admin</p></div>
+              <div className="logo-text">
+                <h3>ESSA Portal</h3>
+                <p>Super Admin</p>
+              </div>
             </div>
           )}
           <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
@@ -464,44 +456,67 @@ const SuperAdminDashboard = () => {
           <div className="user-avatar"><i className="fas fa-crown"></i></div>
           {!sidebarCollapsed && (
             <div className="user-info">
-              <h4>{userName}</h4>
-              <span className="user-role">Super Administrator</span>
+              <h4>Head Master</h4>
+              <p className="user-title">Super Administrator</p>
             </div>
           )}
         </div>
 
-        <nav className="sidebar-nav">
-          {menuItems.map((item) => (
-            <button key={item.id} className={`nav-item ${activeTab === item.id ? 'active' : ''}`} onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}>
-              <i className={item.icon} style={{ color: item.color }}></i>
-              {!sidebarCollapsed && <span>{item.label}</span>}
-              {item.id === 'messages' && unreadCount > 0 && !sidebarCollapsed && <span className="nav-badge">{unreadCount}</span>}
-            </button>
-          ))}
-        </nav>
+        <div className="sidebar-nav-wrapper">
+          <nav className="sidebar-nav">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}
+              >
+                <i className={item.icon}></i>
+                {!sidebarCollapsed && <span>{item.label}</span>}
+                {item.id === 'messages' && unreadCount > 0 && !sidebarCollapsed && (
+                  <span className="nav-badge">{unreadCount}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
 
         <div className="sidebar-footer">
-          <button className="logout-btn" onClick={handleLogout}><i className="fas fa-sign-out-alt"></i>{!sidebarCollapsed && <span>Logout</span>}</button>
+          <button className="logout-btn" onClick={handleLogout}>
+            <i className="fas fa-sign-out-alt"></i>
+            {!sidebarCollapsed && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="main-content" style={{ marginLeft: isMobile ? '0' : sidebarWidth }}>
         <div className="top-bar">
           <div className="top-bar-left">
-            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}><i className="fas fa-bars"></i></button>
+            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              <i className="fas fa-bars"></i>
+            </button>
             <h2>Super Admin Dashboard</h2>
           </div>
           <div className="top-bar-right">
             <div className="user-menu">
               <div className="user-avatar-small"><i className="fas fa-user-shield"></i></div>
-              <div className="user-details"><span className="user-name">{userName}</span><span className="user-role-badge">Super Admin</span></div>
+              <div className="user-details">
+                <span className="user-name">Head Master</span>
+                <span className="user-role-badge">Super Admin</span>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="welcome-banner">
-          <div className="welcome-text"><h1>Welcome back, {userName.split(' ')[0]}! 👑</h1><p>Here's what's happening across your school management system today.</p></div>
-          <div className="welcome-date"><i className="fas fa-calendar-alt"></i><span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+          <div className="welcome-text">
+            <h1>Welcome back, Head Master! 👑</h1>
+            <p>Here's what's happening across your school management system today.</p>
+          </div>
+          <div className="welcome-date">
+            <i className="fas fa-calendar-alt"></i>
+            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
         </div>
 
         {/* Overview Tab */}
@@ -541,7 +556,7 @@ const SuperAdminDashboard = () => {
           <div className="data-card">
             <div className="card-header"><h2><i className="fas fa-users-cog"></i> System Administrators</h2><button onClick={handleCreateAdmin} className="btn-primary-sm"><i className="fas fa-plus"></i> Add Admin</button></div>
             <div className="table-responsive"><table className="data-table"><thead><tr><th>Admin</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead><tbody>
-              {admins.map(admin => (<tr key={admin._id}><td><strong>{admin.fullName}</strong></td><td>{admin.email}</td><td><span className={`role-badge ${admin.role}`}>{admin.role?.replace('_', ' ')}</span></td><td>{admin.phone || '-'}</td><td><button onClick={() => handleDeleteAdmin(admin)} className="delete-btn-sm"><i className="fas fa-trash"></i></button></td></tr>))}
+              {admins.map(admin => (<tr key={admin._id}><td><strong>{admin.fullName}</strong></td><td>{admin.email}</td><td><span className={`role-badge ${admin.role}`}>{admin.role?.replace('_', ' ')}</span></td><td>{admin.phone || '-'}</td><td><button onClick={() => handleDeleteAdmin(admin)} className="delete-btn-sm"><i className="fas fa-trash"></i></button><tr></tr>))}
             </tbody></table></div>
           </div>
         )}
@@ -561,7 +576,8 @@ const SuperAdminDashboard = () => {
             <h2><i className="fas fa-gavel"></i> Discipline Cases</h2>
             <div className="discipline-stats"><div className="stat-chip">Total: {disciplineStats.total || 0}</div><div className="stat-chip pending">Pending: {disciplineStats.pending || 0}</div><div className="stat-chip resolved">Resolved: {disciplineStats.resolved || 0}</div></div>
             <div className="table-responsive"><table className="data-table"><thead><tr><th>Student</th><th>Category</th><th>Description</th><th>Reported By</th><th>Status</th><th>Action</th></tr></thead><tbody>
-              {disciplineCases.map(c => (<tr key={c._id}><td><strong>{c.studentName || 'Student'}</strong></td><td>{c.category}</td><td>{c.description?.substring(0, 60)}...</td><td>{c.reporterName || 'Teacher'}</td><td><span className={`status-badge ${c.status}`}>{c.status}</span></td><td>{c.status === 'pending' ? <button onClick={() => handleDisciplineAction(c)} className="review-btn">Review</button> : <span className="action-text">{c.action}</span>}</td></tr>))}
+              {disciplineCases.map(c => (<tr key={c._id}><td><strong>{c.studentName || 'Student'}</strong></td><td>{c.category}</td><td>{c.description?.substring(0, 60)}...</td><td>{c.reporterName || 'Teacher'}</td><td><span className={`status-badge ${c.status}`}>{c.status}</span></td>
+              <td>{c.status === 'pending' ? <button onClick={() => handleDisciplineAction(c)} className="review-btn">Review</button> : <span className="action-text">{c.action}</span>}</td></tr>))}
             </tbody></table></div>
           </div>
         )}
@@ -572,7 +588,9 @@ const SuperAdminDashboard = () => {
             <h2><i className="fas fa-file-alt"></i> Permission Requests</h2>
             <div className="permission-stats"><div className="stat-chip approved">Approved: {permissionTrends.approved || 0}</div><div className="stat-chip pending">Pending: {permissionTrends.pending || 0}</div><div className="stat-chip rejected">Rejected: {permissionTrends.rejected || 0}</div></div>
             <div className="table-responsive"><table className="data-table"><thead><tr><th>Requester</th><th>Type</th><th>Reason</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-              {permissions.map(p => (<tr key={p._id}><td><strong>{p.requesterName}</strong><br/><small>{p.requesterRole}</small></td><td>{p.type}</td><td>{p.reason?.substring(0, 50)}...</td><td><small>{new Date(p.fromDate).toLocaleDateString()} to {new Date(p.toDate).toLocaleDateString()}</small></td><td><span className={`status-badge ${p.status}`}>{p.status}</span></td><td>{p.status === 'pending' ? (<div className="action-buttons"><button onClick={() => handlePermissionAction(p, 'approved')} className="approve-btn-sm">Approve</button><button onClick={() => handlePermissionAction(p, 'rejected')} className="reject-btn-sm">Reject</button></div>) : <span className="action-text">{p.action || p.status}</span>}</td></tr>))}
+              {permissions.map(p => (<tr key={p._id}><td><strong>{p.requesterName}</strong><br/><small>{p.requesterRole}</small></td><td>{p.type}</td><td>{p.reason?.substring(0, 50)}...</td>}<td className="date-cell"><small>{new Date(p.fromDate).toLocaleDateString()} <i className="fas fa-arrow-right"></i> {new Date(p.toDate).toLocaleDateString()}</small></td></td>
+              <td><span className={`status-badge ${p.status}`}>{p.status}</span></td>
+              <td>{p.status === 'pending' ? (<div className="action-buttons"><button onClick={() => handlePermissionAction(p, 'approved')} className="approve-btn-sm">Approve</button><button onClick={() => handlePermissionAction(p, 'rejected')} className="reject-btn-sm">Reject</button></div>) : <span className="action-text">{p.action || p.status}</span>}</td></tr>))}
             </tbody></table></div>
           </div>
         )}
@@ -605,7 +623,7 @@ const SuperAdminDashboard = () => {
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <div className="profile-card"><div className="profile-header"><div className="profile-avatar"><i className="fas fa-crown"></i></div><h2>{userName}</h2><p className="profile-role">Super Administrator</p></div>
+          <div className="profile-card"><div className="profile-header"><div className="profile-avatar"><i className="fas fa-crown"></i></div><h2>Head Master</h2><p className="profile-role">Super Administrator</p></div>
             <div className="profile-details"><div className="detail-item"><i className="fas fa-envelope"></i><div><label>Email Address</label><p>{localStorage.getItem('userEmail') || 'admin@essa.rw'}</p></div></div>
             <div className="detail-item"><i className="fas fa-shield-alt"></i><div><label>Role</label><p>Super Administrator</p></div></div>
             <div className="detail-item"><i className="fas fa-key"></i><div><label>Permissions</label><p>Full System Access</p></div></div></div>
@@ -613,65 +631,343 @@ const SuperAdminDashboard = () => {
         )}
       </main>
 
-      <ChatModal isOpen={isChatModalOpen} onClose={handleCloseChatModal} recipient={selectedChatUser} onMessageSent={fetchUnreadCount} />
+      <ChatModal isOpen={isChatModalOpen} onClose={() => { setIsChatModalOpen(false); setSelectedChatUser(null); fetchUnreadCount(); }} recipient={selectedChatUser} onMessageSent={fetchUnreadCount} />
 
       <style>{`
-        .super-admin-dashboard { font-family: 'Inter', sans-serif; background: #f0f2f5; min-height: 100vh; }
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a3a5c, #0d2b42); color: white; }
-        .loading-spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #ffc107; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        .super-admin-dashboard {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #f0f2f5;
+          min-height: 100vh;
+          display: flex;
+        }
+
+        /* Loading */
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100%;
+          background: linear-gradient(135deg, #1a3a5c, #0d2b42);
+          color: white;
+        }
+        .loading-spinner {
+          width: 50px;
+          height: 50px;
+          border: 4px solid rgba(255,255,255,0.2);
+          border-top-color: #ffc107;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 1rem;
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .mobile-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 998; }
-        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #1a3a5c 0%, #0d2b42 100%); color: white; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column; z-index: 999; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
-        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
-        .logo-area { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { width: 45px; height: 45px; background: #ffc107; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+
+        /* Mobile Overlay */
+        .mobile-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 998;
+        }
+
+        /* Sidebar */
+        .sidebar {
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          background: linear-gradient(180deg, #1a3a5c 0%, #0d2b42 100%);
+          color: white;
+          transition: width 0.3s ease;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          z-index: 999;
+          box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar-header {
+          padding: 1.5rem;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          position: relative;
+        }
+        .logo-area {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .logo-icon {
+          width: 45px;
+          height: 45px;
+          background: #ffc107;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
         .logo-icon i { font-size: 1.5rem; color: #1a3a5c; }
         .logo-text h3 { margin: 0; font-size: 1rem; }
         .logo-text p { margin: 0; font-size: 0.7rem; opacity: 0.8; }
-        .collapse-btn { position: absolute; bottom: -12px; right: -12px; width: 24px; height: 24px; background: #ffc107; border: none; border-radius: 50%; cursor: pointer; color: #1a3a5c; }
-        .user-profile { padding: 1.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .user-avatar { width: 60px; height: 60px; background: rgba(255,255,255,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem; }
+        .collapse-btn {
+          position: absolute;
+          bottom: -12px;
+          right: -12px;
+          width: 24px;
+          height: 24px;
+          background: #ffc107;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          color: #1a3a5c;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .user-profile {
+          padding: 1.5rem;
+          text-align: center;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .user-avatar {
+          width: 60px;
+          height: 60px;
+          background: rgba(255,255,255,0.15);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 0.5rem;
+        }
         .user-avatar i { font-size: 1.8rem; color: #ffc107; }
         .user-info h4 { margin: 0; font-size: 0.9rem; }
-        .user-role { font-size: 0.7rem; opacity: 0.8; }
-        .sidebar-nav { flex: 1; padding: 1rem 0; }
-        .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 20px; background: transparent; border: none; color: rgba(255,255,255,0.8); cursor: pointer; font-size: 0.9rem; transition: all 0.3s; position: relative; }
-        .nav-item i { width: 20px; }
+        .user-title { font-size: 0.7rem; opacity: 0.8; margin-top: 4px; }
+        
+        /* Sidebar Navigation with Scroll */
+        .sidebar-nav-wrapper {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+        .sidebar-nav-wrapper::-webkit-scrollbar {
+          width: 4px;
+        }
+        .sidebar-nav-wrapper::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.1);
+        }
+        .sidebar-nav-wrapper::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.3);
+          border-radius: 4px;
+        }
+        .sidebar-nav {
+          padding: 0.5rem 0;
+        }
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          padding: 12px 20px;
+          background: transparent;
+          border: none;
+          color: rgba(255,255,255,0.8);
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.3s;
+          position: relative;
+          text-align: left;
+        }
+        .nav-item i { width: 20px; font-size: 1rem; }
         .nav-item:hover { background: rgba(255,255,255,0.1); color: #ffc107; }
         .nav-item.active { background: rgba(255,255,255,0.15); color: #ffc107; border-right: 3px solid #ffc107; }
-        .nav-badge { position: absolute; right: 20px; background: #e74c3c; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; min-width: 18px; text-align: center; }
-        .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
-        .logout-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; background: #e74c3c; border: none; border-radius: 8px; color: white; cursor: pointer; }
-        .main-content { transition: margin-left 0.3s ease; padding: 20px; min-height: 100vh; }
-        .top-bar { background: white; padding: 12px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .top-bar-left { display: flex; align-items: center; gap: 15px; }
-        .mobile-menu-btn { display: none; background: #1a3a5c; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-        .user-menu { display: flex; align-items: center; gap: 10px; }
-        .user-avatar-small { width: 35px; height: 35px; background: #1a3a5c; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; }
-        .user-details { display: flex; flex-direction: column; }
+        .nav-badge {
+          position: absolute;
+          right: 20px;
+          background: #e74c3c;
+          color: white;
+          border-radius: 50%;
+          padding: 2px 6px;
+          font-size: 0.7rem;
+          min-width: 18px;
+          text-align: center;
+        }
+        .sidebar-footer { 
+          padding: 1rem; 
+          border-top: 1px solid rgba(255,255,255,0.1);
+          flex-shrink: 0;
+        }
+        .logout-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          padding: 12px;
+          background: #e74c3c;
+          border: none;
+          border-radius: 8px;
+          color: white;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.3s;
+        }
+        .logout-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        /* Main Content */
+        .main-content {
+          flex: 1;
+          transition: margin-left 0.3s ease;
+          padding: 20px;
+          min-height: 100vh;
+          width: calc(100% - 260px);
+        }
+        .top-bar {
+          background: white;
+          padding: 12px 20px;
+          border-radius: 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .top-bar-left {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+        .mobile-menu-btn {
+          display: none;
+          background: #1a3a5c;
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .user-menu {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .user-avatar-small {
+          width: 35px;
+          height: 35px;
+          background: #1a3a5c;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+        .user-details { display: flex; flex-direction: column; align-items: flex-end; }
         .user-name { font-weight: 600; font-size: 0.85rem; }
         .user-role-badge { font-size: 0.7rem; color: #ffc107; }
-        .welcome-banner { background: linear-gradient(135deg, #1a3a5c, #2c5f8a); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+
+        /* Welcome Banner */
+        .welcome-banner {
+          background: linear-gradient(135deg, #1a3a5c, #2c5f8a);
+          border-radius: 16px;
+          padding: 25px 30px;
+          margin-bottom: 25px;
+          color: white;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 15px;
+        }
         .welcome-text h1 { font-size: 1.5rem; margin-bottom: 5px; }
-        .welcome-date { background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .stat-card { background: white; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 15px; transition: transform 0.3s; }
+        .welcome-text p { opacity: 0.9; font-size: 0.85rem; }
+        .welcome-date {
+          background: rgba(255,255,255,0.15);
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 0.85rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 20px;
+          margin-bottom: 25px;
+        }
+        .stat-card {
+          background: white;
+          border-radius: 16px;
+          padding: 20px;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          transition: transform 0.3s, box-shadow 0.3s;
+        }
         .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .stat-icon { width: 55px; height: 55px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+        .stat-icon {
+          width: 55px;
+          height: 55px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .stat-icon i { font-size: 1.5rem; }
         .stat-info h3 { font-size: 1.5rem; margin: 0; color: #1a3a5c; }
         .stat-info p { margin: 5px 0 0; color: #666; font-size: 0.85rem; }
         .stat-trend { font-size: 0.7rem; display: block; margin-top: 5px; }
         .stat-trend.positive { color: #27ae60; }
         .stat-trend.negative { color: #e74c3c; }
-        .quick-actions { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; }
-        .action-btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s; }
+
+        /* Quick Actions */
+        .quick-actions {
+          display: flex;
+          gap: 15px;
+          flex-wrap: wrap;
+          margin-bottom: 25px;
+        }
+        .action-btn {
+          padding: 10px 20px;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.3s;
+        }
         .action-btn.primary { background: #27ae60; color: white; }
         .action-btn.secondary { background: #3498db; color: white; }
         .action-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
-        .pending-items-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .pending-card { background: white; border-radius: 16px; padding: 20px; }
+
+        /* Pending Items */
+        .pending-items-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+          margin-bottom: 25px;
+        }
+        .pending-card {
+          background: white;
+          border-radius: 16px;
+          padding: 20px;
+        }
         .pending-card h3 { margin-bottom: 15px; color: #1a3a5c; font-size: 1rem; }
-        .pending-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .pending-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 0;
+          border-bottom: 1px solid #eee;
+        }
         .item-info strong { display: block; font-size: 0.85rem; }
         .item-info p { font-size: 0.75rem; color: #666; margin: 2px 0 0; }
         .item-action { background: #f39c12; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; }
@@ -679,98 +975,407 @@ const SuperAdminDashboard = () => {
         .approve-btn { background: #27ae60; color: white; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
         .reject-btn { background: #e74c3c; color: white; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
         .no-items { text-align: center; padding: 20px; color: #999; font-size: 0.85rem; }
-        .data-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .btn-primary-sm { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
-        .delete-btn-sm { background: #e74c3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+
+        /* Data Card */
+        .data-card {
+          background: white;
+          border-radius: 16px;
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .card-header h2 { margin: 0; font-size: 1.2rem; color: #1a3a5c; }
+        .card-header h2 i { margin-right: 8px; color: #ffc107; }
+        .btn-primary-sm {
+          background: #27ae60;
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.8rem;
+        }
+        .delete-btn-sm {
+          background: #e74c3c;
+          color: white;
+          border: none;
+          padding: 4px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.7rem;
+        }
         .table-responsive { overflow-x: auto; }
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { text-align: left; padding: 10px; background: #f8f9fa; color: #1a3a5c; font-weight: 600; font-size: 0.8rem; }
-        .data-table td { padding: 10px; border-bottom: 1px solid #e0e0e0; font-size: 0.8rem; }
-        .role-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 600px;
+        }
+        .data-table th {
+          text-align: left;
+          padding: 12px;
+          background: #f8f9fa;
+          color: #1a3a5c;
+          font-weight: 600;
+          font-size: 0.8rem;
+        }
+        .data-table td {
+          padding: 12px;
+          border-bottom: 1px solid #e0e0e0;
+          font-size: 0.8rem;
+        }
+        .role-badge {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-size: 0.7rem;
+          font-weight: 600;
+        }
         .role-badge.academic_admin { background: #e8f5e9; color: #27ae60; }
         .role-badge.discipline_admin { background: #fdecea; color: #e74c3c; }
         .role-badge.accounts_admin { background: #e3f2fd; color: #3498db; }
-        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+        .status-badge {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-size: 0.7rem;
+          font-weight: 600;
+        }
         .status-badge.pending { background: #fff3e0; color: #f39c12; }
         .status-badge.approved { background: #e8f5e9; color: #27ae60; }
         .status-badge.rejected { background: #fdecea; color: #e74c3c; }
+
+        /* Announcements */
         .announcements-list { display: flex; flex-direction: column; gap: 15px; }
-        .announcement-item { padding: 15px; border-radius: 12px; background: #f8f9fa; border-left: 3px solid; }
+        .announcement-item {
+          padding: 15px;
+          border-radius: 12px;
+          background: #f8f9fa;
+          border-left: 3px solid;
+        }
         .announcement-item.urgent { border-left-color: #e74c3c; background: #fdecea; }
         .announcement-item.high { border-left-color: #f39c12; background: #fff3e0; }
-        .announcement-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .announcement-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
         .announcement-header h3 { margin: 0; font-size: 1rem; }
-        .priority-badge { font-size: 0.7rem; margin-left: 10px; padding: 2px 6px; border-radius: 4px; }
+        .priority-badge {
+          font-size: 0.7rem;
+          padding: 2px 8px;
+          border-radius: 4px;
+        }
         .priority-badge.urgent { background: #e74c3c; color: white; }
         .priority-badge.high { background: #f39c12; color: white; }
         .priority-badge.normal { background: #27ae60; color: white; }
-        .announcement-footer { margin-top: 10px; display: flex; gap: 15px; font-size: 0.7rem; color: #999; }
-        .discipline-stats, .permission-stats { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .stat-chip { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; }
+        .announcement-footer {
+          margin-top: 10px;
+          display: flex;
+          gap: 15px;
+          font-size: 0.7rem;
+          color: #999;
+        }
+
+        /* Chips */
+        .discipline-stats, .permission-stats {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        .stat-chip {
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 0.7rem;
+        }
         .stat-chip.pending { background: #fff3e0; color: #f39c12; }
         .stat-chip.resolved, .stat-chip.approved { background: #e8f5e9; color: #27ae60; }
         .stat-chip.rejected { background: #fdecea; color: #e74c3c; }
+
+        /* Action Buttons */
         .action-buttons { display: flex; gap: 8px; }
-        .approve-btn-sm { background: #27ae60; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
-        .reject-btn-sm { background: #e74c3c; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
-        .review-btn { background: #f39c12; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
-        .profile-card { background: white; border-radius: 20px; overflow: hidden; max-width: 500px; margin: 0 auto; }
-        .profile-header { background: linear-gradient(135deg, #1a3a5c, #2c5f8a); color: white; padding: 30px; text-align: center; }
-        .profile-avatar { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; }
+        .approve-btn-sm { background: #27ae60; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        .reject-btn-sm { background: #e74c3c; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        .review-btn { background: #f39c12; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+
+        /* Profile Card */
+        .profile-card {
+          background: white;
+          border-radius: 20px;
+          overflow: hidden;
+          max-width: 500px;
+          margin: 0 auto;
+        }
+        .profile-header {
+          background: linear-gradient(135deg, #1a3a5c, #2c5f8a);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .profile-avatar {
+          width: 80px;
+          height: 80px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 15px;
+        }
         .profile-avatar i { font-size: 2.5rem; color: #ffc107; }
         .profile-header h2 { margin: 0; font-size: 1.3rem; }
         .profile-role { opacity: 0.9; margin-top: 5px; font-size: 0.85rem; }
         .profile-details { padding: 20px; }
-        .detail-item { display: flex; gap: 15px; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .detail-item {
+          display: flex;
+          gap: 15px;
+          padding: 12px 0;
+          border-bottom: 1px solid #eee;
+        }
         .detail-item i { font-size: 1rem; color: #1a3a5c; width: 25px; }
         .detail-item label { display: block; font-size: 0.7rem; color: #999; }
         .detail-item p { margin: 0; font-weight: 500; font-size: 0.85rem; }
+        .date-cell small { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 
         /* Messages Tab Styles */
-        .messages-container { background: white; border-radius: 16px; overflow: hidden; height: calc(100vh - 200px); min-height: 500px; display: flex; flex-direction: column; }
+        .messages-container {
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+          height: calc(100vh - 180px);
+          min-height: 500px;
+          display: flex;
+          flex-direction: column;
+        }
         .messages-header { padding: 15px 20px; border-bottom: 1px solid #e0e0e0; background: white; }
         .messages-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
-        .msg-tab { padding: 8px 20px; background: #f0f2f5; border: none; border-radius: 30px; cursor: pointer; font-weight: 500; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
+        .msg-tab {
+          padding: 8px 20px;
+          background: #f0f2f5;
+          border: none;
+          border-radius: 30px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.3s;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
         .msg-tab.active { background: #1a3a5c; color: white; }
         .msg-tab .unread-count { background: #e74c3c; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; margin-left: 5px; }
         .inbox-container { display: flex; flex: 1; overflow: hidden; }
-        .conversations-list { width: 30%; border-right: 1px solid #e0e0e0; overflow-y: auto; background: #f8f9fa; }
-        .search-conversations { padding: 15px; position: relative; border-bottom: 1px solid #e0e0e0; }
-        .search-conversations i { position: absolute; left: 25px; top: 50%; transform: translateY(-50%); color: #999; }
-        .search-conversations input { width: 100%; padding: 8px 8px 8px 35px; border: 1px solid #ddd; border-radius: 20px; font-size: 0.85rem; }
-        .conversation-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #eee; }
+        .conversations-list {
+          width: 320px;
+          border-right: 1px solid #e0e0e0;
+          overflow-y: auto;
+          background: #f8f9fa;
+          flex-shrink: 0;
+        }
+        .search-conversations {
+          padding: 15px;
+          position: relative;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        .search-conversations i {
+          position: absolute;
+          left: 25px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #999;
+        }
+        .search-conversations input {
+          width: 100%;
+          padding: 8px 8px 8px 35px;
+          border: 1px solid #ddd;
+          border-radius: 20px;
+          font-size: 0.85rem;
+        }
+        .conversation-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 15px;
+          cursor: pointer;
+          transition: background 0.2s;
+          border-bottom: 1px solid #eee;
+        }
         .conversation-item:hover { background: #e8f0fe; }
         .conversation-item.active { background: #e3f2fd; border-left: 3px solid #ffc107; }
-        .conv-avatar { width: 40px; height: 40px; background: #1a3a5c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+        .conv-avatar {
+          width: 40px;
+          height: 40px;
+          background: #1a3a5c;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          flex-shrink: 0;
+        }
         .conv-info { flex: 1; min-width: 0; }
         .conv-name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .conv-role { font-size: 0.7rem; color: #ffc107; }
         .no-conversations { text-align: center; padding: 40px; color: #999; }
         .messages-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .messages-header-info { display: flex; align-items: center; gap: 15px; padding: 15px; border-bottom: 1px solid #e0e0e0; background: white; }
-        .conv-avatar-large { width: 50px; height: 50px; background: #1a3a5c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
+        .messages-header-info {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          padding: 15px;
+          border-bottom: 1px solid #e0e0e0;
+          background: white;
+        }
+        .conv-avatar-large {
+          width: 50px;
+          height: 50px;
+          background: #1a3a5c;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
         .messages-header-info h3 { margin: 0; font-size: 1rem; }
         .messages-header-info p { margin: 0; font-size: 0.7rem; color: #ffc107; }
-        .messages-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #f8f9fa; }
-        .message-bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; }
-        .message-bubble.sent { align-self: flex-end; background: #1a3a5c; color: white; border-bottom-right-radius: 4px; }
-        .message-bubble.received { align-self: flex-start; background: white; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .messages-list {
+          flex: 1;
+          overflow-y: auto;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 15px;
+          background: #f8f9fa;
+        }
+        .message-bubble {
+          max-width: 70%;
+          padding: 10px 15px;
+          border-radius: 18px;
+        }
+        .message-bubble.sent {
+          align-self: flex-end;
+          background: #1a3a5c;
+          color: white;
+          border-bottom-right-radius: 4px;
+        }
+        .message-bubble.received {
+          align-self: flex-start;
+          background: white;
+          color: #333;
+          border-bottom-left-radius: 4px;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
         .message-time { font-size: 0.6rem; opacity: 0.7; margin-top: 5px; text-align: right; }
-        .message-input-area { display: flex; gap: 10px; padding: 15px; border-top: 1px solid #e0e0e0; background: white; }
-        .message-input-area textarea { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; resize: none; font-family: inherit; font-size: 0.85rem; }
+        .message-input-area {
+          display: flex;
+          gap: 10px;
+          padding: 15px;
+          border-top: 1px solid #e0e0e0;
+          background: white;
+        }
+        .message-input-area textarea {
+          flex: 1;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 20px;
+          resize: none;
+          font-family: inherit;
+          font-size: 0.85rem;
+        }
         .message-input-area textarea:focus { outline: none; border-color: #1a3a5c; }
-        .message-input-area button { width: 45px; height: 45px; background: #1a3a5c; color: white; border: none; border-radius: 50%; cursor: pointer; transition: all 0.3s; }
+        .message-input-area button {
+          width: 45px;
+          height: 45px;
+          background: #1a3a5c;
+          color: white;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.3s;
+        }
         .message-input-area button:hover { background: #ffc107; color: #1a3a5c; transform: scale(1.05); }
-        .no-conversation-selected { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #999; text-align: center; gap: 15px; }
+        .no-conversation-selected {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          color: #999;
+          text-align: center;
+          gap: 15px;
+        }
         .no-conversation-selected i { font-size: 4rem; opacity: 0.3; }
-        .new-message-container { flex: 1; padding: 30px; max-width: 600px; margin: 0 auto; width: 100%; }
-        .send-message-btn { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 15px; }
+        .new-message-container {
+          flex: 1;
+          padding: 30px;
+          max-width: 600px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        .send-message-btn {
+          width: 100%;
+          padding: 12px;
+          background: #27ae60;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+          margin-top: 15px;
+        }
+        .no-data { text-align: center; padding: 40px; color: #999; }
 
-        /* Responsive */
+        /* Desktop - All Tabs Visible */
+        @media (min-width: 1025px) {
+          .sidebar {
+            width: 260px;
+            position: fixed;
+          }
+          .main-content {
+            margin-left: 260px;
+            width: calc(100% - 260px);
+          }
+          .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+          .pending-items-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .conversations-list {
+            width: 320px;
+          }
+        }
+
+        /* Tablet */
+        @media (max-width: 1024px) and (min-width: 769px) {
+          .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .pending-items-grid {
+            grid-template-columns: 1fr;
+          }
+          .conversations-list {
+            width: 280px;
+          }
+        }
+
+        /* Mobile */
         @media (max-width: 768px) {
           .mobile-menu-btn { display: block; }
-          .welcome-text h1 { font-size: 1.2rem; }
+          .sidebar { width: ${sidebarWidthMobile}; }
+          .main-content { margin-left: 0; width: 100%; }
           .stats-grid { grid-template-columns: 1fr; }
           .pending-items-grid { grid-template-columns: 1fr; }
           .quick-actions { flex-direction: column; }
@@ -778,7 +1383,8 @@ const SuperAdminDashboard = () => {
           .conversations-list { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid #e0e0e0; }
           .message-bubble { max-width: 85%; }
           .messages-tabs { width: 100%; justify-content: center; }
-          .sidebar { width: ${sidebarWidthMobile}; }
+          .welcome-text h1 { font-size: 1.2rem; }
+          .card-header { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
     </div>
