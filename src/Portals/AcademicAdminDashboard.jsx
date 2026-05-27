@@ -404,63 +404,79 @@ const AcademicAdminDashboard = () => {
   };
 
   // ==================== NEWS MANAGEMENT ====================
-  const handleCreateNews = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Create News/Event',
-      html: `
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="position: relative;">
-            <i class="fas fa-heading" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="title" class="swal2-input" placeholder="Title" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-align-left" style="position: absolute; left: 12px; top: 15px; color: #999;"></i>
-            <textarea id="summary" class="swal2-textarea" placeholder="Short Summary" rows="3" style="padding-left: 40px;" required></textarea>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-file-alt" style="position: absolute; left: 12px; top: 15px; color: #999;"></i>
-            <textarea id="content" class="swal2-textarea" placeholder="Full Content (optional)" rows="4" style="padding-left: 40px;"></textarea>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-image" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="image" class="swal2-input" placeholder="Image URL" style="padding-left: 40px;">
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-tag" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <select id="category" class="swal2-select" style="padding-left: 40px; width: 100%;">
-              <option value="news">📰 News</option>
-              <option value="event">🎉 Event</option>
-              <option value="announcement">📢 Announcement</option>
-            </select>
-          </div>
+ const handleCreateNews = async () => {
+  const { value: formValues } = await Swal.fire({
+    title: 'Create News/Event',
+    html: `
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="position: relative;">
+          <i class="fas fa-heading" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+          <input type="text" id="title" class="swal2-input" placeholder="Title" style="padding-left: 40px;" required>
         </div>
-      `,
-      confirmButtonText: 'Publish',
-      confirmButtonColor: '#27ae60',
-      showCancelButton: true,
-      width: '550px',
-      preConfirm: () => {
-        const title = document.getElementById('title')?.value;
-        const summary = document.getElementById('summary')?.value;
-        if (!title || !summary) {
-          Swal.showValidationMessage('Please fill title and summary');
-          return false;
-        }
-        return {
-          title, summary,
-          content: document.getElementById('content')?.value || summary,
-          image: document.getElementById('image')?.value || 'https://via.placeholder.com/800x400/1a3a5c/ffffff?text=News',
-          category: document.getElementById('category')?.value
-        };
+        <div style="position: relative;">
+          <i class="fas fa-align-left" style="position: absolute; left: 12px; top: 15px; color: #999;"></i>
+          <textarea id="summary" class="swal2-textarea" placeholder="Short Summary" rows="3" style="padding-left: 40px;" required></textarea>
+        </div>
+        <div style="position: relative;">
+          <i class="fas fa-file-alt" style="position: absolute; left: 12px; top: 15px; color: #999;"></i>
+          <textarea id="content" class="swal2-textarea" placeholder="Full Content" rows="4" style="padding-left: 40px;"></textarea>
+        </div>
+        <div style="position: relative;">
+          <i class="fas fa-image" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+          <input type="file" id="imageFile" class="swal2-file" accept="image/*" style="padding-left: 40px;">
+        </div>
+        <div style="position: relative;">
+          <i class="fas fa-tag" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+          <select id="category" class="swal2-select" style="padding-left: 40px; width: 100%;">
+            <option value="news">📰 News</option>
+            <option value="event">🎉 Event</option>
+            <option value="announcement">📢 Announcement</option>
+          </select>
+        </div>
+      </div>
+    `,
+    confirmButtonText: 'Publish',
+    confirmButtonColor: '#27ae60',
+    showCancelButton: true,
+    width: '550px',
+    preConfirm: () => {
+      const title = document.getElementById('title')?.value;
+      const summary = document.getElementById('summary')?.value;
+      const imageFile = document.getElementById('imageFile')?.files[0];
+      if (!title || !summary) {
+        Swal.showValidationMessage('Please fill title and summary');
+        return false;
       }
-    });
+      return {
+        title, summary,
+        content: document.getElementById('content')?.value || summary,
+        imageFile: imageFile,
+        category: document.getElementById('category')?.value
+      };
+    }
+  });
 
-    if (formValues) {
-      try {
-        await apiRequest('/academic-admin/news', { method: 'POST', body: JSON.stringify(formValues) });
+  if (formValues) {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('title', formValues.title);
+    formData.append('summary', formValues.summary);
+    formData.append('content', formValues.content);
+    formData.append('category', formValues.category);
+    if (formValues.imageFile) {
+      formData.append('image', formValues.imageFile);
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/academic-admin/news`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+      if (response.ok) {
         Swal.fire('Published!', 'News/Event added successfully', 'success');
         fetchAllData();
-        // Redirect to news page notification
         Swal.fire({
           title: 'View on Website',
           text: 'News has been published. Click OK to view on the news page.',
@@ -472,12 +488,14 @@ const AcademicAdminDashboard = () => {
             window.open('/news', '_blank');
           }
         });
-      } catch (error) {
-        Swal.fire('Error', 'Failed to publish news', 'error');
+      } else {
+        throw new Error(data.message);
       }
+    } catch (error) {
+      Swal.fire('Error', error.message || 'Failed to publish news', 'error');
     }
-  };
-
+  }
+};
   const handleDeleteNews = async (newsItem) => {
     const result = await Swal.fire({
       title: 'Delete News?',
@@ -500,50 +518,71 @@ const AcademicAdminDashboard = () => {
 
   // ==================== GALLERY MANAGEMENT ====================
   const handleAddGalleryImage = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Add Gallery Image',
-      html: `
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="position: relative;">
-            <i class="fas fa-heading" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="title" class="swal2-input" placeholder="Image Title" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-image" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="image" class="swal2-input" placeholder="Image URL" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-tag" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <select id="category" class="swal2-select" style="padding-left: 40px; width: 100%;">
-              <option value="academic">📚 Academic</option>
-              <option value="sports">⚽ Sports</option>
-              <option value="cultural">🎭 Cultural</option>
-              <option value="events">🎪 Events</option>
-            </select>
-          </div>
+  const { value: formValues } = await Swal.fire({
+    title: 'Add Gallery Image',
+    html: `
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="position: relative;">
+          <i class="fas fa-heading" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+          <input type="text" id="title" class="swal2-input" placeholder="Image Title" style="padding-left: 40px;" required>
         </div>
-      `,
-      confirmButtonText: 'Add Image',
-      confirmButtonColor: '#3498db',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const title = document.getElementById('title')?.value;
-        const image = document.getElementById('image')?.value;
-        if (!title || !image) {
-          Swal.showValidationMessage('Please fill title and image URL');
-          return false;
-        }
-        return { title, image, category: document.getElementById('category')?.value };
+        <div style="position: relative;">
+          <i class="fas fa-image" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+          <input type="file" id="imageFile" class="swal2-file" accept="image/*" style="padding-left: 40px;" required>
+        </div>
+        <div style="position: relative;">
+          <i class="fas fa-tag" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+          <select id="category" class="swal2-select" style="padding-left: 40px; width: 100%;">
+            <option value="academic">📚 Academic</option>
+            <option value="sports">⚽ Sports</option>
+            <option value="cultural">🎭 Cultural</option>
+            <option value="events">🎪 Events</option>
+          </select>
+        </div>
+        <div style="position: relative;">
+          <i class="fas fa-align-left" style="position: absolute; left: 12px; top: 15px; color: #999;"></i>
+          <textarea id="description" class="swal2-textarea" placeholder="Description (optional)" rows="3" style="padding-left: 40px;"></textarea>
+        </div>
+      </div>
+    `,
+    confirmButtonText: 'Add Image',
+    confirmButtonColor: '#3498db',
+    showCancelButton: true,
+    width: '500px',
+    preConfirm: () => {
+      const title = document.getElementById('title')?.value;
+      const imageFile = document.getElementById('imageFile')?.files[0];
+      if (!title || !imageFile) {
+        Swal.showValidationMessage('Please fill title and select an image');
+        return false;
       }
-    });
+      return {
+        title,
+        imageFile,
+        category: document.getElementById('category')?.value,
+        description: document.getElementById('description')?.value
+      };
+    }
+  });
 
-    if (formValues) {
-      try {
-        await apiRequest('/academic-admin/gallery', { method: 'POST', body: JSON.stringify(formValues) });
+  if (formValues) {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('title', formValues.title);
+    formData.append('category', formValues.category);
+    formData.append('description', formValues.description || '');
+    formData.append('image', formValues.imageFile);
+    
+    try {
+      const response = await fetch(`${API_URL}/academic-admin/gallery`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+      if (response.ok) {
         Swal.fire('Added!', 'Image added to gallery', 'success');
         fetchAllData();
-        // Redirect to gallery page notification
         Swal.fire({
           title: 'View on Website',
           text: 'Image has been added to gallery. Click OK to view on the gallery page.',
@@ -555,12 +594,14 @@ const AcademicAdminDashboard = () => {
             window.open('/gallery', '_blank');
           }
         });
-      } catch (error) {
-        Swal.fire('Error', 'Failed to add image', 'error');
+      } else {
+        throw new Error(data.message);
       }
+    } catch (error) {
+      Swal.fire('Error', error.message || 'Failed to add image', 'error');
     }
-  };
-
+  }
+};
   const handleDeleteGalleryImage = async (image) => {
     const result = await Swal.fire({
       title: 'Delete Image?',
@@ -707,23 +748,133 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-        {/* Classes Tab */}
-        {activeTab === 'classes' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-school"></i> Classes</h2>
-              <div className="header-actions"><button onClick={handleRefreshClasses} className="btn-secondary-sm"><i className="fas fa-sync-alt"></i> Refresh</button><button onClick={handleCreateClass} className="btn-primary-sm"><i className="fas fa-plus"></i> Create Class</button></div>
-            </div>
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead><tr><th>Grade</th><th>Class Name</th><th>Academic Year</th><th>Teacher</th><th>Actions</th></tr></thead>
-                <tbody>
-                  {classes.map(c => <tr key={c._id}><td><strong>{c.grade}</strong></td>}<c.className} </td>}<c.academicYear} <td>{c.teacherId && typeof c.teacherId === 'object' && c.teacherId.fullName ? <span className="assigned-badge"><i className="fas fa-chalkboard-user"></i> {c.teacherId.fullName}</span> : <span className="unassigned-badge">Not Assigned</span>} <td><div className="action-buttons"><button onClick={() => handleAssignTeacher(c)} className="assign-btn"><i className="fas fa-user-plus"></i> Assign</button><button onClick={() => handleDeleteClass(c)} className="delete-btn-sm"><i className="fas fa-trash"></i></button></div></td></tr>)}
-                  {classes.length === 0 && <tr><td colSpan="5" className="no-data">No classes yet. Click "Create Class" to create one.ERC20</tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+       {/* Classes Tab */}
+{activeTab === 'classes' && (
+  <div className="data-card">
+
+    <div className="card-header">
+
+      <h2>
+        <i className="fas fa-school"></i>
+        {' '}Classes
+      </h2>
+
+      <div className="header-actions">
+
+        <button
+          onClick={handleRefreshClasses}
+          className="btn-secondary-sm"
+        >
+          <i className="fas fa-sync-alt"></i>
+          {' '}Refresh
+        </button>
+
+        <button
+          onClick={handleCreateClass}
+          className="btn-primary-sm"
+        >
+          <i className="fas fa-plus"></i>
+          {' '}Create Class
+        </button>
+
+      </div>
+
+    </div>
+
+    <div className="table-responsive">
+
+      <table className="data-table">
+
+        <thead>
+          <tr>
+            <th>Grade</th>
+            <th>Class Name</th>
+            <th>Academic Year</th>
+            <th>Teacher</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {classes.map((c) => (
+            <tr key={c._id}>
+
+              <td>
+                <strong>{c.grade}</strong>
+              </td>
+
+              <td>{c.className}</td>
+
+              <td>{c.academicYear}</td>
+
+              <td>
+                {c.teacherId &&
+                typeof c.teacherId === 'object' &&
+                c.teacherId.fullName ? (
+                  <span className="assigned-badge">
+                    <i className="fas fa-chalkboard-user"></i>
+                    {' '}
+                    {c.teacherId.fullName}
+                  </span>
+                ) : (
+                  <span className="unassigned-badge">
+                    Not Assigned
+                  </span>
+                )}
+              </td>
+
+              <td>
+
+                <div className="action-buttons">
+
+                  <button
+                    onClick={() =>
+                      handleAssignTeacher(c)
+                    }
+                    className="assign-btn"
+                  >
+                    <i className="fas fa-user-plus"></i>
+                    {' '}Assign
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleDeleteClass(c)
+                    }
+                    className="delete-btn-sm"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+
+                </div>
+
+              </td>
+
+            </tr>
+          ))}
+
+          {classes.length === 0 && (
+            <tr>
+              <td
+                colSpan="5"
+                className="no-data"
+              >
+                No classes yet.
+                Click "Create Class"
+                to create one.
+              </td>
+            </tr>
+          )}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+)}
 
         {/* News Tab */}
         {activeTab === 'news' && (
@@ -788,35 +939,140 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-        {/* Performance Tab */}
-        {activeTab === 'performance' && (
-          <div>
-            <div className="data-card">
-              <h2><i className="fas fa-chart-line"></i> Class Performance</h2>
-              <div className="table-responsive">
-                <table className="data-table">
-                  <thead><tr><th>Class</th><th>Teacher</th><th>Students</th><th>Avg Score</th></tr></thead>
-                  <tbody>
-                    {classPerformance.map((c, i) => <tr key={i}><td><strong>{c.className}</strong></td>}<c.teacher} </td>}<c.studentCount} <td><span className="score-badge">{c.averageScore}%</span></td></tr>)}
-                    {classPerformance.length === 0 && <tr><td colSpan="4" className="no-data">No performance data available yet.ERC20</td>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="data-card">
-              <h2><i className="fas fa-trophy"></i> Top Students</h2>
-              <div className="table-responsive">
-                <table className="data-table">
-                  <thead><tr><th>Student ID</th><th>Name</th><th>Class</th><th>Average</th></tr></thead>
-                  <tbody>
-                    {studentPerformance.slice(0, 10).map((s, i) => <tr key={i}><td>{s.studentId}</td>}<strong>{s.name}</strong> <td><strong>{s.class}</strong> <td><span className="score-badge success">{s.averageScore}%</span></td></td>)}
-                    {studentPerformance.length === 0 && <tr><td colSpan="4" className="no-data">No student performance data available yet.ERC20</tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Performance Tab */}
+{activeTab === 'performance' && (
+  <div>
+
+    {/* Class Performance */}
+    <div className="data-card">
+
+      <h2>
+        <i className="fas fa-chart-line"></i>
+        {' '}Class Performance
+      </h2>
+
+      <div className="table-responsive">
+
+        <table className="data-table">
+
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Teacher</th>
+              <th>Students</th>
+              <th>Avg Score</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {classPerformance.map((c, i) => (
+              <tr key={i}>
+
+                <td>
+                  <strong>{c.className}</strong>
+                </td>
+
+                <td>{c.teacher}</td>
+
+                <td>{c.studentCount}</td>
+
+                <td>
+                  <span className="score-badge">
+                    {c.averageScore}%
+                  </span>
+                </td>
+
+              </tr>
+            ))}
+
+            {classPerformance.length === 0 && (
+              <tr>
+                <td
+                  colSpan="4"
+                  className="no-data"
+                >
+                  No performance data available yet.
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+    {/* Top Students */}
+    <div className="data-card">
+
+      <h2>
+        <i className="fas fa-trophy"></i>
+        {' '}Top Students
+      </h2>
+
+      <div className="table-responsive">
+
+        <table className="data-table">
+
+          <thead>
+            <tr>
+              <th>Student ID</th>
+              <th>Name</th>
+              <th>Class</th>
+              <th>Average</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {studentPerformance
+              .slice(0, 10)
+              .map((s, i) => (
+                <tr key={i}>
+
+                  <td>{s.studentId}</td>
+
+                  <td>
+                    <strong>{s.name}</strong>
+                  </td>
+
+                  <td>
+                    <strong>{s.class}</strong>
+                  </td>
+
+                  <td>
+                    <span className="score-badge success">
+                      {s.averageScore}%
+                    </span>
+                  </td>
+
+                </tr>
+              ))}
+
+            {studentPerformance.length === 0 && (
+              <tr>
+                <td
+                  colSpan="4"
+                  className="no-data"
+                >
+                  No student performance data available yet.
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
 
         {/* Messages Tab */}
         {activeTab === 'messages' && (
