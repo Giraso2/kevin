@@ -643,41 +643,225 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-        {/* Teachers Tab */}
-        {activeTab === 'teachers' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-chalkboard-user"></i> Teachers</h2><button onClick={handleCreateTeacher} className="btn-primary-sm"><i className="fas fa-plus"></i> Add Teacher</button></div>
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
-                  <tr><th>Teacher</th><th>Email</th><th>Subject</th><th>Phone</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                  {teachers.map(t => (<tr key={t._id}><td><strong>{t.fullName}</strong></td><td>{t.email}</td><td>{t.subject || '-'}</td><td>{t.phone || '-'}</td>}<button onClick={() => handleDeleteTeacher(t)} className="delete-btn-sm"><i className="fas fa-trash"></i></button></td></tr>))}
-                  {teachers.length === 0 && <tr><td colSpan="5" className="no-data">No teachers yet. Click "Add Teacher" to create one.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+       {/* Teachers Tab */}
+{activeTab === 'teachers' && (
+  <div className="data-card">
 
+    <div className="card-header">
+
+      <h2>
+        <i className="fas fa-chalkboard-user"></i>
+        {' '}Teachers
+      </h2>
+
+      <button
+        onClick={handleCreateTeacher}
+        className="btn-primary-sm"
+      >
+        <i className="fas fa-plus"></i>
+        {' '}Add Teacher
+      </button>
+
+    </div>
+
+    <div className="table-responsive">
+
+      <table className="data-table">
+
+        <thead>
+          <tr>
+            <th>Teacher</th>
+            <th>Email</th>
+            <th>Subject</th>
+            <th>Phone</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {teachers.map((t) => (
+            <tr key={t._id}>
+
+              <td>
+                <strong>{t.fullName}</strong>
+              </td>
+
+              <td>{t.email}</td>
+
+              <td>{t.subject || '-'}</td>
+
+              <td>{t.phone || '-'}</td>
+
+              <td>
+                <button
+                  onClick={() =>
+                    handleDeleteTeacher(t)
+                  }
+                  className="delete-btn-sm"
+                >
+                  <i className="fas fa-trash"></i>
+                </button>
+              </td>
+
+            </tr>
+          ))}
+
+          {teachers.length === 0 && (
+            <tr>
+              <td
+                colSpan="5"
+                className="no-data"
+              >
+                No teachers yet.
+                Click "Add Teacher"
+                to create one.
+              </td>
+            </tr>
+          )}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+)}
         {/* Classes Tab */}
-        {activeTab === 'classes' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-school"></i> Classes</h2>
-              <div className="header-actions"><button onClick={handleRefreshClasses} className="btn-secondary-sm"><i className="fas fa-sync-alt"></i> Refresh</button><button onClick={handleCreateClass} className="btn-primary-sm"><i className="fas fa-plus"></i> Create Class</button></div>
-            </div>
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead><tr><th>Grade</th><th>Class Name</th><th>Academic Year</th><th>Teacher</th><th>Actions</th></tr></thead>
-                <tbody>
-                  {classes.map(c => (<tr key={c._id}><td><strong>{c.grade}</strong></td>}<td>{c.className}</td><td>{c.academicYear}</td><td>{c.teacherId && typeof c.teacherId === 'object' && c.teacherId.fullName ? <span className="assigned-badge"><i className="fas fa-chalkboard-user"></i> {c.teacherId.fullName}</span> : <span className="unassigned-badge">Not Assigned</span>}</td><td><div className="action-buttons"><button onClick={() => handleAssignTeacher(c)} className="assign-btn"><i className="fas fa-user-plus"></i> Assign</button><button onClick={() => handleDeleteClass(c)} className="delete-btn-sm"><i className="fas fa-trash"></i></button></div></td></tr>))}
-                  {classes.length === 0 && <tr><td colSpan="5" className="no-data">No classes yet. Click "Create Class" to create one.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+{activeTab === 'classes' && (
+  <div className="data-card">
+
+    <div className="card-header">
+
+      <h2>
+        <i className="fas fa-school"></i>
+        {' '}Classes
+      </h2>
+
+      <div className="header-actions">
+
+        <button
+          onClick={handleRefreshClasses}
+          className="btn-secondary-sm"
+        >
+          <i className="fas fa-sync-alt"></i>
+          {' '}Refresh
+        </button>
+
+        <button
+          onClick={handleCreateClass}
+          className="btn-primary-sm"
+        >
+          <i className="fas fa-plus"></i>
+          {' '}Create Class
+        </button>
+
+      </div>
+
+    </div>
+
+    <div className="table-responsive">
+
+      <table className="data-table">
+
+        <thead>
+          <tr>
+            <th>Grade</th>
+            <th>Class Name</th>
+            <th>Academic Year</th>
+            <th>Teacher</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {classes.map((c) => (
+            <tr key={c._id}>
+
+              <td>
+                <strong>{c.grade}</strong>
+              </td>
+
+              <td>{c.className}</td>
+
+              <td>{c.academicYear}</td>
+
+              <td>
+                {c.teacherId &&
+                typeof c.teacherId ===
+                  'object' &&
+                c.teacherId.fullName ? (
+
+                  <span className="assigned-badge">
+                    <i className="fas fa-chalkboard-user"></i>
+                    {' '}
+                    {c.teacherId.fullName}
+                  </span>
+
+                ) : (
+
+                  <span className="unassigned-badge">
+                    Not Assigned
+                  </span>
+
+                )}
+              </td>
+
+              <td>
+
+                <div className="action-buttons">
+
+                  <button
+                    onClick={() =>
+                      handleAssignTeacher(c)
+                    }
+                    className="assign-btn"
+                  >
+                    <i className="fas fa-user-plus"></i>
+                    {' '}Assign
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleDeleteClass(c)
+                    }
+                    className="delete-btn-sm"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+
+                </div>
+
+              </td>
+
+            </tr>
+          ))}
+
+          {classes.length === 0 && (
+            <tr>
+
+              <td
+                colSpan="5"
+                className="no-data"
+              >
+                No classes yet.
+                Click "Create Class"
+                to create one.
+              </td>
+
+            </tr>
+          )}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+)}
 
         {/* News Tab */}
         {activeTab === 'news' && (
@@ -707,17 +891,140 @@ const AcademicAdminDashboard = () => {
           </div>
         )}
 
-        {/* Performance Tab */}
-        {activeTab === 'performance' && (
-          <div>
-            <div className="data-card"><h2><i className="fas fa-chart-line"></i> Class Performance</h2>
-              <div className="table-responsive"><table className="data-table"><thead><tr><th>Class</th><th>Teacher</th><th>Students</th><th>Avg Score</th></tr></thead><tbody>{classPerformance.map((c, i) => (<tr key={i}><td><strong>{c.className}</strong></td>}<c.teacher} </tr>))}</tbody></table></div>
-            </div>
-            <div className="data-card"><h2><i className="fas fa-trophy"></i> Top Students</h2>
-              <div className="table-responsive"><table className="data-table"><thead><tr><th>Student ID</th><th>Name</th><th>Class</th><th>Average</th></tr></thead><tbody>{studentPerformance.slice(0, 10).map((s, i) => (<tr key={i}><td>{s.studentId}</td>}<strong>{s.name}</strong> <td><strong>{s.class}</strong></td> <td><span className="score-badge success">{s.averageScore}%</span></td></tr>))}</tbody></table></div>
-            </div>
-          </div>
-        )}
+      {/* Performance Tab */}
+{activeTab === 'performance' && (
+  <div>
+
+    {/* Class Performance */}
+    <div className="data-card">
+
+      <h2>
+        <i className="fas fa-chart-line"></i>
+        {' '}Class Performance
+      </h2>
+
+      <div className="table-responsive">
+
+        <table className="data-table">
+
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Teacher</th>
+              <th>Students</th>
+              <th>Avg Score</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {classPerformance.map((c, i) => (
+              <tr key={i}>
+
+                <td>
+                  <strong>{c.className}</strong>
+                </td>
+
+                <td>{c.teacher}</td>
+
+                <td>{c.studentCount}</td>
+
+                <td>
+                  <span className="score-badge">
+                    {c.averageScore}%
+                  </span>
+                </td>
+
+              </tr>
+            ))}
+
+            {classPerformance.length === 0 && (
+              <tr>
+                <td
+                  colSpan="4"
+                  className="no-data"
+                >
+                  No performance data available yet.
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+    {/* Top Students */}
+    <div className="data-card">
+
+      <h2>
+        <i className="fas fa-trophy"></i>
+        {' '}Top Students
+      </h2>
+
+      <div className="table-responsive">
+
+        <table className="data-table">
+
+          <thead>
+            <tr>
+              <th>Student ID</th>
+              <th>Name</th>
+              <th>Class</th>
+              <th>Average</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {studentPerformance
+              .slice(0, 10)
+              .map((s, i) => (
+                <tr key={i}>
+
+                  <td>{s.studentId}</td>
+
+                  <td>
+                    <strong>{s.name}</strong>
+                  </td>
+
+                  <td>
+                    <strong>{s.class}</strong>
+                  </td>
+
+                  <td>
+                    <span className="score-badge success">
+                      {s.averageScore}%
+                    </span>
+                  </td>
+
+                </tr>
+              ))}
+
+            {studentPerformance.length === 0 && (
+              <tr>
+                <td
+                  colSpan="4"
+                  className="no-data"
+                >
+                  No student performance data available yet.
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
 
         {/* Messages Tab - Integrated Chat (No Modal) */}
         {activeTab === 'messages' && (
