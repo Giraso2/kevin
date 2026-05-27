@@ -163,7 +163,7 @@ const HomePage = () => {
           <div className="about-grid">
             <div className="about-text">
               <p>Founded with a mission to provide quality education, ESSA Nyarugunga is one of the respected secondary schools in Kigali's Kicukiro District. We offer a nurturing environment where students grow academically, socially, and spiritually.</p>
-              <p>Our dedicated staff and modern facilities ensure that every learner reaches their full potential. We follow the Rwandan national curriculum with a focus on science, technology, and character formation.</p>
+              <p>Our dedicated staff and modern facilities ensure that every learner reaches their full potential. We follow the Rwandan national curriculum with a focus on Economics, technology, and character formation.</p>
               <div className="features">
                 <div><i className="fas fa-check-circle"></i> Modern Laboratories</div>
                 <div><i className="fas fa-check-circle"></i> Computer Lab with Internet</div>
@@ -219,12 +219,7 @@ const HomePage = () => {
               <p>A computer systems and architecture class explains how computer hardware and software interact, including CPUs, memory, and input/output systems. It also covers how data is processed, stored, and optimized to improve performance and efficiency.</p>
               <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
             </div>
-            <div className="card">
-              <div className="card-icon"><i className="fas fa-hotel"></i></div>
-              <h3>TOURISM AND HOSPITALITY</h3>
-              <p>A tourism class explores the travel and hospitality industry, including how destinations attract and manage visitors. It also covers customer service, cultural awareness, and the economic impact of tourism.</p>
-              <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
-            </div>
+
           </div>
           <div className="trades-btn-container">
             <Link to="/academics" className="btn-trades"><i className="fas fa-th-large"></i> View All Trades & Programs <i className="fas fa-arrow-right"></i></Link>

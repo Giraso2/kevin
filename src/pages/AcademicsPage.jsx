@@ -70,33 +70,51 @@ const AcademicsPage = () => {
       subjects: ['Tourism', 'Hospitality Management', 'French', 'English'],
       careerPath: 'Tour Operator, Hotel Manager, Travel Agent, Event Planner',
       color: '#e74c3c'
+    },
+    {
+      id: 4,
+      name: 'Building and Construction',
+      icon: 'fas fa-building',
+      subtitle: 'BDC option',
+      subjects: ['Stone Structure', 'Building Management', 'Physics', 'Mathematics'],
+      careerPath: 'Building Engineer,Electronics Manager, Charpensier, Umuyede',
+      color: 'hsl(64, 93%, 52%)'
+    },{
+      id: 4,
+      name: 'Food and Beverages Operation',
+      icon: 'fas fa-utensils',
+      subtitle: 'FBO option',
+      subjects: ['Food Preparation', 'Beverages Management', 'French', 'English'],
+      careerPath: 'Kitchen Operator, Cook, Kitchen Owner, Event Planner',
+      color: 'blue'
     }
   ];
 
   const departments = [
-    { name: 'ICT Department', icon: 'fas fa-laptop-code', hod: 'Mr. Eric Nshimiyimana', teachers: 6, description: 'Programming, networking, database management, and computer maintenance.' },
-    { name: 'Economics Department', icon: 'fas fa-chart-line', hod: 'Mme. Jeanne Uwimana', teachers: 5, description: 'Accounting, economics, entrepreneurship, and business studies.' },
-    { name: 'Science Department', icon: 'fas fa-flask', hod: 'Dr. Claude Mugenzi', teachers: 8, description: 'Physics, Chemistry, Biology, and Mathematics.' },
-    { name: 'Languages Department', icon: 'fas fa-language', hod: 'Mme. Chantal Mukamana', teachers: 5, description: 'English, French, Kinyarwanda, and Literature.' },
-    { name: 'Tourism Department', icon: 'fas fa-umbrella-beach', hod: 'Mr. Jean de Dieu', teachers: 4, description: 'Tourism management, hospitality, customer service, and cultural studies.' },
-    { name: 'Humanities Department', icon: 'fas fa-heart', hod: 'Mme. Alice Nyirahabimana', teachers: 4, description: 'History, Geography, Religion, and Social Studies.' }
+    { name: 'ICT Department', icon: 'fas fa-laptop-code', hod: 'Mr. Elissa Ntihinduka', teachers: 6, description: 'Programming, networking, database management, and computer maintenance.' },
+    { name: 'Economics Department', icon: 'fas fa-chart-line', hod: 'Coming Soon....', teachers: 5, description: 'Accounting, economics, entrepreneurship, and business studies.' },
+    { name: 'Tourism Department', icon: 'fas fa-umbrella-beach', hod: 'Coming soon....', teachers: 4, description: 'Tourism management, hospitality, customer service, and cultural studies.' },
+    { name: 'Food and Beverages', icon: 'fas fa-utensils', hod: 'MAMA CALINARY', teachers: 4, description: 'Food Preparation,Kitchen Management,Beverages Operation  ' },
+    { name: 'Building and Construction', icon: 'fas fa-building', hod: 'Delphin and Phocus', teachers: 5, description: 'Cement Workflows, Stone Structure, Chemistry, Physics, Mathematics' },
+    { name: 'Ordinary Level', icon: 'fas fa-book', hod: 'Coming soon......', teachers: 10, description: 'Biology , Physics , Chemistry , Mathematics ,History ,Geography etc' }
   ];
 
   const calendarEvents = [
-    { month: 'Jan', day: '10', title: 'Term 1 Begins', description: 'Opening ceremony and classes commence' },
-    { month: 'Mar', day: '25-30', title: 'Term 1 Exams', description: 'End of term examinations' },
-    { month: 'Apr', day: '10', title: 'Term 2 Begins', description: 'Start of second term' },
-    { month: 'Jun', day: '20-30', title: 'Term 2 Exams', description: 'Mid-year examinations' },
-    { month: 'Jul', day: '15', title: 'Term 3 Begins', description: 'Final term of the academic year' },
-    { month: 'Sep', day: '15-30', title: 'National Exams', description: 'S3 & S6 National Examinations' },
-    { month: 'Oct', day: '25', title: 'Graduation Day', description: 'Ceremony for S6 graduates' },
-    { month: 'Nov', day: '5', title: 'Academic Year Ends', description: 'End of year closure' }
+    { month: 'Sept', day: '10', title: 'Term 1 Begins', description: 'Opening ceremony and classes commence' },
+    { month: 'Nov', day: '25-30', title: 'Term 1 Exams', description: 'End of term examinations' },
+    { month: 'Jan', day: '10', title: 'Term 2 Begins', description: 'Start of second term' },
+    { month: 'Mar', day: '10-20', title: 'Term 2 Exams', description: 'Mid-year examinations' },
+    { month: 'April', day: '20', title: 'Term 3 Begins', description: 'Final term of the academic year' },
+    { month: 'June', day: '1-5', title: 'National Exams', description: 'L3 & L5 National Practical Examinations Examinations' },
+    { month: 'June', day: '15', title: 'NESA school Exams', description: 'End Of the Year NESA prepared Exams' },
+    { month: 'July', day: '12', title: 'National Examinations', description: 'ALL Candidates Theory National Examinations' },
+    { month: 'Aug', day: '5', title: 'Academic Year Ends', description: 'End of year closure' }
   ];
 
   const resources = [
     { name: 'School Library', icon: 'fas fa-book', description: 'Over 5,000 books including textbooks, references, fiction, and periodicals.', detail: 'Mon-Fri: 8AM - 5PM' },
-    { name: 'Computer Labs', icon: 'fas fa-laptop', description: 'Two modern computer labs with 50+ computers and high-speed internet.', detail: '2 Labs | 50+ PCs' },
-    { name: 'Science Labs', icon: 'fas fa-flask', description: 'Fully equipped Physics, Chemistry, and Biology laboratories.', detail: '3 Specialized Labs' },
+    { name: 'Computer Labs', icon: 'fas fa-laptop', description: 'Three modern computer labs with 20+ computers and high-speed internet.', detail: '3 Labs | 20+ PCs' },
+    { name: 'Science Lab', icon: 'fas fa-flask', description: 'Fully equipped Physics, Chemistry, and Biology laboratory.', detail: '1 Specialized Lab' },
     { name: 'E-Learning Platform', icon: 'fas fa-wifi', description: 'Access to online resources, digital assignments, and virtual classrooms.', detail: '24/7 Access' }
   ];
 
@@ -161,7 +179,7 @@ const AcademicsPage = () => {
               Ordinary Level (S1-S3)
             </button>
             <button className={`tab-btn ${activeTab === 'advanced' ? 'active' : ''}`} onClick={() => setActiveTab('advanced')}>
-              Advanced Level (S4-S6)
+              Advanced Level (S4-S6 or L3-L5)
             </button>
           </div>
 
@@ -199,9 +217,9 @@ const AcademicsPage = () => {
                   <i className="fas fa-clock"></i>
                   <h3>Assessment</h3>
                   <ul>
-                    <li><i className="fas fa-check"></i> Continuous Assessment (30%)</li>
-                    <li><i className="fas fa-check"></i> Term Exams (30%)</li>
-                    <li><i className="fas fa-check"></i> National Exams - S3 (40%)</li>
+                    <li><i className="fas fa-check"></i> Continuous Assessment (70%)</li>
+                    <li><i className="fas fa-check"></i> Term Exams (70%)</li>
+                    <li><i className="fas fa-check"></i> National Exams - S3 (70%)</li>
                     <li><i className="fas fa-check"></i> Projects & Practicals</li>
                   </ul>
                 </div>
@@ -313,17 +331,17 @@ const AcademicsPage = () => {
                   <tr><th>Grade</th><th>Percentage</th><th>Description</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>A</td><td>80-100%</td><td>Excellent</td></tr>
-                  <tr><td>B</td><td>70-79%</td><td>Very Good</td></tr>
-                  <tr><td>C</td><td>60-69%</td><td>Good</td></tr>
-                  <tr><td>D</td><td>50-59%</td><td>Satisfactory</td></tr>
-                  <tr><td>E</td><td>40-49%</td><td>Pass</td></tr>
-                  <tr><td>F</td><td>Below 40%</td><td>Fail</td></tr>
+                  <tr><td>A</td><td>90-100%</td><td>Excellent</td></tr>
+                  <tr><td>B</td><td>80-89%</td><td>Very Good</td></tr>
+                  <tr><td>C</td><td>70-79%</td><td>Good</td></tr>
+                  <tr><td>D</td><td>60-69%</td><td>Satisfactory</td></tr>
+                  <tr><td>E</td><td>50-59%</td><td>Pass</td></tr>
+                  <tr><td>F</td><td>Below 50%</td><td>Fail</td></tr>
                 </tbody>
               </table>
             </div>
             <div className="grading-card">
-              <h3>Advanced Level (S4-S6)</h3>
+              <h3>Advanced Level (S4-S6 or L3-L5)</h3>
               <table className="grading-table">
                 <thead>
                   <tr><th>Grade</th><th>Points</th><th>Description</th></tr>

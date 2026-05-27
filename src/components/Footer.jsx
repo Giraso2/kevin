@@ -19,7 +19,7 @@ const Footer = () => {
             </p>
             <div className="footer-badges">
               <span><i className="fas fa-check-circle"></i> Ministry of Education</span>
-              <span><i className="fas fa-check-circle"></i> REB Accredited</span>
+              <span><i className="fas fa-check-circle"></i> RTB Accredited</span>
             </div>
           </div>
 
@@ -37,14 +37,15 @@ const Footer = () => {
           </div>
 
           <div className="footer-section">
-            <h4><i className="fas fa-folder-open"></i> Resources</h4>
+            <h4><i className="fas fa-envelope"></i>Contact Info</h4>
             <ul>
-              <li><a href="#"><i className="fas fa-file-pdf"></i> School Calendar</a></li>
-              <li><a href="#"><i className="fas fa-file-pdf"></i> Academic Handbook</a></li>
-              <li><a href="#"><i className="fas fa-file-pdf"></i> Fee Structure</a></li>
-              <li><a href="#"><i className="fas fa-file-pdf"></i> Uniform Policy</a></li>
-              <li><a href="#"><i className="fas fa-question-circle"></i> FAQs</a></li>
-              <li><a href="#"><i className="fas fa-blog"></i> School Blog</a></li>
+              <li><a href="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.477860813629!2d30.109888!3d-1.977408!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x19dca76c8d5b5b5b%3A0x8b5b5b5b5b5b5b5b!2sNyarugunga%2C%20Kigali!5e0!3m2!1sen!2srw!4v1700000000000!5m2!1sen!2srw" about='blank'><i className="fas fa-map-marker-alt"></i> Nyarugunga Sector, Kicukiro District, Kigali, Rwanda</a></li>
+              <li><a href="mailto:kevineniyomurinzi@gmail.com"><i className="fas fa-envelope"></i>info@essanyarugunga.rw</a></li>
+              <li><a href="tel:+250737692152"><i className="fas fa-phone"></i> +250 737 693 152</a></li>
+              <li><a href="#contact"><i className="fas fa-clock"></i>9:00 am - 4:00 pm</a></li>
+              <li><a href="https://instagram.com/ESSA NYARUGUNGA TSS"><i className="fas fa-share-alt"></i>ESSA NYARUGUNGA TSS</a></li>
+              <li><a href="https://www.essanyarugunga.rw"><i className="fas fa-globe"></i>www.essanyarugunga.rw</a></li>
+              
             </ul>
           </div>
 
@@ -57,14 +58,14 @@ const Footer = () => {
             </div>
             <div className="emergency-contact">
               <h4><i className="fas fa-phone-alt"></i> Emergency Contact</h4>
-              <p className="emergency-phone">+250 788 123 456 (24/7)</p>
+              <p className="emergency-phone">+250 737 692 152 (24/7)</p>
             </div>
           </div>
         </div>
 
         <div className="footer-bottom">
           <div className="copyright">
-            <p>&copy; 2026 ESSA Nyarugunga School. All rights reserved. | Designed with <i className="fas fa-heart"></i> for excellence</p>
+            <p>&copy; 2026 ESSA Nyarugunga School. All rights reserved. | Developed by <i className="fas fa-code"></i> <a href="http://wa.me/250737692152" target="_blank" rel="noopener noreferrer">Mukeshiamana Kevin</a> </p>
           </div>
           <div className="footer-bottom-links">
             <a href="#">Privacy Policy</a>

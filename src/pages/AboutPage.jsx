@@ -27,26 +27,48 @@ const AboutPage = () => {
 
   const leadershipTeam = [
     { 
-      name: 'Dr. Jean Paul Uwimana', 
-      title: 'Headmaster / Director', 
+      name: 'Ingabire Jolly', 
+      title: 'Headmistress / Director', 
       image: campusImage,
-      education: 'PhD in Educational Leadership',
-      experience: '20+ years experience'
+      education: 'Experienced in Educational Leadership',
+      experience: '10+ years experience'
     },
     { 
-      name: 'Marie Claire Uwase', 
-      title: 'Deputy Headmistress', 
+      name: 'Lenah', 
+      title: 'Assistant Admin', 
       image: studentsImage,
-      education: 'Master\'s in Educational Management',
+      education: 'Experience in Educational and Social Affairs Management',
+      experience: '10+ years experience'
+    },
+    { 
+      name: 'Kabutore Boniface', 
+      title: 'Director Of Studies', 
+      image: graduationImg,
+      education: 'Experience in Curriculum Development and Academic Management',
+      experience: '12+ years experience'
+    },
+    { 
+      name: 'AineByoona James', 
+      title: 'Dean Of Discipline', 
+      image: graduationImg,
+      education: 'Experience in Behaviours Management and Discpline Conduct',
       experience: '15+ years experience'
     },
     { 
-      name: 'Emmanuel Ndayisaba', 
-      title: 'Academic Director', 
+      name: 'Coming Soon.....', 
+      title: 'Dean Of discipline', 
       image: graduationImg,
-      education: 'Master\'s in Curriculum Development',
+      education: 'Experience in Behaviours Management and Discpline Conduct',
+      experience: '11+ years experience'
+    },
+    { 
+      name: 'Coming soon.....', 
+      title: 'Accountant', 
+      image: graduationImg,
+      education: 'Experience in Accounting and Budgetting Money',
       experience: '12+ years experience'
     }
+    
   ];
 
   const stats = [
@@ -58,11 +80,11 @@ const AboutPage = () => {
 
   const facilities = [
     { name: 'Modern Classrooms', description: 'Spacious, well-lit classrooms with smart boards', icon: 'fas fa-chalkboard', image: classroomImg },
-    { name: 'Science Laboratories', description: 'Fully equipped physics, chemistry, and biology labs', icon: 'fas fa-flask', image: scienceLabImg },
+    { name: 'Mordern Dormitorys', description: 'Advanced Bedding Rooms for Both Boys and Girls', icon: 'fas fa-bed', image: scienceLabImg },
     { name: 'Computer Lab', description: 'State-of-the-art computers with high-speed internet', icon: 'fas fa-laptop-code', image: libraryImg },
     { name: 'Library', description: 'Well-stocked library with reference books and e-resources', icon: 'fas fa-book', image: libraryImg },
     { name: 'Sports Complex', description: 'Football field, basketball court, and volleyball court', icon: 'fas fa-futbol', image: footballImg },
-    { name: 'Auditorium', description: '500-seat auditorium for events and assemblies', icon: 'fas fa-building', image: graduationImg }
+    { name: 'Main Hall', description: '500+ seat main hall for events , assemblies amd meetings', icon: 'fas fa-building', image: graduationImg }
   ];
 
   const handleContactClick = () => {
@@ -142,20 +164,20 @@ const AboutPage = () => {
             <div className="story-text">
               <p>ESSA Nyarugunga (Ecole Secondaire Des Science et Administrative) was established in <strong>2006</strong> with a vision to provide quality secondary education in Kigali's Kicukiro District. What started as a small institution has now grown into one of the most respected secondary schools in Rwanda.</p>
               <p>Over the years, we have consistently produced outstanding graduates who have gone on to excel in top universities and various professional fields. Our commitment to <strong>academic excellence, character formation, and holistic development</strong> has made us a school of choice for parents seeking quality education for their children.</p>
-              <p>Today, ESSA Nyarugunga serves over <strong>1000 students</strong> with a dedicated team of <strong>40+ qualified teachers</strong>, offering programs in Software Development, Accounting, Computer Systems, and Tourism & Hospitality.</p>
+              <p>Today, ESSA Nyarugunga serves over <strong>800 students</strong> with a dedicated team of <strong>30+ qualified teachers</strong>, offering programs in Software Development, Accounting, Computer Systems and Archtecture, Building and Construction , Food and Beverages Operation and Tourism & Hospitality.</p>
               <div className="story-highlights">
                 <div className="highlight-item">
                   <i className="fas fa-trophy"></i>
                   <div>
-                    <h4>National Recognition</h4>
-                    <p>Ranked among top schools in Rwanda for science education</p>
+                    <h4>Rank Recognition</h4>
+                    <p>Ranked among top schools in Kigali for Technology education</p>
                   </div>
                 </div>
                 <div className="highlight-item">
                   <i className="fas fa-award"></i>
                   <div>
                     <h4>Ministry Accredited</h4>
-                    <p>Fully accredited by the Ministry of Education and REB</p>
+                    <p>Fully accredited by the Ministry of Education and REB and RTB</p>
                   </div>
                 </div>
               </div>
@@ -187,7 +209,7 @@ const AboutPage = () => {
                 <i className="fas fa-eye"></i>
               </div>
               <h3>Our Vision</h3>
-              <p>To be a center of excellence in science and administrative education, producing graduates who are innovative, ethical, and ready to contribute to national development.</p>
+              <p>To be a center of excellence in Technology and administrative education, producing graduates who are innovative, ethical, and ready to contribute to national development.</p>
             </div>
             <div className="mvv-card values">
               <div className="mvv-icon">
@@ -202,21 +224,6 @@ const AboutPage = () => {
                 <li><i className="fas fa-check-circle"></i> Discipline - Building strong character and work ethic</li>
               </ul>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="stats-section">
-        <div className="container">
-          <div className="stats-grid">
-            {stats.map((stat, index) => (
-              <div key={index} className="stat-card">
-                <i className={stat.icon}></i>
-                <h3>{stat.number}</h3>
-                <p>{stat.label}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -252,7 +259,7 @@ const AboutPage = () => {
       <section className="leadership">
         <div className="container">
           <div className="section-title">
-            <h2><i className="fas fa-users"></i> School Leadership</h2>
+            <h2><i className="fas fa-users"></i>Adminstration Leaders</h2>
             <div className="underline"></div>
             <p className="section-subtitle">Dedicated leaders committed to excellence</p>
           </div>

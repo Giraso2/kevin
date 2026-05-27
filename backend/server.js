@@ -1,3 +1,10 @@
+// ==================== LOAD ENVIRONMENT VARIABLES ====================
+const dotenv = require('dotenv');
+dotenv.config();
+
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -5,9 +12,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const http = require('http');
 const socketIo = require('socket.io');
-const dotenv = require('dotenv');
-
-dotenv.config();
+const nodemailer = require('nodemailer');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +22,174 @@ const io = socketIo(server, {
 
 app.use(cors());
 app.use(express.json());
+
+// ==================== EMAIL CONFIGURATION ====================
+// Create email transporter
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'kevineniyomurinzi@gmail.com',
+    pass: process.env.EMAIL_PASS || 'your-app-password'
+  }
+});
+
+// Email sending function for admissions
+const sendAdmissionEmail = async (applicationData) => {
+  const adminEmail = 'academic@essa.rw'; // Academic admin email
+  const studentEmail = applicationData.email;
+  
+  // Email to Academic Admin
+  const adminMailOptions = {
+    from: process.env.EMAIL_USER || 'noreply@essanyarugunga.rw',
+    to: adminEmail,
+    subject: `📋 New Admission Application - ${applicationData.fullName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #1a3a5c; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f5f5f5; padding: 20px; border-radius: 0 0 8px 8px; }
+          .section { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #ffc107; }
+          .section-title { color: #1a3a5c; margin-bottom: 10px; font-size: 18px; border-bottom: 2px solid #ffc107; display: inline-block; }
+          .label { font-weight: bold; color: #555; width: 140px; display: inline-block; }
+          .value { color: #333; }
+          .status { display: inline-block; padding: 5px 10px; background: #ffc107; color: #1a3a5c; border-radius: 4px; font-weight: bold; }
+          .footer { text-align: center; padding: 15px; font-size: 12px; color: #777; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>🎓 ESSA Nyarugunga School</h2>
+            <p>New Admission Application Received</p>
+          </div>
+          <div class="content">
+            <div class="section">
+              <h3 class="section-title">📝 Application Details</h3>
+              <p><span class="label">Application Number:</span> <span class="value"><strong>${applicationData.applicationNumber || 'Generating...'}</strong></span></p>
+              <p><span class="label">Submitted Date:</span> <span class="value">${new Date().toLocaleString()}</span></p>
+              <p><span class="label">Status:</span> <span class="status">PENDING REVIEW</span></p>
+            </div>
+            
+            <div class="section">
+              <h3 class="section-title">👤 Student Information</h3>
+              <p><span class="label">Full Name:</span> <span class="value">${applicationData.fullName}</span></p>
+              <p><span class="label">Date of Birth:</span> <span class="value">${new Date(applicationData.dateOfBirth).toLocaleDateString()}</span></p>
+              <p><span class="label">Nationality:</span> <span class="value">${applicationData.nationality}</span></p>
+              <p><span class="label">Email:</span> <span class="value">${applicationData.email}</span></p>
+              <p><span class="label">Phone:</span> <span class="value">${applicationData.phone}</span></p>
+              <p><span class="label">Address:</span> <span class="value">${applicationData.address}</span></p>
+            </div>
+            
+            <div class="section">
+              <h3 class="section-title">📚 Academic Information</h3>
+              <p><span class="label">Applying for Level:</span> <span class="value">${applicationData.level}</span></p>
+              <p><span class="label">Previous School:</span> <span class="value">${applicationData.previousSchool}</span></p>
+              <p><span class="label">Last Year Average:</span> <span class="value">${applicationData.lastAverage}%</span></p>
+              <p><span class="label">Achievements:</span> <span class="value">${applicationData.achievements || 'None provided'}</span></p>
+              <p><span class="label">Scholarship Request:</span> <span class="value">${applicationData.applyScholarship ? 'Yes' : 'No'}</span></p>
+            </div>
+            
+            <div class="section">
+              <h3 class="section-title">👪 Parent/Guardian Information</h3>
+              <p><span class="label">Parent Name:</span> <span class="value">${applicationData.parentName}</span></p>
+              <p><span class="label">Parent Phone:</span> <span class="value">${applicationData.parentPhone}</span></p>
+              <p><span class="label">Parent Email:</span> <span class="value">${applicationData.parentEmail || 'Not provided'}</span></p>
+              <p><span class="label">Parent Occupation:</span> <span class="value">${applicationData.parentOccupation || 'Not provided'}</span></p>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center;">
+              <a href="http://localhost:5173/portal/login" style="background: #1a3a5c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                📊 View in Admin Dashboard
+              </a>
+            </div>
+          </div>
+          <div class="footer">
+            <p>This is an automated notification from ESSA Nyarugunga School Admission System.</p>
+            <p>© ${new Date().getFullYear()} ESSA Nyarugunga School | All Rights Reserved</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+  
+  // Email to Applicant (Confirmation)
+  const applicantMailOptions = {
+    from: process.env.EMAIL_USER || 'noreply@essanyarugunga.rw',
+    to: studentEmail,
+    subject: `✅ Application Received - ESSA Nyarugunga`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #1a3a5c; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f5f5f5; padding: 20px; border-radius: 0 0 8px 8px; }
+          .footer { text-align: center; padding: 15px; font-size: 12px; color: #777; }
+          .button { background: #ffc107; color: #1a3a5c; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>🎓 ESSA Nyarugunga School</h2>
+            <p>Application Received Successfully!</p>
+          </div>
+          <div class="content">
+            <h3>Dear ${applicationData.fullName},</h3>
+            <p>Thank you for applying to <strong>ESSA Nyarugunga School</strong>! We have successfully received your admission application.</p>
+            
+            <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+              <p><strong>📋 Application Number:</strong> ${applicationData.applicationNumber || 'Generating...'}</p>
+              <p><strong>📅 Submission Date:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>📚 Applied Level:</strong> ${applicationData.level}</p>
+              <p><strong>📧 Status:</strong> <span style="color: #ffc107;">Pending Review</span></p>
+            </div>
+            
+            <p>Our admissions team will review your application and contact you within <strong>3-5 business days</strong> regarding the next steps.</p>
+            
+            <div style="margin: 20px 0; text-align: center;">
+              <a href="https://wa.me/250788123456" class="button" style="background: #25D366; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                💬 Contact Admissions
+              </a>
+            </div>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ul>
+              <li>✓ Our team will review your application</li>
+              <li>✓ You may be contacted for an entrance examination</li>
+              <li>✓ You will receive admission decision within 7-10 days</li>
+            </ul>
+            
+            <p>If you have any questions, please contact our admissions office:</p>
+            <p>📞 Phone: +250 788 123 456<br>📧 Email: admissions@essanyarugunga.rw</p>
+          </div>
+          <div class="footer">
+            <p>ESSA Nyarugunga School - Excellence in Science and Administrative Education</p>
+            <p>© ${new Date().getFullYear()} ESSA Nyarugunga School | All Rights Reserved</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+  
+  try {
+    await emailTransporter.sendMail(adminMailOptions);
+    await emailTransporter.sendMail(applicantMailOptions);
+    console.log(`✅ Admission emails sent for ${applicationData.fullName}`);
+    return true;
+  } catch (error) {
+    console.error('Email sending error:', error);
+    return false;
+  }
+};
 
 // ==================== MODELS ====================
 
@@ -57,7 +230,7 @@ const classSchema = new mongoose.Schema({
   className: String,
   grade: { type: String, enum: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] },
   academicYear: String,
-  teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
   createdAt: { type: Date, default: Date.now }
 });
@@ -145,15 +318,26 @@ const newsSchema = new mongoose.Schema({
   content: String,
   image: String,
   category: { type: String, default: 'news' },
+  tags: [String],
+  author: String,
   date: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now }
+  views: { type: Number, default: 0 },
+  likes: { type: Number, default: 0 },
+  isPublished: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 const gallerySchema = new mongoose.Schema({
   title: String,
   image: String,
   category: String,
-  date: { type: Date, default: Date.now }
+  description: String,
+  photographer: { type: String, default: 'School Media Team' },
+  date: { type: Date, default: Date.now },
+  views: { type: Number, default: 0 },
+  downloads: { type: Number, default: 0 },
+  isPublished: { type: Boolean, default: true }
 });
 
 const messageSchema = new mongoose.Schema({
@@ -167,6 +351,52 @@ const messageSchema = new mongoose.Schema({
   isRead: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
+
+// ==================== ADMISSION SCHEMA ====================
+const admissionApplicationSchema = new mongoose.Schema({
+  fullName: { type: String, required: true },
+  dateOfBirth: { type: Date, required: true },
+  nationality: { type: String, default: 'Rwandan' },
+  nationalId: { type: String, default: '' },
+  email: { type: String, required: true },
+  phone: { type: String, required: true },
+  address: { type: String, required: true },
+  level: { type: String, required: true },
+  previousSchool: { type: String, required: true },
+  lastAverage: { type: Number, required: true },
+  achievements: { type: String, default: '' },
+  parentName: { type: String, required: true },
+  parentPhone: { type: String, required: true },
+  parentEmail: { type: String, default: '' },
+  parentOccupation: { type: String, default: '' },
+  applyScholarship: { type: Boolean, default: false },
+  reportCardUrl: { type: String, default: '' },
+  birthCertUrl: { type: String, default: '' },
+  studentPhotoUrl: { type: String, default: '' },
+  applicationNumber: { type: String, unique: true },
+  status: { 
+    type: String, 
+    enum: ['pending', 'reviewing', 'accepted', 'rejected', 'waitlisted'], 
+    default: 'pending' 
+  },
+  reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  reviewNotes: { type: String, default: '' },
+  reviewedAt: { type: Date },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+admissionApplicationSchema.pre('save', function(next) {
+  if (!this.applicationNumber) {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    this.applicationNumber = `ESS${year}${random}`;
+  }
+  this.updatedAt = new Date();
+  next();
+});
+
+const AdmissionApplication = mongoose.model('AdmissionApplication', admissionApplicationSchema);
 
 const User = mongoose.model('User', userSchema);
 const TeacherProfile = mongoose.model('TeacherProfile', teacherProfileSchema);
@@ -198,9 +428,39 @@ io.on('connection', (socket) => {
 });
 
 // ==================== DATABASE CONNECTION ====================
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/essa_school')
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.error('MongoDB Error:', err.message));
+// CORRECTED MongoDB Atlas connection string with database name
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/essa_school';
+
+console.log('📡 Connecting to MongoDB...');
+
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 10000,
+})
+.then(() => {
+  console.log('✅ MongoDB Connected Successfully');
+  console.log(`📁 Database: ${mongoose.connection.name}`);
+  console.log(`🔗 Host: ${mongoose.connection.host}`);
+})
+.catch(err => {
+  console.error('❌ MongoDB Connection Error:', err.message);
+  console.log('\n💡 Troubleshooting Tips:');
+  console.log('   1. Check your internet connection');
+  console.log('   2. Verify MongoDB Atlas cluster is active');
+  console.log('   3. Whitelist your IP address in MongoDB Atlas (0.0.0.0/0 for development)');
+  console.log('   4. Check your username and password in connection string');
+  console.log('   5. Make sure the database name exists\n');
+  process.exit(1);
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
+});
 
 // ==================== MIDDLEWARE ====================
 const authMiddleware = async (req, res, next) => {
@@ -277,64 +537,85 @@ app.get('/api/super-admin/announcements', authMiddleware, async (req, res) => {
   res.json(announcements);
 });
 
-app.get('/api/announcements', authMiddleware, async (req, res) => {
-  const announcements = await Announcement.find({ isActive: true }).sort({ createdAt: -1 });
-  res.json(announcements);
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const announcements = await Announcement.find({ isActive: true }).sort({ createdAt: -1 });
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json([]);
+  }
 });
 
 app.delete('/api/super-admin/announcements/:id', authMiddleware, async (req, res) => {
   await Announcement.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
-// ==================== ACADEMIC ADMIN ROUTES (ADD THESE) ====================
 
-// Create Class - FIXED
-app.post('/api/academic-admin/classes', authMiddleware, async (req, res) => {
+// ==================== ACADEMIC ADMIN ROUTES ====================
+
+// Get teachers list
+app.get('/api/academic-admin/teachers-list', authMiddleware, async (req, res) => {
   try {
-    const { className, grade, academicYear, teacherId } = req.body;
-    
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    const newClass = new Class({
-      className,
-      grade,
-      academicYear,
-      teacherId: teacherId || null,
-      students: []
-    });
-    
-    await newClass.save();
-    
-    // Populate teacher info
-    let populatedClass = newClass.toObject();
-    if (teacherId) {
-      const teacher = await TeacherProfile.findOne({ userId: teacherId });
-      if (teacher) {
-        populatedClass.teacherId = { _id: teacherId, fullName: teacher.fullName };
-      }
-    }
-    
-    res.json({ success: true, class: populatedClass });
+    const teachers = await TeacherProfile.find();
+    res.json(teachers);
   } catch (error) {
-    console.error('Create class error:', error);
+    res.status(500).json([]);
+  }
+});
+
+// Create teacher
+app.post('/api/academic-admin/create-teacher-credentials', authMiddleware, async (req, res) => {
+  try {
+    const { fullName, email, password, subject, phone } = req.body;
+    
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: 'Email already exists' });
+    
+    const hashedPassword = await bcrypt.hash(password || 'teacher123', 10);
+    const teacherUser = new User({
+      fullName,
+      email,
+      password: hashedPassword,
+      role: 'teacher',
+      phone: phone || '',
+      createdBy: req.userId,
+      isActive: true
+    });
+    await teacherUser.save();
+    
+    const teacherProfile = new TeacherProfile({
+      userId: teacherUser._id,
+      fullName,
+      email,
+      subject: subject || 'General',
+      phone: phone || ''
+    });
+    await teacherProfile.save();
+    
+    res.json({ success: true, teacher: { _id: teacherProfile._id, fullName, email, subject, phone } });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get all classes for academic admin
+// Delete teacher
+app.delete('/api/academic-admin/teachers/:id', authMiddleware, async (req, res) => {
+  try {
+    const teacher = await TeacherProfile.findById(req.params.id);
+    if (teacher) {
+      await User.findByIdAndDelete(teacher.userId);
+      await TeacherProfile.findByIdAndDelete(req.params.id);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get classes
 app.get('/api/academic-admin/classes', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
     const classes = await Class.find().lean();
-    
-    // Populate teacher names
     for (let cls of classes) {
       if (cls.teacherId) {
         const teacher = await TeacherProfile.findOne({ userId: cls.teacherId });
@@ -343,49 +624,50 @@ app.get('/api/academic-admin/classes', authMiddleware, async (req, res) => {
         }
       }
     }
-    
     res.json(classes);
   } catch (error) {
-    console.error('Get classes error:', error);
+    res.status(500).json([]);
+  }
+});
+
+// Create class
+app.post('/api/academic-admin/classes', authMiddleware, async (req, res) => {
+  try {
+    const { className, grade, academicYear, teacherId } = req.body;
+    
+    const newClass = new Class({
+      className,
+      grade,
+      academicYear,
+      teacherId: teacherId || null,
+      students: []
+    });
+    await newClass.save();
+    
+    res.json({ success: true, class: newClass });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Assign teacher to class - FIXED
+// Assign teacher to class
 app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, async (req, res) => {
   try {
     const { teacherId } = req.body;
-    const { classId } = req.params;
-    
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    const classItem = await Class.findById(classId);
-    if (!classItem) {
-      return res.status(404).json({ message: 'Class not found' });
-    }
+    const classItem = await Class.findById(req.params.classId);
+    if (!classItem) return res.status(404).json({ message: 'Class not found' });
     
     classItem.teacherId = teacherId;
     await classItem.save();
     
-    // Get teacher name
     let teacherName = null;
     if (teacherId) {
       const teacher = await TeacherProfile.findOne({ userId: teacherId });
       teacherName = teacher ? teacher.fullName : 'Unknown';
     }
     
-    res.json({ 
-      success: true, 
-      class: {
-        ...classItem.toObject(),
-        teacherId: teacherId ? { _id: teacherId, fullName: teacherName } : null
-      }
-    });
+    res.json({ success: true, class: { ...classItem.toObject(), teacherId: teacherId ? { _id: teacherId, fullName: teacherName } : null } });
   } catch (error) {
-    console.error('Assign teacher error:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -393,11 +675,6 @@ app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, a
 // Delete class
 app.delete('/api/academic-admin/classes/:id', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
     await Class.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -407,40 +684,33 @@ app.delete('/api/academic-admin/classes/:id', authMiddleware, async (req, res) =
 
 // ==================== NEWS ROUTES ====================
 
-// Get all news
+// Get all news (admin)
 app.get('/api/academic-admin/news', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
     const news = await News.find().sort({ date: -1 });
     res.json(news);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json([]);
   }
 });
 
 // Create news
 app.post('/api/academic-admin/news', authMiddleware, async (req, res) => {
   try {
-    const { title, summary, content, image, category } = req.body;
-    
+    const { title, summary, content, image, category, tags } = req.body;
     const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
     
     const news = new News({
       title,
       summary,
       content: content || summary,
-      image: image || 'https://via.placeholder.com/800x400/1a3a5c/ffffff?text=News+Image',
+      image: image || 'https://via.placeholder.com/800x400/1a3a5c/ffffff?text=News',
       category: category || 'news',
-      date: new Date()
+      tags: tags || [],
+      author: currentUser?.fullName || 'Academic Admin',
+      date: new Date(),
+      isPublished: true
     });
-    
     await news.save();
     res.json({ success: true, news });
   } catch (error) {
@@ -451,11 +721,6 @@ app.post('/api/academic-admin/news', authMiddleware, async (req, res) => {
 // Delete news
 app.delete('/api/academic-admin/news/:id', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
     await News.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -463,67 +728,45 @@ app.delete('/api/academic-admin/news/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Public news endpoint (for frontend)
+// Public news endpoint
 app.get('/api/news/public', async (req, res) => {
   try {
     const { category, limit = 10 } = req.query;
-    const query = {};
+    const query = { isPublished: true };
     if (category && category !== 'all') query.category = category;
     
     const news = await News.find(query).sort({ date: -1 }).limit(parseInt(limit));
     res.json({ success: true, data: news });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Get single news
-app.get('/api/news/:id', async (req, res) => {
-  try {
-    const news = await News.findById(req.params.id);
-    if (!news) {
-      return res.status(404).json({ success: false, message: 'News not found' });
-    }
-    res.json({ success: true, data: news });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, data: [] });
   }
 });
 
 // ==================== GALLERY ROUTES ====================
 
-// Get all gallery items
+// Get all gallery (admin)
 app.get('/api/academic-admin/gallery', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
     const gallery = await Gallery.find().sort({ date: -1 });
     res.json(gallery);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json([]);
   }
 });
 
-// Create gallery item
+// Create gallery
 app.post('/api/academic-admin/gallery', authMiddleware, async (req, res) => {
   try {
-    const { title, image, category } = req.body;
-    
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
+    const { title, image, category, description } = req.body;
     
     const galleryItem = new Gallery({
       title,
-      image: image || 'https://via.placeholder.com/400x300/1a3a5c/ffffff?text=Gallery+Image',
+      image: image || 'https://via.placeholder.com/400x300/1a3a5c/ffffff?text=Gallery',
       category: category || 'events',
-      date: new Date()
+      description: description || '',
+      date: new Date(),
+      isPublished: true
     });
-    
     await galleryItem.save();
     res.json({ success: true, gallery: galleryItem });
   } catch (error) {
@@ -531,14 +774,9 @@ app.post('/api/academic-admin/gallery', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete gallery item
+// Delete gallery
 app.delete('/api/academic-admin/gallery/:id', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
     await Gallery.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -550,151 +788,124 @@ app.delete('/api/academic-admin/gallery/:id', authMiddleware, async (req, res) =
 app.get('/api/gallery/public', async (req, res) => {
   try {
     const { category, limit = 20 } = req.query;
-    const query = {};
+    const query = { isPublished: true };
     if (category && category !== 'all') query.category = category;
     
     const gallery = await Gallery.find(query).sort({ date: -1 }).limit(parseInt(limit));
     res.json({ success: true, data: gallery });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, data: [] });
   }
 });
 
 // ==================== PERFORMANCE ROUTES ====================
-
-// Get student performance
 app.get('/api/academic-admin/students-performance', authMiddleware, async (req, res) => {
   try {
-    const students = await Student.find().populate('userId', 'fullName email').populate('classId', 'grade className');
-    
+    const students = await Student.find().populate('classId', 'grade className');
     const performanceData = students.map(student => ({
-      studentId: student.studentId,
+      studentId: student.studentId || `STU${student._id.toString().slice(-6)}`,
       name: student.fullName,
       class: student.classId ? `${student.classId.grade} ${student.classId.className}` : 'Not Assigned',
-      averageScore: Math.floor(Math.random() * 30) + 65 // Demo data
+      averageScore: Math.floor(Math.random() * 30) + 65
     }));
-    
     res.json(performanceData);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.json([]);
   }
 });
 
-// Get class performance
 app.get('/api/academic-admin/class-performance', authMiddleware, async (req, res) => {
   try {
     const classes = await Class.find().populate('teacherId', 'fullName');
-    
     const performanceData = classes.map(cls => ({
       className: `${cls.grade} ${cls.className}`,
       teacher: cls.teacherId?.fullName || 'Not Assigned',
       studentCount: cls.students?.length || 0,
-      averageScore: Math.floor(Math.random() * 25) + 70 // Demo data
+      averageScore: Math.floor(Math.random() * 25) + 70
     }));
-    
     res.json(performanceData);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.json([]);
   }
 });
 
-// ==================== CONTACT FORM ROUTES ====================
-
-// Contact form submission (public)
+// ==================== CONTACT ROUTES ====================
 app.post('/api/contact/submit', async (req, res) => {
   try {
     const { fullName, email, phone, subject, message } = req.body;
-    
-    // Here you can send email to kevineniyomurinzi@gmail.com
-    console.log('Contact form submission:', { fullName, email, phone, subject, message });
-    
-    // Save to database if you want
-    // const contact = new Contact({ fullName, email, phone, subject, message });
-    // await contact.save();
-    
-    res.json({ 
-      success: true, 
-      message: 'Your message has been sent successfully. We will respond within 24 hours.' 
-    });
+    console.log('Contact submission:', { fullName, email, phone, subject, message });
+    res.json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Get contact submissions (admin only)
-app.get('/api/academic-admin/contacts', authMiddleware, async (req, res) => {
-  try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    // Return demo contacts or from database
-    const contacts = [
-      { _id: '1', fullName: 'John Doe', email: 'john@example.com', phone: '+250788123456', subject: 'Admission Inquiry', message: 'I would like to know about admission process', status: 'pending', createdAt: new Date() },
-      { _id: '2', fullName: 'Jane Smith', email: 'jane@example.com', phone: '+250788123457', subject: 'School Fees', message: 'When is the fee payment deadline?', status: 'read', createdAt: new Date() }
-    ];
-    
-    res.json(contacts);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   }
 });
 
 // ==================== ADMISSION ROUTES ====================
-
-// Submit admission application (public)
 app.post('/api/admissions/submit', async (req, res) => {
   try {
     const applicationData = req.body;
-    console.log('New admission application:', applicationData);
     
-    // Here you can save to database and send email
+    // Save to database
+    const newApplication = new AdmissionApplication({
+      fullName: applicationData.fullName,
+      dateOfBirth: new Date(applicationData.dateOfBirth),
+      nationality: applicationData.nationality,
+      nationalId: applicationData.nationalId,
+      email: applicationData.email,
+      phone: applicationData.phone,
+      address: applicationData.address,
+      level: applicationData.level,
+      previousSchool: applicationData.previousSchool,
+      lastAverage: parseFloat(applicationData.lastAverage),
+      achievements: applicationData.achievements,
+      parentName: applicationData.parentName,
+      parentPhone: applicationData.parentPhone,
+      parentEmail: applicationData.parentEmail,
+      parentOccupation: applicationData.parentOccupation,
+      applyScholarship: applicationData.applyScholarship || false,
+      status: 'pending'
+    });
     
-    res.json({ 
-      success: true, 
-      message: 'Your application has been submitted successfully. You will receive a confirmation email shortly.',
-      applicationId: 'APP_' + Date.now()
+    await newApplication.save();
+    
+    // Send email notifications
+    await sendAdmissionEmail(newApplication);
+    
+    res.json({
+      success: true,
+      message: 'Application submitted successfully!',
+      applicationNumber: newApplication.applicationNumber
     });
   } catch (error) {
+    console.error('Admission error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Get all applications (admin only)
 app.get('/api/academic-admin/applications', authMiddleware, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.userId);
-    if (currentUser?.role !== 'academic_admin') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    
-    // Return demo applications
-    const applications = [
-      { _id: '1', fullName: 'John Doe', email: 'john@example.com', phone: '+250788123456', level: 'S5 - Software Development', status: 'pending', applicationDate: new Date() },
-      { _id: '2', fullName: 'Jane Smith', email: 'jane@example.com', phone: '+250788123457', level: 'S4 - Computer Science', status: 'reviewing', applicationDate: new Date() }
-    ];
-    
+    const applications = await AdmissionApplication.find().sort({ createdAt: -1 });
     res.json(applications);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json([]);
   }
 });
 
-// Update application status
 app.put('/api/academic-admin/applications/:id/status', authMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
-    // Update application status in database
-    res.json({ success: true });
+    const application = await AdmissionApplication.findByIdAndUpdate(
+      req.params.id,
+      { status, reviewedBy: req.userId, reviewedAt: new Date() },
+      { new: true }
+    );
+    res.json({ success: true, application });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
 // ==================== SUBSCRIPTION ROUTES ====================
-
-// Subscribe to newsletter (public)
 app.post('/api/subscriptions/subscribe', async (req, res) => {
   try {
     const { email } = req.body;
@@ -704,273 +915,14 @@ app.post('/api/subscriptions/subscribe', async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
 // ==================== TEACHER ROUTES ====================
-
-// Teacher creates a class - FIXED
-app.post('/api/teacher/create-class', authMiddleware, async (req, res) => {
-  try {
-    const { className, grade, academicYear } = req.body;
-    
-    console.log('Create class request from user:', req.userId);
-    
-    // Find the teacher
-    const teacher = await User.findById(req.userId);
-    if (!teacher) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    if (teacher.role !== 'teacher') {
-      return res.status(403).json({ message: 'Only teachers can create classes' });
-    }
-    
-    const newClass = new Class({ 
-      className, 
-      grade, 
-      academicYear, 
-      teacherId: req.userId,
-      students: []
-    });
-    
-    await newClass.save();
-    const populatedClass = await Class.findById(newClass._id).populate('teacherId', 'fullName');
-    
-    res.json({ success: true, message: 'Class created successfully', class: populatedClass });
-  } catch (error) {
-    console.error('Create class error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher gets their classes
-app.get('/api/teacher/classes', authMiddleware, async (req, res) => {
-  try {
-    const classes = await Class.find({ teacherId: req.userId }).populate('teacherId', 'fullName');
-    res.json(classes);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher updates their class
-app.put('/api/teacher/classes/:classId', authMiddleware, async (req, res) => {
-  try {
-    const { className, grade, academicYear } = req.body;
-    const classItem = await Class.findOne({ _id: req.params.classId, teacherId: req.userId });
-    if (!classItem) {
-      return res.status(404).json({ message: 'Class not found or not yours' });
-    }
-    
-    classItem.className = className;
-    classItem.grade = grade;
-    classItem.academicYear = academicYear;
-    await classItem.save();
-    
-    res.json({ success: true, message: 'Class updated successfully', class: classItem });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher deletes their class
-app.delete('/api/teacher/classes/:classId', authMiddleware, async (req, res) => {
-  try {
-    const classItem = await Class.findOne({ _id: req.params.classId, teacherId: req.userId });
-    if (!classItem) {
-      return res.status(404).json({ message: 'Class not found or not yours' });
-    }
-    
-    await Student.deleteMany({ classId: req.params.classId });
-    await Class.findByIdAndDelete(req.params.classId);
-    
-    res.json({ success: true, message: 'Class deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher adds a student
-app.post('/api/teacher/add-student', authMiddleware, async (req, res) => {
-  try {
-    const { fullName, email, password, studentId, classId, parentName, parentPhone } = req.body;
-    
-    const classItem = await Class.findOne({ _id: classId, teacherId: req.userId });
-    if (!classItem) {
-      return res.status(403).json({ message: 'You are not authorized for this class' });
-    }
-    
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ message: 'Email already exists' });
-    }
-    
-    const hashedPassword = await bcrypt.hash(password || 'student123', 10);
-    const studentUser = new User({
-      fullName,
-      email,
-      password: hashedPassword,
-      role: 'student',
-      createdBy: req.userId,
-      isActive: true
-    });
-    await studentUser.save();
-    
-    const student = new Student({
-      userId: studentUser._id,
-      studentId: studentId || `STU${Date.now()}`,
-      fullName,
-      email,
-      classId,
-      teacherId: req.userId,
-      parentName: parentName || '',
-      parentPhone: parentPhone || '',
-      enrollmentDate: new Date()
-    });
-    await student.save();
-    
-    await Class.findByIdAndUpdate(classId, { $push: { students: student._id } });
-    
-    res.json({ 
-      success: true, 
-      message: 'Student added successfully',
-      student: {
-        _id: student._id,
-        fullName,
-        email,
-        studentId: student.studentId,
-        password: password || 'student123'
-      }
-    });
-  } catch (error) {
-    console.error('Add student error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher gets their students
 app.get('/api/teacher/students', authMiddleware, async (req, res) => {
   try {
-    const students = await Student.find({ teacherId: req.userId })
-      .populate('userId', 'fullName email')
-      .populate('classId', 'grade className');
+    const students = await Student.find({ teacherId: req.userId }).populate('classId', 'grade className');
     res.json(students);
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher deletes a student
-app.delete('/api/teacher/students/:studentId', authMiddleware, async (req, res) => {
-  try {
-    const student = await Student.findById(req.params.studentId);
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    
-    if (student.teacherId.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    
-    await Class.findByIdAndUpdate(student.classId, { $pull: { students: student._id } });
-    await User.findByIdAndDelete(student.userId);
-    await Student.findByIdAndDelete(req.params.studentId);
-    
-    res.json({ success: true, message: 'Student deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher resets student password
-app.post('/api/teacher/students/:studentId/reset-password', authMiddleware, async (req, res) => {
-  try {
-    const { newPassword } = req.body;
-    const student = await Student.findById(req.params.studentId);
-    
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-    
-    if (student.teacherId.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-    
-    const hashedPassword = await bcrypt.hash(newPassword || 'student123', 10);
-    await User.findByIdAndUpdate(student.userId, { password: hashedPassword });
-    
-    res.json({ success: true, newPassword: newPassword || 'student123' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher creates assignment
-app.post('/api/teacher/assignments', authMiddleware, async (req, res) => {
-  try {
-    const { title, description, subject, classId, dueDate, totalPoints } = req.body;
-    
-    const classItem = await Class.findOne({ _id: classId, teacherId: req.userId });
-    if (!classItem) {
-      return res.status(403).json({ message: 'You are not assigned to this class' });
-    }
-    
-    const assignment = new Assignment({
-      title,
-      description,
-      subject,
-      classId,
-      teacherId: req.userId,
-      dueDate,
-      totalPoints: totalPoints || 100
-    });
-    await assignment.save();
-    
-    res.json({ success: true, assignment });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher gets assignments
-app.get('/api/teacher/assignments', authMiddleware, async (req, res) => {
-  try {
-    const assignments = await Assignment.find({ teacherId: req.userId }).populate('classId', 'grade className');
-    res.json(assignments);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher marks attendance
-app.post('/api/teacher/attendance', authMiddleware, async (req, res) => {
-  try {
-    const { classId, date, records } = req.body;
-    
-    const classItem = await Class.findOne({ _id: classId, teacherId: req.userId });
-    if (!classItem) {
-      return res.status(403).json({ message: 'You are not assigned to this class' });
-    }
-    
-    for (const record of records) {
-      await Attendance.findOneAndUpdate(
-        { studentId: record.studentId, date: new Date(date) },
-        { classId, status: record.status, teacherId: req.userId },
-        { upsert: true }
-      );
-    }
-    res.json({ success: true, message: 'Attendance marked successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Teacher gets attendance
-app.get('/api/teacher/attendance', authMiddleware, async (req, res) => {
-  try {
-    const attendance = await Attendance.find({ teacherId: req.userId })
-      .populate('studentId', 'fullName studentId');
-    res.json(attendance);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.json([]);
   }
 });
 
@@ -1003,8 +955,12 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
   const receiver = await User.findById(receiverId);
   
   const message = new Message({
-    senderId: req.userId, senderName: sender?.fullName || 'Unknown', senderRole: sender?.role || 'unknown',
-    receiverId, receiverName: receiver?.fullName || 'Unknown', receiverRole: receiver?.role || 'unknown',
+    senderId: req.userId,
+    senderName: sender?.fullName || 'Unknown',
+    senderRole: sender?.role || 'unknown',
+    receiverId,
+    receiverName: receiver?.fullName || 'Unknown',
+    receiverRole: receiver?.role || 'unknown',
     content
   });
   await message.save();
@@ -1013,66 +969,70 @@ app.post('/api/messages/send', authMiddleware, async (req, res) => {
   res.json({ success: true, message });
 });
 
-// ==================== CREATE DEFAULT USERS ====================
-const createDefaultUsers = async () => {
-  // Create Super Admin
-  const existingSuperAdmin = await User.findOne({ email: 'admin@essa.rw' });
-  if (!existingSuperAdmin) {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    await User.create({
-      fullName: 'Super Administrator',
-      email: 'admin@essa.rw',
-      password: hashedPassword,
-      role: 'super_admin',
-      phone: '+250788123456',
-      isActive: true
-    });
-    console.log('✅ Super Admin created: admin@essa.rw / admin123');
-  }
-  
-  // Create Academic Admin
-  const existingAcademicAdmin = await User.findOne({ email: 'academic@essa.rw' });
-  if (!existingAcademicAdmin) {
-    const hashedPassword = await bcrypt.hash('academic123', 10);
-    await User.create({
-      fullName: 'Academic Administrator',
-      email: 'academic@essa.rw',
-      password: hashedPassword,
-      role: 'academic_admin',
-      phone: '+250788123457',
-      isActive: true
-    });
-    console.log('✅ Academic Admin created: academic@essa.rw / academic123');
-  }
-  
-  // Create Sample Teacher
-  const existingTeacher = await User.findOne({ email: 'teacher@essa.rw' });
-  if (!existingTeacher) {
-    const hashedPassword = await bcrypt.hash('teacher123', 10);
-    const teacherUser = await User.create({
-      fullName: 'John Teacher',
-      email: 'teacher@essa.rw',
-      password: hashedPassword,
-      role: 'teacher',
-      phone: '+250788123458',
-      isActive: true
-    });
-    
-    await TeacherProfile.create({
-      userId: teacherUser._id,
-      fullName: 'John Teacher',
-      email: 'teacher@essa.rw',
-      subject: 'Mathematics & Computer Science',
-      phone: '+250788123458'
-    });
-    console.log('✅ Sample Teacher created: teacher@essa.rw / teacher123');
-  }
-};
-
 // ==================== HEALTH CHECK ====================
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+
+// ==================== CREATE DEFAULT USERS ====================
+const createDefaultUsers = async () => {
+  try {
+    // Create Super Admin
+    const existingSuperAdmin = await User.findOne({ email: 'admin@essa.rw' });
+    if (!existingSuperAdmin) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await User.create({
+        fullName: 'Super Administrator',
+        email: 'admin@essa.rw',
+        password: hashedPassword,
+        role: 'super_admin',
+        phone: '+250788123456',
+        isActive: true
+      });
+      console.log('✅ Super Admin created: admin@essa.rw / admin123');
+    }
+    
+    // Create Academic Admin
+    const existingAcademicAdmin = await User.findOne({ email: 'academic@essa.rw' });
+    if (!existingAcademicAdmin) {
+      const hashedPassword = await bcrypt.hash('academic123', 10);
+      await User.create({
+        fullName: 'Academic Administrator',
+        email: 'academic@essa.rw',
+        password: hashedPassword,
+        role: 'academic_admin',
+        phone: '+250788123457',
+        isActive: true
+      });
+      console.log('✅ Academic Admin created: academic@essa.rw / academic123');
+    }
+    
+    // Create Sample Teacher
+    const existingTeacher = await User.findOne({ email: 'teacher@essa.rw' });
+    if (!existingTeacher) {
+      const hashedPassword = await bcrypt.hash('teacher123', 10);
+      const teacherUser = await User.create({
+        fullName: 'John Teacher',
+        email: 'teacher@essa.rw',
+        password: hashedPassword,
+        role: 'teacher',
+        phone: '+250788123458',
+        isActive: true
+      });
+      
+      await TeacherProfile.create({
+        userId: teacherUser._id,
+        fullName: 'John Teacher',
+        email: 'teacher@essa.rw',
+        subject: 'Mathematics & Computer Science',
+        phone: '+250788123458'
+      });
+      console.log('✅ Sample Teacher created: teacher@essa.rw / teacher123');
+    }
+  } catch (error) {
+    console.error('Error creating default users:', error);
+  }
+};
 
 // ==================== START SERVER ====================
 const PORT = process.env.PORT || 5000;
@@ -1094,10 +1054,6 @@ createDefaultUsers().then(() => {
     console.log('🔑 TEACHER:');
     console.log('   Email: teacher@essa.rw');
     console.log('   Password: teacher123');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('\n💡 WORKFLOW:');
-    console.log('1. Academic Admin: Creates teacher accounts only');
-    console.log('2. Teacher: Creates classes, adds students, manages everything');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   });
 });
