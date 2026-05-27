@@ -674,17 +674,115 @@ const SuperAdminDashboard = () => {
           </div>
         )}
 
-        {/* Permissions Tab */}
-        {activeTab === 'permissions' && (
-          <div className="data-card">
-            <h2><i className="fas fa-file-alt"></i> Permission Requests</h2>
-            <div className="permission-stats"><div className="stat-chip approved">Approved: {permissionTrends.approved || 0}</div><div className="stat-chip pending">Pending: {permissionTrends.pending || 0}</div><div className="stat-chip rejected">Rejected: {permissionTrends.rejected || 0}</div></div>
-            <div className="table-responsive"><table className="data-table"><thead><tr><th>Requester</th><th>Type</th><th>Reason</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-              {permissions.map(p => (<tr key={p._id}><td><strong>{p.requesterName}</strong><br/><small>{p.requesterRole}</small></td><td>{p.type}</td><td>{p.reason?.substring(0, 50)}...</td>}<td><small>{new Date(p.fromDate).toLocaleDateString()}<br/>to<br/>{new Date(p.toDate).toLocaleDateString()}</small></td><td><span className={`status-badge ${p.status}`}>{p.status}</span></td>
-              <td>{p.status === 'pending' ? <div className="action-buttons"><button onClick={() => handlePermissionAction(p, 'approved')} className="approve-btn-sm">Approve</button><button onClick={() => handlePermissionAction(p, 'rejected')} className="reject-btn-sm">Reject</button></div> : <span className="action-text">{p.action || p.status}</span>}</td></tr>))}
-            </tbody></table></div>
-          </div>
-        )}
+       {/* Permissions Tab */}
+{activeTab === 'permissions' && (
+  <div className="data-card">
+
+    <h2>
+      <i className="fas fa-file-alt"></i> Permission Requests
+    </h2>
+
+    <div className="permission-stats">
+      <div className="stat-chip approved">
+        Approved: {permissionTrends.approved || 0}
+      </div>
+
+      <div className="stat-chip pending">
+        Pending: {permissionTrends.pending || 0}
+      </div>
+
+      <div className="stat-chip rejected">
+        Rejected: {permissionTrends.rejected || 0}
+      </div>
+    </div>
+
+    <div className="table-responsive">
+      <table className="data-table">
+
+        <thead>
+          <tr>
+            <th>Requester</th>
+            <th>Type</th>
+            <th>Reason</th>
+            <th>Dates</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {permissions.map((p) => (
+            <tr key={p._id}>
+
+              <td>
+                <strong>{p.requesterName}</strong>
+                <br />
+                <small>{p.requesterRole}</small>
+              </td>
+
+              <td>{p.type}</td>
+
+              <td>
+                {p.reason
+                  ? `${p.reason.substring(0, 50)}...`
+                  : '-'}
+              </td>
+
+              <td>
+                <small>
+                  {new Date(p.fromDate).toLocaleDateString()}
+                  <br />
+                  to
+                  <br />
+                  {new Date(p.toDate).toLocaleDateString()}
+                </small>
+              </td>
+
+              <td>
+                <span className={`status-badge ${p.status}`}>
+                  {p.status}
+                </span>
+              </td>
+
+              <td>
+                {p.status === 'pending' ? (
+                  <div className="action-buttons">
+
+                    <button
+                      onClick={() =>
+                        handlePermissionAction(p, 'approved')
+                      }
+                      className="approve-btn-sm"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handlePermissionAction(p, 'rejected')
+                      }
+                      className="reject-btn-sm"
+                    >
+                      Reject
+                    </button>
+
+                  </div>
+                ) : (
+                  <span className="action-text">
+                    {p.action || p.status}
+                  </span>
+                )}
+              </td>
+
+            </tr>
+          ))}
+        </tbody>
+
+      </table>
+    </div>
+
+  </div>
+)}
 
         {/* Messages Tab - In Sidebar Content */}
         {activeTab === 'messages' && (
