@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
+import ChatModal from '../components/ChatModal';
 
 // API Base URL
 const API_URL = 'http://localhost:5000/api';
@@ -24,10 +25,8 @@ const AcademicAdminDashboard = () => {
   const [announcements, setAnnouncements] = useState([]);
   
   // Chat states
-  const [messages, setMessages] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [messageText, setMessageText] = useState('');
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [selectedChatUser, setSelectedChatUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
   
@@ -76,10 +75,7 @@ const AcademicAdminDashboard = () => {
     setSocket(newSocket);
     const userId = localStorage.getItem('userId');
     if (userId) newSocket.emit('join', userId);
-    newSocket.on('newMessage', (message) => {
-      if (selectedUser && message.senderId === selectedUser._id) {
-        setMessages(prev => [...prev, message]);
-      }
+    newSocket.on('newMessage', () => {
       fetchUnreadCount();
     });
     return () => newSocket.disconnect();
@@ -95,15 +91,12 @@ const AcademicAdminDashboard = () => {
     } else {
       setUserName(name || 'Academic Admin');
       fetchAllData();
-      fetchUsers();
       fetchUnreadCount();
     }
   }, [navigate]);
 
   const fetchAllData = async () => {
     try {
-      console.log('Fetching all data...');
-      
       const [teachersData, classesData, newsData, galleryData, perfData, classPerfData, annData] = await Promise.all([
         apiRequest('/academic-admin/teachers-list').catch(() => []),
         apiRequest('/academic-admin/classes').catch(() => []),
@@ -130,15 +123,6 @@ const AcademicAdminDashboard = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const data = await apiRequest('/messages/users');
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
   const fetchUnreadCount = async () => {
     try {
       const data = await apiRequest('/messages/unread/count');
@@ -148,33 +132,17 @@ const AcademicAdminDashboard = () => {
     }
   };
 
-  const fetchMessages = async (userId) => {
-    try {
-      const data = await apiRequest(`/messages/user/${userId}`);
-      setMessages(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+  const handleOpenChat = (user = null) => {
+    if (user) {
+      setSelectedChatUser(user);
     }
+    setIsChatModalOpen(true);
   };
 
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedUser) return;
-    try {
-      const data = await apiRequest('/messages/send', {
-        method: 'POST',
-        body: JSON.stringify({ receiverId: selectedUser._id, content: messageText })
-      });
-      if (data.success) {
-        setMessages([...messages, data.message]);
-        setMessageText('');
-        if (socket) {
-          socket.emit('sendMessage', { receiverId: selectedUser._id, ...data.message });
-        }
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      Swal.fire('Error', 'Failed to send message', 'error');
-    }
+  const handleCloseChat = () => {
+    setIsChatModalOpen(false);
+    setSelectedChatUser(null);
+    fetchUnreadCount();
   };
 
   // ==================== TEACHER MANAGEMENT ====================
@@ -182,12 +150,27 @@ const AcademicAdminDashboard = () => {
     const { value: formValues } = await Swal.fire({
       title: 'Create Teacher Account',
       html: `
-        <div style="text-align: left;">
-          <input type="text" id="fullName" class="swal2-input" placeholder="Full Name *" required>
-          <input type="email" id="email" class="swal2-input" placeholder="Email *" required>
-          <input type="password" id="password" class="swal2-input" placeholder="Password (default: teacher123)">
-          <input type="text" id="subject" class="swal2-input" placeholder="Subject">
-          <input type="tel" id="phone" class="swal2-input" placeholder="Phone Number">
+        <div class="admin-form">
+          <div class="form-group">
+            <i class="fas fa-user"></i>
+            <input type="text" id="fullName" placeholder="Full Name *" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-envelope"></i>
+            <input type="email" id="email" placeholder="Email *" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="password" placeholder="Password (default: teacher123)">
+          </div>
+          <div class="form-group">
+            <i class="fas fa-book"></i>
+            <input type="text" id="subject" placeholder="Subject">
+          </div>
+          <div class="form-group">
+            <i class="fas fa-phone"></i>
+            <input type="tel" id="phone" placeholder="Phone Number">
+          </div>
         </div>
       `,
       confirmButtonText: 'Create Teacher',
@@ -197,18 +180,15 @@ const AcademicAdminDashboard = () => {
       preConfirm: () => {
         const fullName = document.getElementById('fullName').value;
         const email = document.getElementById('email').value;
-        
         if (!fullName || !email) {
-          Swal.showValidationMessage('Please fill Full Name and Email');
+          Swal.showValidationMessage('Please fill required fields');
           return false;
         }
-        
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
           Swal.showValidationMessage('Please enter a valid email address');
           return false;
         }
-        
         return {
           fullName: fullName.trim(),
           email: email.trim().toLowerCase(),
@@ -221,14 +201,20 @@ const AcademicAdminDashboard = () => {
 
     if (formValues) {
       try {
-        const data = await apiRequest('/academic-admin/create-teacher-credentials', {
+        await apiRequest('/academic-admin/create-teacher-credentials', {
           method: 'POST',
           body: JSON.stringify(formValues)
         });
-        
         Swal.fire({
-          title: 'Teacher Created!',
-          html: `<div><p><strong>Name:</strong> ${formValues.fullName}</p><p><strong>Email:</strong> ${formValues.email}</p><p><strong>Password:</strong> ${formValues.password}</p><p><strong>Subject:</strong> ${formValues.subject}</p></div>`,
+          title: '✅ Teacher Created!',
+          html: `
+            <div class="credentials-box">
+              <p><strong>Name:</strong> ${formValues.fullName}</p>
+              <p><strong>Email:</strong> ${formValues.email}</p>
+              <p><strong>Password:</strong> <code>${formValues.password}</code></p>
+              <p><strong>Subject:</strong> ${formValues.subject}</p>
+            </div>
+          `,
           icon: 'success'
         });
         fetchAllData();
@@ -245,7 +231,7 @@ const AcademicAdminDashboard = () => {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Delete'
+      confirmButtonText: 'Yes, Delete'
     });
     
     if (result.isConfirmed) {
@@ -274,16 +260,28 @@ const AcademicAdminDashboard = () => {
     const { value: formValues } = await Swal.fire({
       title: 'Create Class',
       html: `
-        <div style="text-align: left;">
-          <input type="text" id="className" class="swal2-input" placeholder="Class Name (e.g., A, B, C)" required>
-          <select id="grade" class="swal2-select" style="width: 100%; padding: 8px; margin: 5px 0;">
-            <option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option>
-            <option value="S4">S4</option><option value="S5">S5</option><option value="S6">S6</option>
-          </select>
-          <input type="text" id="academicYear" class="swal2-input" placeholder="Academic Year (e.g., 2026)" required>
-          <select id="teacherId" class="swal2-select" style="width: 100%; padding: 8px; margin: 5px 0;">
-            ${Object.entries(teacherOptions).map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
-          </select>
+        <div class="admin-form">
+          <div class="form-group">
+            <i class="fas fa-tag"></i>
+            <input type="text" id="className" placeholder="Class Name (e.g., A, B, C)" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-layer-group"></i>
+            <select id="grade">
+              <option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option>
+              <option value="S4">S4</option><option value="S5">S5</option><option value="S6">S6</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-calendar"></i>
+            <input type="text" id="academicYear" placeholder="Academic Year (e.g., 2026)" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-chalkboard-user"></i>
+            <select id="teacherId">
+              ${Object.entries(teacherOptions).map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
+            </select>
+          </div>
         </div>
       `,
       confirmButtonText: 'Create Class',
@@ -294,19 +292,17 @@ const AcademicAdminDashboard = () => {
         const className = document.getElementById('className').value;
         const grade = document.getElementById('grade').value;
         const academicYear = document.getElementById('academicYear').value;
-        const teacherId = document.getElementById('teacherId').value;
-        
         if (!className || !grade || !academicYear) {
           Swal.showValidationMessage('Please fill all required fields');
           return false;
         }
-        return { className, grade, academicYear, teacherId: teacherId || null };
+        return { className, grade, academicYear, teacherId: document.getElementById('teacherId').value || null };
       }
     });
 
     if (formValues) {
       try {
-        const data = await apiRequest('/academic-admin/classes', {
+        await apiRequest('/academic-admin/classes', {
           method: 'POST',
           body: JSON.stringify(formValues)
         });
@@ -325,7 +321,7 @@ const AcademicAdminDashboard = () => {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Delete'
+      confirmButtonText: 'Yes, Delete'
     });
     
     if (result.isConfirmed) {
@@ -411,15 +407,32 @@ const AcademicAdminDashboard = () => {
     const { value: formValues } = await Swal.fire({
       title: 'Create News/Event',
       html: `
-        <input type="text" id="title" class="swal2-input" placeholder="Title" required>
-        <textarea id="summary" class="swal2-textarea" placeholder="Short Summary" required></textarea>
-        <textarea id="content" class="swal2-textarea" placeholder="Full Content"></textarea>
-        <input type="text" id="image" class="swal2-input" placeholder="Image URL">
-        <select id="category" class="swal2-select">
-          <option value="news">News</option>
-          <option value="event">Event</option>
-          <option value="announcement">Announcement</option>
-        </select>
+        <div class="admin-form">
+          <div class="form-group">
+            <i class="fas fa-heading"></i>
+            <input type="text" id="title" placeholder="Title" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-align-left"></i>
+            <textarea id="summary" placeholder="Short Summary" required rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-file-alt"></i>
+            <textarea id="content" placeholder="Full Content (optional)" rows="4"></textarea>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-image"></i>
+            <input type="text" id="image" placeholder="Image URL">
+          </div>
+          <div class="form-group">
+            <i class="fas fa-tag"></i>
+            <select id="category">
+              <option value="news">📰 News</option>
+              <option value="event">🎉 Event</option>
+              <option value="announcement">📢 Announcement</option>
+            </select>
+          </div>
+        </div>
       `,
       confirmButtonText: 'Publish',
       confirmButtonColor: '#27ae60',
@@ -447,7 +460,7 @@ const AcademicAdminDashboard = () => {
           method: 'POST',
           body: JSON.stringify(formValues)
         });
-        Swal.fire('Published!', 'News/Event added', 'success');
+        Swal.fire('Published!', 'News/Event added successfully', 'success');
         fetchAllData();
       } catch (error) {
         Swal.fire('Error', 'Failed to publish news', 'error');
@@ -462,13 +475,13 @@ const AcademicAdminDashboard = () => {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Delete'
+      confirmButtonText: 'Yes, Delete'
     });
     
     if (result.isConfirmed) {
       try {
         await apiRequest(`/academic-admin/news/${newsItem._id}`, { method: 'DELETE' });
-        Swal.fire('Deleted!', 'News removed', 'success');
+        Swal.fire('Deleted!', 'News removed successfully', 'success');
         fetchAllData();
       } catch (error) {
         Swal.fire('Error', 'Failed to delete news', 'error');
@@ -481,14 +494,25 @@ const AcademicAdminDashboard = () => {
     const { value: formValues } = await Swal.fire({
       title: 'Add Gallery Image',
       html: `
-        <input type="text" id="title" class="swal2-input" placeholder="Image Title" required>
-        <input type="text" id="image" class="swal2-input" placeholder="Image URL" required>
-        <select id="category" class="swal2-select">
-          <option value="academic">Academic</option>
-          <option value="sports">Sports</option>
-          <option value="cultural">Cultural</option>
-          <option value="events">Events</option>
-        </select>
+        <div class="admin-form">
+          <div class="form-group">
+            <i class="fas fa-heading"></i>
+            <input type="text" id="title" placeholder="Image Title" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-image"></i>
+            <input type="text" id="image" placeholder="Image URL" required>
+          </div>
+          <div class="form-group">
+            <i class="fas fa-tag"></i>
+            <select id="category">
+              <option value="academic">📚 Academic</option>
+              <option value="sports">⚽ Sports</option>
+              <option value="cultural">🎭 Cultural</option>
+              <option value="events">🎪 Events</option>
+            </select>
+          </div>
+        </div>
       `,
       confirmButtonText: 'Add Image',
       confirmButtonColor: '#3498db',
@@ -526,13 +550,13 @@ const AcademicAdminDashboard = () => {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Delete'
+      confirmButtonText: 'Yes, Delete'
     });
     
     if (result.isConfirmed) {
       try {
         await apiRequest(`/academic-admin/gallery/${image._id}`, { method: 'DELETE' });
-        Swal.fire('Deleted!', 'Image removed', 'success');
+        Swal.fire('Deleted!', 'Image removed successfully', 'success');
         fetchAllData();
       } catch (error) {
         Swal.fire('Error', 'Failed to delete image', 'error');
@@ -546,14 +570,13 @@ const AcademicAdminDashboard = () => {
   };
 
   const menuItems = [
-    { id: 'overview', label: 'Overview', icon: 'fas fa-chart-line', color: '#3498db' },
+    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line', color: '#3498db' },
     { id: 'teachers', label: 'Teachers', icon: 'fas fa-chalkboard-user', color: '#27ae60' },
     { id: 'classes', label: 'Classes', icon: 'fas fa-school', color: '#9b59b6' },
     { id: 'news', label: 'News & Events', icon: 'fas fa-newspaper', color: '#f39c12' },
     { id: 'gallery', label: 'Gallery', icon: 'fas fa-images', color: '#e74c3c' },
     { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn', color: '#1abc9c' },
     { id: 'performance', label: 'Performance', icon: 'fas fa-chart-bar', color: '#1abc9c' },
-    { id: 'chat', label: 'Messages', icon: 'fas fa-comments', color: '#1abc9c' },
     { id: 'profile', label: 'Profile', icon: 'fas fa-user-circle', color: '#34495e' }
   ];
 
@@ -562,66 +585,64 @@ const AcademicAdminDashboard = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f4f8' }}>
-        <i className="fas fa-spinner fa-spin" style={{ fontSize: '3rem', color: '#1a3a5c' }}></i>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading Dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f0f4f8' }}>
-      {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998 }} />}
+    <div className="academic-admin-dashboard">
+      {/* Mobile Overlay */}
+      {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
 
       {/* Sidebar */}
-      <aside style={{
-        width: isMobile ? sidebarWidthMobile : sidebarWidth,
-        background: 'linear-gradient(180deg, #1a3a5c 0%, #0d2b42 100%)',
-        color: 'white', position: 'fixed', left: 0, top: 0, bottom: 0,
-        transition: 'width 0.3s ease', overflow: 'hidden', display: 'flex',
-        flexDirection: 'column', zIndex: 999
-      }}>
-        <div style={{ padding: sidebarCollapsed ? '1rem 0' : '1.5rem', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} style={{ width: isMobile ? sidebarWidthMobile : sidebarWidth }}>
+        <div className="sidebar-header">
           {!sidebarCollapsed && (
-            <>
-              <div style={{ width: '60px', height: '60px', background: '#ffc107', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                <i className="fas fa-user-graduate" style={{ fontSize: '2rem', color: '#1a3a5c' }}></i>
+            <div className="logo-area">
+              <div className="logo-icon">
+                <i className="fas fa-user-graduate"></i>
               </div>
-              <h3>{userName}</h3>
-              <p style={{ fontSize: '0.7rem', opacity: 0.8 }}>Academic Admin</p>
-            </>
+              <div className="logo-text">
+                <h3>ESSA Portal</h3>
+                <p>Academic Admin</p>
+              </div>
+            </div>
           )}
-          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{
-            position: 'absolute', bottom: '-12px', right: '-12px', width: '24px', height: '24px',
-            background: '#ffc107', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#1a3a5c'
-          }}>
+          <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
             <i className={`fas fa-chevron-${sidebarCollapsed ? 'right' : 'left'}`}></i>
           </button>
         </div>
 
-        <nav style={{ flex: 1, padding: '1rem 0', overflowY: 'auto' }}>
+        <div className="user-profile">
+          <div className="user-avatar">
+            <i className="fas fa-user-graduate"></i>
+          </div>
+          {!sidebarCollapsed && (
+            <div className="user-info">
+              <h4>{userName}</h4>
+              <span className="user-role">Academic Administrator</span>
+            </div>
+          )}
+        </div>
+
+        <nav className="sidebar-nav">
           {menuItems.map((item) => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                gap: '12px', width: '100%', padding: sidebarCollapsed ? '12px' : '12px 20px',
-                background: activeTab === item.id ? 'rgba(255,255,255,0.15)' : 'transparent',
-                border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.9rem'
-              }}>
-              <i className={item.icon} style={{ width: '20px', color: item.color }}></i>
+            <button
+              key={item.id}
+              className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}
+            >
+              <i className={item.icon} style={{ color: item.color }}></i>
               {!sidebarCollapsed && <span>{item.label}</span>}
-              {item.id === 'chat' && unreadCount > 0 && !sidebarCollapsed && (
-                <span style={{ marginLeft: 'auto', background: '#e74c3c', borderRadius: '50%', padding: '2px 6px', fontSize: '10px' }}>{unreadCount}</span>
-              )}
             </button>
           ))}
         </nav>
 
-        <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <button onClick={handleLogout} style={{
-            display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-            gap: '12px', width: '100%', padding: '12px', background: '#e74c3c',
-            border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer'
-          }}>
+        <div className="sidebar-footer">
+          <button className="logout-btn" onClick={handleLogout}>
             <i className="fas fa-sign-out-alt"></i>
             {!sidebarCollapsed && <span>Logout</span>}
           </button>
@@ -629,246 +650,266 @@ const AcademicAdminDashboard = () => {
       </aside>
 
       {/* Main Content */}
-      <main style={{
-        flex: 1, marginLeft: isMobile ? '0' : sidebarWidth,
-        transition: 'margin-left 0.3s ease', padding: '20px', width: '100%', overflowX: 'auto'
-      }}>
+      <main className="main-content" style={{ marginLeft: isMobile ? '0' : sidebarWidth }}>
         {/* Top Bar */}
-        <div style={{
-          background: 'white', padding: '10px 20px', borderRadius: '12px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginBottom: '20px', flexWrap: 'wrap', gap: '10px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ background: '#1a3a5c', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: isMobile ? 'block' : 'none' }}>
+        <div className="top-bar">
+          <div className="top-bar-left">
+            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               <i className="fas fa-bars"></i>
             </button>
-            <h2 style={{ color: '#1a3a5c', margin: 0 }}>Academic Admin Dashboard</h2>
+            <h2>Academic Admin Dashboard</h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '35px', height: '35px', background: '#1a3a5c', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-              <i className="fas fa-user-graduate"></i>
+          <div className="top-bar-right">
+            <div className="notification-bell" onClick={() => handleOpenChat()}>
+              <i className="fas fa-envelope"></i>
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </div>
-            <div>
-              <div style={{ fontWeight: '600' }}>{userName}</div>
-              <div style={{ fontSize: '0.7rem', color: '#ffc107' }}>Academic Admin</div>
+            <div className="user-menu">
+              <div className="user-avatar-small">
+                <i className="fas fa-user-graduate"></i>
+              </div>
+              <div className="user-details">
+                <span className="user-name">{userName}</span>
+                <span className="user-role-badge">Academic Admin</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <h1 style={{ color: '#1a3a5c', marginBottom: '20px' }}>Welcome, {userName}! 📚</h1>
+        {/* Welcome Banner */}
+        <div className="welcome-banner">
+          <div className="welcome-text">
+            <h1>Welcome back, {userName.split(' ')[0]}! 📚</h1>
+            <p>Manage teachers, classes, and academic content from your dashboard.</p>
+          </div>
+          <div className="welcome-date">
+            <i className="fas fa-calendar-alt"></i>
+            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
+        </div>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(180px, 1fr))`, gap: '1rem', marginBottom: '20px' }}>
-              <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
-                <i className="fas fa-chalkboard-user" style={{ fontSize: '2rem', color: '#27ae60' }}></i>
-                <h3>{teachers.length}</h3><p>Teachers</p>
+          <div className="dashboard-content">
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon" style={{ background: '#e8f5e9' }}>
+                  <i className="fas fa-chalkboard-user" style={{ color: '#27ae60' }}></i>
+                </div>
+                <div className="stat-info">
+                  <h3>{teachers.length}</h3>
+                  <p>Teachers</p>
+                  <span className="stat-trend">Active educators</span>
+                </div>
               </div>
-              <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
-                <i className="fas fa-school" style={{ fontSize: '2rem', color: '#9b59b6' }}></i>
-                <h3>{classes.length}</h3><p>Classes</p>
+              <div className="stat-card">
+                <div className="stat-icon" style={{ background: '#e3f2fd' }}>
+                  <i className="fas fa-school" style={{ color: '#3498db' }}></i>
+                </div>
+                <div className="stat-info">
+                  <h3>{classes.length}</h3>
+                  <p>Classes</p>
+                  <span className="stat-trend">Active classes</span>
+                </div>
               </div>
-              <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
-                <i className="fas fa-newspaper" style={{ fontSize: '2rem', color: '#f39c12' }}></i>
-                <h3>{news.length}</h3><p>News & Events</p>
+              <div className="stat-card">
+                <div className="stat-icon" style={{ background: '#fff3e0' }}>
+                  <i className="fas fa-newspaper" style={{ color: '#f39c12' }}></i>
+                </div>
+                <div className="stat-info">
+                  <h3>{news.length}</h3>
+                  <p>News & Events</p>
+                  <span className="stat-trend">Published articles</span>
+                </div>
               </div>
-              <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', textAlign: 'center' }}>
-                <i className="fas fa-images" style={{ fontSize: '2rem', color: '#e74c3c' }}></i>
-                <h3>{gallery.length}</h3><p>Gallery Images</p>
+              <div className="stat-card">
+                <div className="stat-icon" style={{ background: '#fdecea' }}>
+                  <i className="fas fa-images" style={{ color: '#e74c3c' }}></i>
+                </div>
+                <div className="stat-info">
+                  <h3>{gallery.length}</h3>
+                  <p>Gallery Images</p>
+                  <span className="stat-trend">Captured moments</span>
+                </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={handleCreateTeacher} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-user-plus"></i> Add Teacher</button>
-              <button onClick={handleCreateClass} style={{ background: '#3498db', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-plus-circle"></i> Create Class</button>
-              <button onClick={handleCreateNews} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-newspaper"></i> Post News</button>
-              <button onClick={handleAddGalleryImage} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer' }}><i className="fas fa-image"></i> Add to Gallery</button>
+            <div className="quick-actions">
+              <button onClick={handleCreateTeacher} className="action-btn primary">
+                <i className="fas fa-user-plus"></i> Add Teacher
+              </button>
+              <button onClick={handleCreateClass} className="action-btn secondary">
+                <i className="fas fa-plus-circle"></i> Create Class
+              </button>
+              <button onClick={handleCreateNews} className="action-btn warning">
+                <i className="fas fa-newspaper"></i> Post News
+              </button>
+              <button onClick={handleAddGalleryImage} className="action-btn danger">
+                <i className="fas fa-image"></i> Add to Gallery
+              </button>
             </div>
           </div>
         )}
 
         {/* Teachers Tab */}
         {activeTab === 'teachers' && (
-          <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
-              <h2>Teachers</h2>
-              <button onClick={handleCreateTeacher} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}><i className="fas fa-plus"></i> Add Teacher</button>
+          <div className="data-card">
+            <div className="card-header">
+              <h2><i className="fas fa-chalkboard-user"></i> Teachers</h2>
+              <button onClick={handleCreateTeacher} className="btn-primary-sm">
+                <i className="fas fa-plus"></i> Add Teacher
+              </button>
             </div>
-            {teachers.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No teachers yet. Click "Add Teacher" to create one.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+            <div className="table-responsive">
+              <table className="data-table">
                 <thead>
-                  <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                    <th style={{ padding: '12px' }}>Name</th>
-                    <th style={{ padding: '12px' }}>Email</th>
-                    <th style={{ padding: '12px' }}>Subject</th>
-                    <th style={{ padding: '12px' }}>Phone</th>
-                    <th style={{ padding: '12px' }}>Actions</th>
+                  <tr>
+                    <th>Teacher</th>
+                    <th>Email</th>
+                    <th>Subject</th>
+                    <th>Phone</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teachers.map(t => (
-                    <tr key={t._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                      <td style={{ padding: '12px' }}><strong>{t.fullName}</strong></td>
-                      <td style={{ padding: '12px' }}>{t.email}</td>
-                      <td style={{ padding: '12px' }}>{t.subject || '-'}</td>
-                      <td style={{ padding: '12px' }}>{t.phone || '-'}</td>
-                      <td style={{ padding: '12px' }}>
-                        <button onClick={() => handleDeleteTeacher(t)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
-                          <i className="fas fa-trash"></i> Delete
+                    <tr key={t._id}>
+                      <td><strong>{t.fullName}</strong></td>
+                      <td>{t.email}</td>
+                      <td>{t.subject || '-'}</td>
+                      <td>{t.phone || '-'}</td>
+                      <td>
+                        <button onClick={() => handleDeleteTeacher(t)} className="delete-btn-sm">
+                          <i className="fas fa-trash"></i>
                         </button>
                       </td>
                     </tr>
                   ))}
+                  {teachers.length === 0 && (
+                    <tr><td colSpan="5" className="no-data">No teachers yet. Click "Add Teacher" to create one.</td></tr>
+                  )}
                 </tbody>
               </table>
-            )}
+            </div>
           </div>
         )}
 
         {/* Classes Tab */}
         {activeTab === 'classes' && (
-          <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-              <h2 style={{ margin: 0 }}>Classes</h2>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handleRefreshClasses} style={{ background: '#3498db', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+          <div className="data-card">
+            <div className="card-header">
+              <h2><i className="fas fa-school"></i> Classes</h2>
+              <div className="header-actions">
+                <button onClick={handleRefreshClasses} className="btn-secondary-sm">
                   <i className="fas fa-sync-alt"></i> Refresh
                 </button>
-                <button onClick={handleCreateClass} style={{ background: '#27ae60', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+                <button onClick={handleCreateClass} className="btn-primary-sm">
                   <i className="fas fa-plus"></i> Create Class
                 </button>
               </div>
             </div>
-
-            {classes.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No classes yet. Click "Create Class" to create one.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+            <div className="table-responsive">
+              <table className="data-table">
                 <thead>
-                  <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                    <th style={{ padding: '12px' }}>Grade</th>
-                    <th style={{ padding: '12px' }}>Class Name</th>
-                    <th style={{ padding: '12px' }}>Academic Year</th>
-                    <th style={{ padding: '12px' }}>Teacher</th>
-                    <th style={{ padding: '12px' }}>Actions</th>
+                  <tr>
+                    <th>Grade</th>
+                    <th>Class Name</th>
+                    <th>Academic Year</th>
+                    <th>Teacher</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {classes.map(c => (
-                    <tr key={c._id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                      <td style={{ padding: '12px' }}><strong>{c.grade}</strong></td>
-                      <td style={{ padding: '12px' }}>{c.className}</td>
-                      <td style={{ padding: '12px' }}>{c.academicYear}</td>
-                      <td style={{ padding: '12px' }}>
+                    <tr key={c._id}>
+                      <td><strong>{c.grade}</strong></td>
+                      <td>{c.className}</td>
+                      <td>{c.academicYear}</td>
+                      <td>
                         {c.teacherId && typeof c.teacherId === 'object' && c.teacherId.fullName ? (
-                          <span style={{ color: '#27ae60', fontWeight: '500' }}>
+                          <span className="assigned-badge">
                             <i className="fas fa-chalkboard-user"></i> {c.teacherId.fullName}
                           </span>
-                        ) : c.teacherId && typeof c.teacherId === 'string' ? (
-                          <span style={{ color: '#f39c12' }}>Pending Assignment</span>
                         ) : (
-                          <span style={{ color: '#e74c3c' }}>Not Assigned</span>
+                          <span className="unassigned-badge">Not Assigned</span>
                         )}
                       </td>
-                      <td style={{ padding: '12px' }}>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          <button
-                            onClick={() => handleAssignTeacher(c)}
-                            style={{
-                              background: c.teacherId ? '#f39c12' : '#27ae60',
-                              color: 'white',
-                              border: 'none',
-                              padding: '6px 12px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem'
-                            }}
-                          >
-                            <i className={`fas ${c.teacherId ? 'fa-exchange-alt' : 'fa-user-plus'}`}></i>
-                            {c.teacherId ? ' Change Teacher' : ' Assign Teacher'}
+                      <td>
+                        <div className="action-buttons">
+                          <button onClick={() => handleAssignTeacher(c)} className="assign-btn">
+                            <i className="fas fa-user-plus"></i> Assign
                           </button>
-                          <button
-                            onClick={() => handleDeleteClass(c)}
-                            style={{
-                              background: '#e74c3c',
-                              color: 'white',
-                              border: 'none',
-                              padding: '6px 12px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem'
-                            }}
-                          >
-                            <i className="fas fa-trash"></i> Delete
+                          <button onClick={() => handleDeleteClass(c)} className="delete-btn-sm">
+                            <i className="fas fa-trash"></i>
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
+                  {classes.length === 0 && (
+                    <tr><td colSpan="5" className="no-data">No classes yet. Click "Create Class" to create one.</td></tr>
+                  )}
                 </tbody>
               </table>
-            )}
+            </div>
           </div>
         )}
 
         {/* News Tab */}
         {activeTab === 'news' && (
-          <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
-              <h2>News & Events</h2>
-              <button onClick={handleCreateNews} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+          <div className="data-card">
+            <div className="card-header">
+              <h2><i className="fas fa-newspaper"></i> News & Events</h2>
+              <button onClick={handleCreateNews} className="btn-primary-sm">
                 <i className="fas fa-plus"></i> Post News
               </button>
             </div>
-            {news.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No news articles yet. Click "Post News" to create one.</p>
-            ) : (
-              news.map(item => (
-                <div key={item._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: 0, color: '#1a3a5c' }}>{item.title}</h3>
-                      <p style={{ margin: '5px 0', color: '#666' }}>{item.summary}</p>
-                      <div style={{ display: 'flex', gap: '15px', fontSize: '0.75rem', color: '#999' }}>
-                        <span><i className="fas fa-tag"></i> {item.category}</span>
-                        <span><i className="fas fa-calendar"></i> {new Date(item.date).toLocaleDateString()}</span>
-                      </div>
+            <div className="news-list">
+              {news.map(item => (
+                <div key={item._id} className="news-item">
+                  <div className="news-content">
+                    <h3>{item.title}</h3>
+                    <p>{item.summary}</p>
+                    <div className="news-meta">
+                      <span className={`category-badge ${item.category}`}>
+                        <i className={`fas ${item.category === 'news' ? 'fa-newspaper' : item.category === 'event' ? 'fa-calendar' : 'fa-bullhorn'}`}></i>
+                        {item.category}
+                      </span>
+                      <span><i className="fas fa-calendar"></i> {new Date(item.date).toLocaleDateString()}</span>
                     </div>
-                    <button onClick={() => handleDeleteNews(item)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
-                      <i className="fas fa-trash"></i> Delete
-                    </button>
                   </div>
+                  <button onClick={() => handleDeleteNews(item)} className="delete-btn-sm">
+                    <i className="fas fa-trash"></i>
+                  </button>
                 </div>
-              ))
-            )}
+              ))}
+              {news.length === 0 && (
+                <p className="no-data">No news articles yet. Click "Post News" to create one.</p>
+              )}
+            </div>
           </div>
         )}
 
         {/* Gallery Tab */}
         {activeTab === 'gallery' && (
-          <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
-              <h2>Gallery</h2>
-              <button onClick={handleAddGalleryImage} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
+          <div className="data-card">
+            <div className="card-header">
+              <h2><i className="fas fa-images"></i> Gallery</h2>
+              <button onClick={handleAddGalleryImage} className="btn-primary-sm">
                 <i className="fas fa-plus"></i> Add Image
               </button>
             </div>
             {gallery.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No images in gallery. Click "Add Image" to upload.</p>
+              <p className="no-data">No images in gallery. Click "Add Image" to upload.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
+              <div className="gallery-grid">
                 {gallery.map(img => (
-                  <div key={img._id} style={{ background: '#f8f9fa', borderRadius: '12px', overflow: 'hidden', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                    <img src={img.image} alt={img.title} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
-                    <div style={{ padding: '12px' }}>
-                      <h4 style={{ margin: '0 0 5px 0' }}>{img.title}</h4>
-                      <p style={{ fontSize: '0.75rem', color: '#666', margin: '0 0 10px 0' }}>{img.category}</p>
-                      <button onClick={() => handleDeleteGalleryImage(img)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+                  <div key={img._id} className="gallery-item">
+                    <img src={img.image} alt={img.title} />
+                    <div className="gallery-overlay">
+                      <h4>{img.title}</h4>
+                      <span className="category-tag">{img.category}</span>
+                      <button onClick={() => handleDeleteGalleryImage(img)} className="delete-btn">
                         <i className="fas fa-trash"></i> Delete
                       </button>
                     </div>
@@ -881,180 +922,135 @@ const AcademicAdminDashboard = () => {
 
         {/* Announcements Tab */}
         {activeTab === 'announcements' && (
-          <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
-            <h2>School Announcements</h2>
-            {announcements.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No announcements yet.</p>
-            ) : (
-              announcements.map(ann => (
-                <div key={ann._id} style={{ padding: '1rem', borderBottom: '1px solid #e0e0e0', marginBottom: '0.5rem', background: ann.priority === 'urgent' ? '#fff3cd' : 'transparent', borderRadius: '8px' }}>
-                  <div>
-                    <h3 style={{ margin: 0, color: '#1a3a5c' }}>
-                      {ann.title}
-                      {ann.priority === 'urgent' && <span style={{ marginLeft: '10px', background: '#e74c3c', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem' }}>URGENT</span>}
-                    </h3>
-                    <p style={{ margin: '5px 0', color: '#555' }}>{ann.content}</p>
-                    <small style={{ color: '#999' }}><i className="fas fa-clock"></i> Posted on {new Date(ann.createdAt).toLocaleDateString()}</small>
+          <div className="data-card">
+            <h2><i className="fas fa-bullhorn"></i> School Announcements</h2>
+            <div className="announcements-list">
+              {announcements.map(ann => (
+                <div key={ann._id} className={`announcement-item ${ann.priority}`}>
+                  <div className="announcement-header">
+                    <div>
+                      <h3>{ann.title}</h3>
+                      <span className={`priority-badge ${ann.priority}`}>
+                        {ann.priority === 'urgent' ? '🔴 URGENT' : ann.priority === 'high' ? '⚠️ HIGH' : 'ℹ️ NORMAL'}
+                      </span>
+                    </div>
+                  </div>
+                  <p>{ann.content}</p>
+                  <div className="announcement-footer">
+                    <span><i className="fas fa-clock"></i> {new Date(ann.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-              ))
-            )}
+              ))}
+              {announcements.length === 0 && (
+                <p className="no-data">No announcements yet.</p>
+              )}
+            </div>
           </div>
         )}
 
         {/* Performance Tab */}
         {activeTab === 'performance' && (
           <div>
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', marginBottom: '20px' }}>
+            <div className="data-card" style={{ marginBottom: '20px' }}>
               <h2><i className="fas fa-chart-line"></i> Class Performance</h2>
-              {classPerformance.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No performance data available yet.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="table-responsive">
+                <table className="data-table">
                   <thead>
-                    <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '12px' }}>Class</th>
-                      <th style={{ padding: '12px' }}>Teacher</th>
-                      <th style={{ padding: '12px' }}>Students</th>
-                      <th style={{ padding: '12px' }}>Avg Score</th>
+                    <tr>
+                      <th>Class</th>
+                      <th>Teacher</th>
+                      <th>Students</th>
+                      <th>Avg Score</th>
                     </tr>
                   </thead>
                   <tbody>
                     {classPerformance.map((c, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <td style={{ padding: '12px' }}>{c.className}</td>
-                        <td style={{ padding: '12px' }}>{c.teacher}</td>
-                        <td style={{ padding: '12px' }}>{c.studentCount}</td>
-                        <td style={{ padding: '12px' }}><strong>{c.averageScore}%</strong></td>
+                      <tr key={i}>
+                        <td><strong>{c.className}</strong></td>
+                        <td>{c.teacher}</td>
+                        <td>{c.studentCount}</td>
+                        <td><span className="score-badge">{c.averageScore}%</span></td>
                       </tr>
                     ))}
+                    {classPerformance.length === 0 && (
+                      <tr><td colSpan="4" className="no-data">No performance data available yet.</td></tr>
+                    )}
                   </tbody>
                 </table>
-              )}
+              </div>
             </div>
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1rem' }}>
+            <div className="data-card">
               <h2><i className="fas fa-trophy"></i> Top Students</h2>
-              {studentPerformance.length === 0 ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: '#666' }}>No student performance data available yet.</p>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="table-responsive">
+                <table className="data-table">
                   <thead>
-                    <tr style={{ background: '#1a3a5c', color: 'white' }}>
-                      <th style={{ padding: '12px' }}>Student ID</th>
-                      <th style={{ padding: '12px' }}>Name</th>
-                      <th style={{ padding: '12px' }}>Class</th>
-                      <th style={{ padding: '12px' }}>Average</th>
+                    <tr>
+                      <th>Student ID</th>
+                      <th>Name</th>
+                      <th>Class</th>
+                      <th>Average</th>
                     </tr>
                   </thead>
                   <tbody>
                     {studentPerformance.slice(0, 10).map((s, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <td style={{ padding: '12px' }}>{s.studentId}</td>
-                        <td style={{ padding: '12px' }}><strong>{s.name}</strong></td>
-                        <td style={{ padding: '12px' }}>{s.class}</td>
-                        <td style={{ padding: '12px' }}><span style={{ background: '#27ae60', color: 'white', padding: '4px 8px', borderRadius: '20px', fontSize: '0.8rem' }}>{s.averageScore}%</span></td>
+                      <tr key={i}>
+                        <td>{s.studentId}</td>
+                        <td><strong>{s.name}</strong></td>
+                        <td>{s.class}</td>
+                        <td><span className="score-badge success">{s.averageScore}%</span></td>
                       </tr>
                     ))}
+                    {studentPerformance.length === 0 && (
+                      <tr><td colSpan="4" className="no-data">No student performance data available yet.</td></tr>
+                    )}
                   </tbody>
                 </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Chat Tab */}
-        {activeTab === 'chat' && (
-          <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : '70vh' }}>
-            <div style={{ width: isMobile ? '100%' : '30%', borderRight: isMobile ? 'none' : '1px solid #e0e0e0', overflowY: 'auto' }}>
-              <div style={{ padding: '1rem', background: '#f8f9fa', borderBottom: '1px solid #e0e0e0', fontWeight: 'bold' }}>
-                <i className="fas fa-comments"></i> Chats ({unreadCount} unread)
               </div>
-              {users.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>No users available</div>
-              ) : (
-                users.map(user => (
-                  <div key={user._id} onClick={() => { setSelectedUser(user); fetchMessages(user._id); }} 
-                    style={{ 
-                      padding: '1rem', cursor: 'pointer', background: selectedUser?._id === user._id ? '#e3f2fd' : 'white', 
-                      borderBottom: '1px solid #e0e0e0', transition: 'background 0.2s'
-                    }}>
-                    <strong>{user.fullName}</strong>
-                    <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '4px' }}>
-                      <i className="fas fa-badge"></i> {user.role}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div style={{ width: isMobile ? '100%' : '70%', display: 'flex', flexDirection: 'column' }}>
-              {selectedUser ? (
-                <>
-                  <div style={{ padding: '1rem', background: '#1a3a5c', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <i className="fas fa-user-circle" style={{ fontSize: '1.5rem' }}></i>
-                    <div>
-                      <strong>{selectedUser.fullName}</strong>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{selectedUser.role}</div>
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', minHeight: '300px', maxHeight: '400px' }}>
-                    {messages.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>No messages yet. Start a conversation!</div>
-                    ) : (
-                      messages.map(msg => (
-                        <div key={msg._id} style={{ textAlign: msg.senderId === localStorage.getItem('userId') ? 'right' : 'left', marginBottom: '1rem' }}>
-                          <div style={{ display: 'inline-block', maxWidth: '70%', padding: '10px 15px', borderRadius: '18px', background: msg.senderId === localStorage.getItem('userId') ? '#1a3a5c' : '#f0f4f8', color: msg.senderId === localStorage.getItem('userId') ? 'white' : '#333' }}>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '4px' }}>{msg.senderName}</div>
-                            <div>{msg.content}</div>
-                            <div style={{ fontSize: '0.65rem', opacity: 0.7, marginTop: '5px' }}>{new Date(msg.createdAt).toLocaleTimeString()}</div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div style={{ padding: '1rem', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '0.5rem', background: 'white' }}>
-                    <input 
-                      type="text" 
-                      value={messageText} 
-                      onChange={(e) => setMessageText(e.target.value)} 
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()} 
-                      placeholder="Type a message..." 
-                      style={{ flex: 1, padding: '10px', border: '1px solid #ddd', borderRadius: '20px', outline: 'none' }} 
-                    />
-                    <button onClick={handleSendMessage} style={{ background: '#1a3a5c', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '20px', cursor: 'pointer' }}>
-                      <i className="fas fa-paper-plane"></i> Send
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', flexDirection: 'column', gap: '10px' }}>
-                  <i className="fas fa-comment-dots" style={{ fontSize: '3rem', opacity: 0.5 }}></i>
-                  <p>Select a user to start chatting</p>
-                </div>
-              )}
             </div>
           </div>
         )}
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <div style={{ background: 'white', borderRadius: '12px', padding: '2rem', textAlign: 'center' }}>
-            <div style={{ width: '100px', height: '100px', background: '#ffc107', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-              <i className="fas fa-user-graduate" style={{ fontSize: '3rem', color: '#1a3a5c' }}></i>
+          <div className="profile-card">
+            <div className="profile-header">
+              <div className="profile-avatar">
+                <i className="fas fa-user-graduate"></i>
+              </div>
+              <h2>{userName}</h2>
+              <p className="profile-role">Academic Administrator</p>
             </div>
-            <h2 style={{ color: '#1a3a5c' }}>{userName}</h2>
-            <p style={{ color: '#ffc107', fontWeight: '500' }}>Academic Administrator</p>
-            <hr style={{ margin: '1.5rem 0', borderColor: '#e0e0e0' }} />
-            <div style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto' }}>
-              <p><strong><i className="fas fa-envelope"></i> Email:</strong> {localStorage.getItem('userEmail') || 'academic@essa.rw'}</p>
-              <p><strong><i className="fas fa-badge"></i> Role:</strong> Academic Administrator</p>
-              <p><strong><i className="fas fa-calendar"></i> Member Since:</strong> 2024</p>
+            <div className="profile-details">
+              <div className="detail-item">
+                <i className="fas fa-envelope"></i>
+                <div>
+                  <label>Email Address</label>
+                  <p>{localStorage.getItem('userEmail') || 'academic@essa.rw'}</p>
+                </div>
+              </div>
+              <div className="detail-item">
+                <i className="fas fa-shield-alt"></i>
+                <div>
+                  <label>Role</label>
+                  <p>Academic Administrator</p>
+                </div>
+              </div>
+              <div className="detail-item">
+                <i className="fas fa-calendar"></i>
+                <div>
+                  <label>Member Since</label>
+                  <p>2024</p>
+                </div>
+              </div>
             </div>
-            <button onClick={() => {
+            <button className="change-password-btn" onClick={() => {
               Swal.fire({
                 title: 'Change Password',
-                html: `<input type="password" id="currentPassword" class="swal2-input" placeholder="Current Password">
-                       <input type="password" id="newPassword" class="swal2-input" placeholder="New Password">
-                       <input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm New Password">`,
+                html: `
+                  <input type="password" id="currentPassword" class="swal2-input" placeholder="Current Password">
+                  <input type="password" id="newPassword" class="swal2-input" placeholder="New Password">
+                  <input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm New Password">
+                `,
                 confirmButtonText: 'Update',
                 showCancelButton: true,
                 preConfirm: () => {
@@ -1080,12 +1076,538 @@ const AcademicAdminDashboard = () => {
                   Swal.fire('Success', 'Password updated successfully!', 'success');
                 }
               });
-            }} style={{ marginTop: '1.5rem', background: '#1a3a5c', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>
+            }}>
               <i className="fas fa-key"></i> Change Password
             </button>
           </div>
         )}
       </main>
+
+      {/* Chat Modal */}
+      <ChatModal
+        isOpen={isChatModalOpen}
+        onClose={handleCloseChat}
+        recipient={selectedChatUser}
+        onMessageSent={fetchUnreadCount}
+      />
+
+      <style>{`
+        /* Global Styles */
+        .academic-admin-dashboard {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #f0f2f5;
+          min-height: 100vh;
+        }
+
+        /* Loading */
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          background: linear-gradient(135deg, #1a3a5c, #0d2b42);
+          color: white;
+        }
+        .loading-spinner {
+          width: 50px;
+          height: 50px;
+          border: 4px solid rgba(255,255,255,0.2);
+          border-top-color: #ffc107;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Mobile Overlay */
+        .mobile-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 998;
+        }
+
+        /* Sidebar */
+        .sidebar {
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          background: linear-gradient(180deg, #1a3a5c 0%, #0d2b42 100%);
+          color: white;
+          transition: width 0.3s ease;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          z-index: 999;
+          box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar-header {
+          padding: 1.5rem;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          position: relative;
+        }
+        .logo-area {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .logo-icon {
+          width: 45px;
+          height: 45px;
+          background: #ffc107;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .logo-icon i { font-size: 1.5rem; color: #1a3a5c; }
+        .logo-text h3 { margin: 0; font-size: 1rem; }
+        .logo-text p { margin: 0; font-size: 0.7rem; opacity: 0.8; }
+        .collapse-btn {
+          position: absolute;
+          bottom: -12px;
+          right: -12px;
+          width: 24px;
+          height: 24px;
+          background: #ffc107;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          color: #1a3a5c;
+        }
+        .user-profile {
+          padding: 1.5rem;
+          text-align: center;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .user-avatar {
+          width: 60px;
+          height: 60px;
+          background: rgba(255,255,255,0.15);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 0.5rem;
+        }
+        .user-avatar i { font-size: 1.8rem; color: #ffc107; }
+        .user-info h4 { margin: 0; font-size: 0.9rem; }
+        .user-role { font-size: 0.7rem; opacity: 0.8; }
+        .sidebar-nav { flex: 1; padding: 1rem 0; }
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          padding: 12px 20px;
+          background: transparent;
+          border: none;
+          color: rgba(255,255,255,0.8);
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.3s;
+        }
+        .nav-item i { width: 20px; }
+        .nav-item:hover { background: rgba(255,255,255,0.1); color: #ffc107; }
+        .nav-item.active { background: rgba(255,255,255,0.15); color: #ffc107; border-right: 3px solid #ffc107; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        .logout-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          padding: 12px;
+          background: #e74c3c;
+          border: none;
+          border-radius: 8px;
+          color: white;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.3s;
+        }
+        .logout-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        /* Main Content */
+        .main-content {
+          transition: margin-left 0.3s ease;
+          padding: 20px;
+          min-height: 100vh;
+        }
+        .top-bar {
+          background: white;
+          padding: 12px 20px;
+          border-radius: 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .top-bar-left {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+        }
+        .mobile-menu-btn {
+          display: none;
+          background: #1a3a5c;
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .top-bar-right {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        }
+        .notification-bell {
+          position: relative;
+          cursor: pointer;
+          font-size: 1.2rem;
+          color: #666;
+        }
+        .notification-badge {
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          background: #e74c3c;
+          color: white;
+          font-size: 0.7rem;
+          padding: 2px 6px;
+          border-radius: 50%;
+        }
+        .user-menu {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .user-avatar-small {
+          width: 35px;
+          height: 35px;
+          background: #1a3a5c;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+        .user-details { display: flex; flex-direction: column; }
+        .user-name { font-weight: 600; font-size: 0.85rem; }
+        .user-role-badge { font-size: 0.7rem; color: #ffc107; }
+
+        /* Welcome Banner */
+        .welcome-banner {
+          background: linear-gradient(135deg, #1a3a5c, #2c5f8a);
+          border-radius: 16px;
+          padding: 25px 30px;
+          margin-bottom: 25px;
+          color: white;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 15px;
+        }
+        .welcome-text h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        .welcome-text p { opacity: 0.9; }
+        .welcome-date {
+          background: rgba(255,255,255,0.15);
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-size: 0.85rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 20px;
+          margin-bottom: 25px;
+        }
+        .stat-card {
+          background: white;
+          border-radius: 16px;
+          padding: 20px;
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .stat-icon {
+          width: 55px;
+          height: 55px;
+          border-radius: 14px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .stat-icon i { font-size: 1.5rem; }
+        .stat-info h3 { font-size: 1.8rem; margin: 0; color: #1a3a5c; }
+        .stat-info p { margin: 5px 0 0; color: #666; font-size: 0.85rem; }
+
+        /* Quick Actions */
+        .quick-actions {
+          display: flex;
+          gap: 15px;
+          flex-wrap: wrap;
+        }
+        .action-btn {
+          padding: 12px 24px;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.3s;
+        }
+        .action-btn.primary { background: #27ae60; color: white; }
+        .action-btn.secondary { background: #3498db; color: white; }
+        .action-btn.warning { background: #f39c12; color: white; }
+        .action-btn.danger { background: #e74c3c; color: white; }
+        .action-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+
+        /* Data Card */
+        .data-card {
+          background: white;
+          border-radius: 16px;
+          padding: 20px;
+        }
+        .card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .card-header h2 { margin: 0; color: #1a3a5c; }
+        .btn-primary-sm {
+          background: #27ae60;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .btn-secondary-sm {
+          background: #3498db;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .delete-btn-sm {
+          background: #e74c3c;
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+        .assign-btn {
+          background: #f39c12;
+          color: white;
+          border: none;
+          padding: 4px 10px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 0.75rem;
+        }
+        .table-responsive { overflow-x: auto; }
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .data-table th {
+          text-align: left;
+          padding: 12px;
+          background: #f8f9fa;
+          color: #1a3a5c;
+          font-weight: 600;
+        }
+        .data-table td {
+          padding: 12px;
+          border-bottom: 1px solid #e0e0e0;
+        }
+        .no-data { text-align: center; padding: 40px; color: #999; }
+        .assigned-badge { color: #27ae60; font-weight: 500; }
+        .unassigned-badge { color: #e74c3c; }
+        .score-badge {
+          background: #27ae60;
+          color: white;
+          padding: 4px 8px;
+          border-radius: 20px;
+          font-size: 0.75rem;
+        }
+        .score-badge.success { background: #27ae60; }
+
+        /* News List */
+        .news-list { display: flex; flex-direction: column; gap: 15px; }
+        .news-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 15px;
+          background: #f8f9fa;
+          border-radius: 12px;
+        }
+        .news-content { flex: 1; }
+        .news-content h3 { margin: 0 0 8px; color: #1a3a5c; }
+        .news-content p { margin: 0 0 10px; color: #666; }
+        .news-meta { display: flex; gap: 15px; font-size: 0.75rem; color: #999; }
+        .category-badge {
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 0.7rem;
+        }
+        .category-badge.news { background: #e3f2fd; color: #3498db; }
+        .category-badge.event { background: #fff3e0; color: #f39c12; }
+        .category-badge.announcement { background: #e8f5e9; color: #27ae60; }
+
+        /* Gallery Grid */
+        .gallery-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 20px;
+        }
+        .gallery-item {
+          position: relative;
+          border-radius: 12px;
+          overflow: hidden;
+          aspect-ratio: 1;
+        }
+        .gallery-item img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s;
+        }
+        .gallery-item:hover img { transform: scale(1.05); }
+        .gallery-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: linear-gradient(transparent, rgba(0,0,0,0.8));
+          padding: 15px;
+          color: white;
+          transform: translateY(100%);
+          transition: transform 0.3s;
+        }
+        .gallery-item:hover .gallery-overlay { transform: translateY(0); }
+        .gallery-overlay h4 { margin: 0 0 5px; font-size: 0.9rem; }
+        .category-tag {
+          display: inline-block;
+          padding: 2px 6px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 4px;
+          font-size: 0.7rem;
+          margin-bottom: 8px;
+        }
+        .delete-btn {
+          background: #e74c3c;
+          color: white;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.7rem;
+        }
+
+        /* Announcements */
+        .announcements-list { display: flex; flex-direction: column; gap: 15px; }
+        .announcement-item {
+          padding: 15px;
+          border-radius: 12px;
+          background: #f8f9fa;
+        }
+        .announcement-item.urgent { background: #fdecea; border-left: 4px solid #e74c3c; }
+        .announcement-item.high { background: #fff3e0; border-left: 4px solid #f39c12; }
+        .announcement-header { margin-bottom: 10px; }
+        .announcement-header h3 { margin: 0; font-size: 1rem; }
+        .priority-badge { font-size: 0.7rem; margin-left: 10px; }
+        .announcement-footer { margin-top: 10px; font-size: 0.7rem; color: #999; }
+
+        /* Profile Card */
+        .profile-card {
+          background: white;
+          border-radius: 20px;
+          overflow: hidden;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+        .profile-header {
+          background: linear-gradient(135deg, #1a3a5c, #2c5f8a);
+          color: white;
+          padding: 40px;
+          text-align: center;
+        }
+        .profile-avatar {
+          width: 100px;
+          height: 100px;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 15px;
+        }
+        .profile-avatar i { font-size: 3rem; color: #ffc107; }
+        .profile-header h2 { margin: 0; }
+        .profile-role { opacity: 0.9; margin-top: 5px; }
+        .profile-details { padding: 30px; }
+        .detail-item {
+          display: flex;
+          gap: 15px;
+          padding: 15px 0;
+          border-bottom: 1px solid #eee;
+        }
+        .detail-item i { font-size: 1.2rem; color: #1a3a5c; width: 30px; }
+        .detail-item label { display: block; font-size: 0.7rem; color: #999; }
+        .detail-item p { margin: 0; font-weight: 500; }
+        .change-password-btn {
+          width: calc(100% - 60px);
+          margin: 0 30px 30px;
+          padding: 12px;
+          background: #1a3a5c;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .change-password-btn:hover { background: #2c5f8a; }
+
+        /* Action Buttons */
+        .action-buttons { display: flex; gap: 8px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .mobile-menu-btn { display: block; }
+          .welcome-text h1 { font-size: 1.2rem; }
+          .stats-grid { grid-template-columns: 1fr; }
+          .quick-actions { flex-direction: column; }
+          .action-btn { justify-content: center; }
+          .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+      `}</style>
     </div>
   );
 };
