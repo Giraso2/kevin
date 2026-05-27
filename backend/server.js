@@ -474,23 +474,35 @@ mongoose.connect(MONGODB_URI, {
 });
 
 // ==================== AUTH ROUTES ====================
+// In server.js - make sure this is correct
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password } = req.body; // Don't require role from frontend
+    
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-    if (user.role !== role) return res.status(401).json({ message: 'Invalid role' });
     
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
     
-    const token = jwt.sign({ id: user._id, role: user.role, name: user.fullName }, process.env.JWT_SECRET || 'secretkey', { expiresIn: '7d' });
-    res.json({ success: true, _id: user._id, fullName: user.fullName, email: user.email, role: user.role, token });
+    const token = jwt.sign(
+      { id: user._id, role: user.role, name: user.fullName },
+      process.env.JWT_SECRET || 'secretkey',
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      success: true,
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      token
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
-
 // ==================== CONTACT ROUTES ====================
 app.post('/api/contact/submit', async (req, res) => {
   try {
