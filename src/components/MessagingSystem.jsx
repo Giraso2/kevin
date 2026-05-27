@@ -1,9 +1,31 @@
+// Updated MessagingSystem.jsx without axios dependency
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { io } from 'socket.io-client';
 import './MessagingSystem.css';
 
 const API_URL = 'http://localhost:5000/api';
+
+// Helper function for API calls
+const apiRequest = async (endpoint, options = {}) => {
+  const token = localStorage.getItem('token');
+  
+  const config = {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    ...options
+  };
+  
+  const response = await fetch(`${API_URL}${endpoint}`, config);
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || 'API request failed');
+  }
+  
+  return data;
+};
 
 const MessagingSystem = ({ user }) => {
   const [conversations, setConversations] = useState([]);
@@ -18,6 +40,7 @@ const MessagingSystem = ({ user }) => {
   const [socket, setSocket] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState(null);
+  const [loading, setLoading] = useState(false);
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -53,10 +76,8 @@ const MessagingSystem = ({ user }) => {
   // Fetch conversations
   const fetchConversations = async () => {
     try {
-      const response = await axios.get(`${API_URL}/messages/conversations`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setConversations(response.data.conversations || []);
+      const data = await apiRequest('/messages/conversations');
+      setConversations(data.conversations || []);
     } catch (error) {
       console.error('Fetch conversations error:', error);
     }
@@ -64,24 +85,25 @@ const MessagingSystem = ({ user }) => {
   
   // Fetch messages for a conversation
   const fetchMessages = async (otherUserId) => {
+    if (!otherUserId) return;
+    
     try {
-      const response = await axios.get(`${API_URL}/messages/conversation/${otherUserId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(response.data.messages || []);
+      setLoading(true);
+      const data = await apiRequest(`/messages/conversation/${otherUserId}`);
+      setMessages(data.messages || []);
       scrollToBottom();
     } catch (error) {
       console.error('Fetch messages error:', error);
+    } finally {
+      setLoading(false);
     }
   };
   
   // Fetch users for messaging
   const fetchUsers = async () => {
     try {
-      const response = await axios.get(`${API_URL}/messages/users`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUsers(response.data.users);
+      const data = await apiRequest('/messages/users');
+      setUsers(data.users);
     } catch (error) {
       console.error('Fetch users error:', error);
     }
@@ -90,10 +112,8 @@ const MessagingSystem = ({ user }) => {
   // Fetch unread count
   const fetchUnreadCount = async () => {
     try {
-      const response = await axios.get(`${API_URL}/messages/unread-count`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUnreadCount(response.data.count);
+      const data = await apiRequest('/messages/unread-count');
+      setUnreadCount(data.count);
     } catch (error) {
       console.error('Unread count error:', error);
     }
@@ -105,12 +125,13 @@ const MessagingSystem = ({ user }) => {
     if (!newMessage.trim() || !selectedUser) return;
     
     try {
-      await axios.post(`${API_URL}/messages/send`, {
-        recipientId: selectedUser._id,
-        subject: subject || 'New Message',
-        content: newMessage
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+      await apiRequest('/messages/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipientId: selectedUser._id,
+          subject: subject || 'New Message',
+          content: newMessage
+        })
       });
       
       setNewMessage('');
@@ -156,8 +177,8 @@ const MessagingSystem = ({ user }) => {
   const deleteMessage = async (messageId) => {
     if (window.confirm('Delete this message?')) {
       try {
-        await axios.delete(`${API_URL}/messages/${messageId}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        await apiRequest(`/messages/${messageId}`, {
+          method: 'DELETE'
         });
         fetchMessages(selectedUser?._id);
         fetchConversations();
@@ -261,6 +282,7 @@ const MessagingSystem = ({ user }) => {
             </div>
             
             <div className="messages-area">
+              {loading && <div className="loading">Loading messages...</div>}
               {messages.map((msg) => (
                 <div
                   key={msg._id}
