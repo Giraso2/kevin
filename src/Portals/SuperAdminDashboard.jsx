@@ -551,15 +551,74 @@ const SuperAdminDashboard = () => {
           </div>
         )}
 
-        {/* Admins Tab */}
-        {activeTab === 'admins' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-users-cog"></i> System Administrators</h2><button onClick={handleCreateAdmin} className="btn-primary-sm"><i className="fas fa-plus"></i> Add Admin</button></div>
-            <div className="table-responsive"><table className="data-table"><thead><tr><th>Admin</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead><tbody>
-              {admins.map(admin => (<tr key={admin._id}><td><strong>{admin.fullName}</strong></td><td>{admin.email}</td><td><span className={`role-badge ${admin.role}`}>{admin.role?.replace('_', ' ')}</span></td><td>{admin.phone || '-'}</td><td><button onClick={() => handleDeleteAdmin(admin)} className="delete-btn-sm"><i className="fas fa-trash"></i></button><tr></tr>))}
-            </tbody></table></div>
-          </div>
-        )}
+      {/* Admins Tab */}
+{activeTab === 'admins' && (
+  <div className="data-card">
+
+    <div className="card-header">
+      <h2>
+        <i className="fas fa-users-cog"></i>
+        {' '}System Administrators
+      </h2>
+
+      <button
+        onClick={handleCreateAdmin}
+        className="btn-primary-sm"
+      >
+        <i className="fas fa-plus"></i>
+        {' '}Add Admin
+      </button>
+    </div>
+
+    <div className="table-responsive">
+      <table className="data-table">
+
+        <thead>
+          <tr>
+            <th>Admin</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Phone</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {admins.map((admin) => (
+            <tr key={admin._id}>
+
+              <td>
+                <strong>{admin.fullName}</strong>
+              </td>
+
+              <td>{admin.email}</td>
+
+              <td>
+                <span className={`role-badge ${admin.role}`}>
+                  {admin.role?.replace('_', ' ')}
+                </span>
+              </td>
+
+              <td>{admin.phone || '-'}</td>
+
+              <td>
+                <button
+                  onClick={() => handleDeleteAdmin(admin)}
+                  className="delete-btn-sm"
+                >
+                  <i className="fas fa-trash"></i>
+                </button>
+              </td>
+
+            </tr>
+          ))}
+        </tbody>
+
+      </table>
+    </div>
+
+  </div>
+)}
 
         {/* Announcements Tab */}
         {activeTab === 'announcements' && (
@@ -582,18 +641,122 @@ const SuperAdminDashboard = () => {
           </div>
         )}
 
-        {/* Permissions Tab */}
-        {activeTab === 'permissions' && (
-          <div className="data-card">
-            <h2><i className="fas fa-file-alt"></i> Permission Requests</h2>
-            <div className="permission-stats"><div className="stat-chip approved">Approved: {permissionTrends.approved || 0}</div><div className="stat-chip pending">Pending: {permissionTrends.pending || 0}</div><div className="stat-chip rejected">Rejected: {permissionTrends.rejected || 0}</div></div>
-            <div className="table-responsive"><table className="data-table"><thead><tr><th>Requester</th><th>Type</th><th>Reason</th><th>Dates</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-              {permissions.map(p => (<tr key={p._id}><td><strong>{p.requesterName}</strong><br/><small>{p.requesterRole}</small></td><td>{p.type}</td><td>{p.reason?.substring(0, 50)}...</td>}<td className="date-cell"><small>{new Date(p.fromDate).toLocaleDateString()} <i className="fas fa-arrow-right"></i> {new Date(p.toDate).toLocaleDateString()}</small></td></td>
-              <td><span className={`status-badge ${p.status}`}>{p.status}</span></td>
-              <td>{p.status === 'pending' ? (<div className="action-buttons"><button onClick={() => handlePermissionAction(p, 'approved')} className="approve-btn-sm">Approve</button><button onClick={() => handlePermissionAction(p, 'rejected')} className="reject-btn-sm">Reject</button></div>) : <span className="action-text">{p.action || p.status}</span>}</td></tr>))}
-            </tbody></table></div>
-          </div>
-        )}
+     {/* Permissions Tab */}
+{activeTab === 'permissions' && (
+  <div className="data-card">
+
+    <h2>
+      <i className="fas fa-file-alt"></i>
+      {' '}Permission Requests
+    </h2>
+
+    <div className="permission-stats">
+      <div className="stat-chip approved">
+        Approved: {permissionTrends.approved || 0}
+      </div>
+
+      <div className="stat-chip pending">
+        Pending: {permissionTrends.pending || 0}
+      </div>
+
+      <div className="stat-chip rejected">
+        Rejected: {permissionTrends.rejected || 0}
+      </div>
+    </div>
+
+    <div className="table-responsive">
+      <table className="data-table">
+
+        <thead>
+          <tr>
+            <th>Requester</th>
+            <th>Type</th>
+            <th>Reason</th>
+            <th>Dates</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {permissions.map((p) => (
+            <tr key={p._id}>
+
+              <td>
+                <strong>{p.requesterName}</strong>
+                <br />
+                <small>{p.requesterRole}</small>
+              </td>
+
+              <td>{p.type}</td>
+
+              <td>
+                {p.reason
+                  ? `${p.reason.substring(0, 50)}...`
+                  : '-'}
+              </td>
+
+              <td className="date-cell">
+                <small>
+                  {new Date(p.fromDate).toLocaleDateString()}
+                  {' '}
+                  <i className="fas fa-arrow-right"></i>
+                  {' '}
+                  {new Date(p.toDate).toLocaleDateString()}
+                </small>
+              </td>
+
+              <td>
+                <span className={`status-badge ${p.status}`}>
+                  {p.status}
+                </span>
+              </td>
+
+              <td>
+                {p.status === 'pending' ? (
+                  <div className="action-buttons">
+
+                    <button
+                      onClick={() =>
+                        handlePermissionAction(
+                          p,
+                          'approved'
+                        )
+                      }
+                      className="approve-btn-sm"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handlePermissionAction(
+                          p,
+                          'rejected'
+                        )
+                      }
+                      className="reject-btn-sm"
+                    >
+                      Reject
+                    </button>
+
+                  </div>
+                ) : (
+                  <span className="action-text">
+                    {p.action || p.status}
+                  </span>
+                )}
+              </td>
+
+            </tr>
+          ))}
+        </tbody>
+
+      </table>
+    </div>
+
+  </div>
+)}
 
         {/* Messages Tab */}
         {activeTab === 'messages' && (
