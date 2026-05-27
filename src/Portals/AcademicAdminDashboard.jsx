@@ -24,15 +24,22 @@ const AcademicAdminDashboard = () => {
   const [announcements, setAnnouncements] = useState([]);
   
   // Chat states
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [users, setUsers] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [messageText, setMessageText] = useState('');
-  const [socket, setSocket] = useState(null);
+ 
+const [unreadCount, setUnreadCount] = useState(0);
+const [usersList, setUsersList] = useState({ teachers: [], students: [], admins: [] });
+const [messages, setMessages] = useState([]);
+const [selectedUser, setSelectedUser] = useState(null);
+const [messageText, setMessageText] = useState('');
+const [messageSubject, setMessageSubject] = useState('');
+const [socket, setSocket] = useState(null);
+const [showNewMessage, setShowNewMessage] = useState(false);
+const [searchTerm, setSearchTerm] = useState('');
+const [activeMessageTab, setActiveMessageTab] = useState('inbox');
   
   const navigate = useNavigate();
   const getToken = () => localStorage.getItem('portalToken');
+  // Get current user ID from localStorage
+const currentUserId = localStorage.getItem('userId')
 
   // API Request function
   const apiRequest = async (endpoint, options = {}) => {
@@ -76,110 +83,186 @@ const AcademicAdminDashboard = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Socket.IO for real-time chat
-  useEffect(() => {
-    const newSocket = io('http://localhost:5000');
-    setSocket(newSocket);
-    const userId = localStorage.getItem('userId');
-    if (userId) newSocket.emit('join', userId);
-    newSocket.on('newMessage', () => {
-      fetchUnreadCount();
-      if (activeTab === 'messages') fetchUsers();
+  // ==================== SOCKET.IO SETUP ====================
+useEffect(() => {
+  const token = getToken();
+  if (token) {
+    const newSocket = io('http://localhost:5000', {
+      auth: { token }
     });
-    return () => newSocket.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const token = getToken();
-    const role = localStorage.getItem('userRole');
-    const name = localStorage.getItem('userName');
     
-    if (!token || role !== 'academic_admin') {
-      navigate('/portal/login');
-    } else {
-      setUserName(name || 'Academic Admin');
-      fetchAllData();
-      fetchUsers();
-      fetchUnreadCount();
-    }
-  }, [navigate]);
-
-  const fetchAllData = async () => {
-    try {
-      const [teachersData, classesData, newsData, galleryData, perfData, classPerfData, annData] = await Promise.all([
-        apiRequest('/academic-admin/teachers-list').catch(() => []),
-        apiRequest('/academic-admin/classes').catch(() => []),
-        apiRequest('/academic-admin/news').catch(() => []),
-        apiRequest('/academic-admin/gallery').catch(() => []),
-        apiRequest('/academic-admin/students-performance').catch(() => []),
-        apiRequest('/academic-admin/class-performance').catch(() => []),
-        apiRequest('/announcements').catch(() => [])
-      ]);
-      setTeachers(Array.isArray(teachersData) ? teachersData : []);
-      setClasses(Array.isArray(classesData) ? classesData : []);
-      setNews(Array.isArray(newsData) ? newsData : []);
-      setGallery(Array.isArray(galleryData) ? galleryData : []);
-      setStudentPerformance(Array.isArray(perfData) ? perfData : []);
-      setClassPerformance(Array.isArray(classPerfData) ? classPerfData : []);
-      setAnnouncements(Array.isArray(annData) ? annData : []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Chat functions
-  const fetchUsers = async () => {
-    try {
-      const data = await apiRequest('/messages/users').catch(() => []);
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
-  const fetchMessages = async (userId) => {
-    try {
-      const data = await apiRequest(`/messages/user/${userId}`).catch(() => []);
-      setMessages(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    }
-  };
-
-  const fetchUnreadCount = async () => {
-    try {
-      const data = await apiRequest('/messages/unread/count').catch(() => ({ count: 0 }));
-      setUnreadCount(data.count || 0);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-    }
-  };
-
-  const handleSelectUser = (user) => {
-    setSelectedUser(user);
-    fetchMessages(user._id);
-  };
-
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedUser) return;
-    try {
-      const data = await apiRequest('/messages/send', {
-        method: 'POST',
-        body: JSON.stringify({ receiverId: selectedUser._id, content: messageText })
-      });
-      if (data.success) {
-        setMessages([...messages, data.message]);
-        setMessageText('');
-        if (socket) socket.emit('sendMessage', { receiverId: selectedUser._id, ...data.message });
-        fetchUnreadCount();
+    newSocket.on('connect', () => {
+      console.log('Socket connected');
+      if (currentUserId) {
+        newSocket.emit('join', currentUserId);
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      Swal.fire('Error', 'Failed to send message', 'error');
+    });
+    
+    newSocket.on('new_message', (data) => {
+      // Refresh messages if the current conversation is open
+      if (selectedUser && data.message.senderId === selectedUser._id) {
+        fetchMessages(selectedUser._id);
+      }
+      fetchUnreadCount();
+      // Show notification
+      Swal.fire({
+        title: 'New Message',
+        text: `New message from ${data.message.senderName}`,
+        icon: 'info',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    });
+    
+    newSocket.on('message_read', ({ messageId }) => {
+      // Update message read status in UI
+      setMessages(prev => prev.map(msg => 
+        msg._id === messageId ? { ...msg, isRead: true } : msg
+      ));
+    });
+    
+    setSocket(newSocket);
+    
+    return () => {
+      if (newSocket) newSocket.disconnect();
+    };
+  }
+}, [currentUserId]);
+// Fetch users for messaging
+const fetchUsersForMessaging = async () => {
+  try {
+    const data = await apiRequest('/messages/users');
+    setUsersList(data.users || { teachers: [], students: [], admins: [] });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+  }
+};
+
+// Fetch messages with a specific user
+const fetchMessages = async (userId) => {
+  if (!userId) return;
+  try {
+    const data = await apiRequest(`/messages/conversation/${userId}`);
+    setMessages(Array.isArray(data.messages) ? data.messages : []);
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    setMessages([]);
+  }
+};
+
+// Fetch unread count
+const fetchUnreadCount = async () => {
+  try {
+    const data = await apiRequest('/messages/unread-count');
+    setUnreadCount(data.count || 0);
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+  }
+};
+
+// Send a new message
+const handleSendMessage = async () => {
+  if (!messageText.trim() || !selectedUser) {
+    Swal.fire('Error', 'Please select a user and enter a message', 'warning');
+    return;
+  }
+  
+  try {
+    const data = await apiRequest('/messages/send', {
+      method: 'POST',
+      body: JSON.stringify({
+        recipientId: selectedUser._id,
+        subject: messageSubject || 'New Message',
+        content: messageText
+      })
+    });
+    
+    if (data.success) {
+      // Add message to the list
+      setMessages([...messages, data.message]);
+      setMessageText('');
+      setMessageSubject('');
+      setShowNewMessage(false);
+      fetchUnreadCount();
+      
+      // Emit socket event
+      if (socket) {
+        socket.emit('send_message', {
+          recipientId: selectedUser._id,
+          message: data.message
+        });
+      }
     }
-  };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    Swal.fire('Error', 'Failed to send message', 'error');
+  }
+};
+
+// Mark message as read
+const markMessageAsRead = async (messageId) => {
+  try {
+    await apiRequest(`/messages/${messageId}/read`, {
+      method: 'PUT'
+    });
+    fetchUnreadCount();
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+  }
+};
+
+// Delete message
+const handleDeleteMessage = async (messageId) => {
+  const result = await Swal.fire({
+    title: 'Delete Message?',
+    text: 'This action cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#e74c3c',
+    confirmButtonText: 'Yes, Delete'
+  });
+  
+  if (result.isConfirmed) {
+    try {
+      await apiRequest(`/messages/${messageId}`, {
+        method: 'DELETE'
+      });
+      fetchMessages(selectedUser?._id);
+      Swal.fire('Deleted!', 'Message deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      Swal.fire('Error', 'Failed to delete message', 'error');
+    }
+  }
+};
+
+// Select a user to chat with
+const handleSelectUser = async (user) => {
+  setSelectedUser(user);
+  setShowNewMessage(false);
+  await fetchMessages(user._id);
+};
+
+// Get all users flattened for display
+const getAllUsers = () => {
+  const all = [];
+  if (usersList.teachers) all.push(...usersList.teachers.map(u => ({ ...u, role: 'teacher' })));
+  if (usersList.students) all.push(...usersList.students.map(u => ({ ...u, role: 'student' })));
+  if (usersList.admins) all.push(...usersList.admins.map(u => ({ ...u, role: 'admin' })));
+  if (usersList.academic_admin) all.push(...usersList.academic_admin.map(u => ({ ...u, role: 'academic_admin' })));
+  if (usersList.parents) all.push(...usersList.parents.map(u => ({ ...u, role: 'parent' })));
+  
+  // Filter out current user
+  return all.filter(u => u._id !== currentUserId);
+};
+
+const filteredUsers = getAllUsers().filter(user => 
+  user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  user.role?.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   // ==================== TEACHER MANAGEMENT ====================
   const handleCreateTeacher = async () => {
@@ -229,6 +312,13 @@ const AcademicAdminDashboard = () => {
         };
       }
     });
+    // Fetch messaging data when tab changes to messages
+useEffect(() => {
+  if (activeTab === 'messages') {
+    fetchUsersForMessaging();
+    fetchUnreadCount();
+  }
+}, [activeTab]);
 
     if (formValues) {
       try {
@@ -1164,55 +1254,220 @@ const AcademicAdminDashboard = () => {
   </div>
 )}
 
-        {/* Messages Tab */}
-        {activeTab === 'messages' && (
-          <div className="messages-container">
-            <div className="messages-header">
-              <div className="messages-tabs">
-                <button className="msg-tab active"><i className="fas fa-inbox"></i> Inbox {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}</button>
-                <button className="msg-tab"><i className="fas fa-pen-alt"></i> New Message</button>
+      {/* Messages Tab - COMPLETELY FIXED */}
+{activeTab === 'messages' && (
+  <div className="messages-container">
+    <div className="messages-header">
+      <div className="messages-tabs">
+        <button 
+          className={`msg-tab ${activeMessageTab === 'inbox' ? 'active' : ''}`}
+          onClick={() => setActiveMessageTab('inbox')}
+        >
+          <i className="fas fa-inbox"></i> Inbox 
+          {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}
+        </button>
+        <button 
+          className={`msg-tab ${activeMessageTab === 'new' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveMessageTab('new');
+            setShowNewMessage(true);
+            fetchUsersForMessaging();
+          }}
+        >
+          <i className="fas fa-pen-alt"></i> New Message
+        </button>
+      </div>
+    </div>
+    
+    <div className="inbox-container">
+      {/* Conversations Sidebar */}
+      <div className="conversations-list">
+        <div className="search-conversations">
+          <i className="fas fa-search"></i>
+          <input 
+            type="text" 
+            placeholder="Search users..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        {activeMessageTab === 'inbox' ? (
+          <>
+            {filteredUsers.length === 0 ? (
+              <div className="no-conversations">
+                <i className="fas fa-comments"></i>
+                <p>No conversations yet</p>
               </div>
-            </div>
-            <div className="inbox-container">
-              <div className="conversations-list">
-                <div className="search-conversations"><i className="fas fa-search"></i><input type="text" placeholder="Search conversations..." /></div>
-                {users.map(user => (
-                  <div key={user._id} className={`conversation-item ${selectedUser?._id === user._id ? 'active' : ''}`} onClick={() => handleSelectUser(user)}>
-                    <div className="conv-avatar"><i className={`fas ${user.role === 'teacher' ? 'fa-chalkboard-user' : 'fa-user'}`}></i></div>
-                    <div className="conv-info"><div className="conv-name">{user.fullName}</div><div className="conv-role">{user.role}</div></div>
+            ) : (
+              filteredUsers.map(user => (
+                <div 
+                  key={user._id} 
+                  className={`conversation-item ${selectedUser?._id === user._id ? 'active' : ''}`}
+                  onClick={() => handleSelectUser(user)}
+                >
+                  <div className="conv-avatar">
+                    <i className={`fas ${user.role === 'teacher' ? 'fa-chalkboard-user' : user.role === 'student' ? 'fa-user-graduate' : 'fa-user'}`}></i>
                   </div>
-                ))}
-                {users.length === 0 && <div className="no-conversations">No conversations yet</div>}
+                  <div className="conv-info">
+                    <div className="conv-name">{user.fullName}</div>
+                    <div className="conv-role">{user.role}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            {filteredUsers.length === 0 ? (
+              <div className="no-conversations">
+                <i className="fas fa-users"></i>
+                <p>No users found</p>
               </div>
-              <div className="messages-area">
-                {selectedUser ? (
-                  <>
-                    <div className="messages-header-info">
-                      <div className="conv-avatar-large"><i className="fas fa-user"></i></div>
-                      <div><h3>{selectedUser.fullName}</h3><p>{selectedUser.role}</p></div>
-                    </div>
-                    <div className="messages-list">
-                      {messages.map(msg => (
-                        <div key={msg._id} className={`message-bubble ${msg.senderId === localStorage.getItem('userId') ? 'sent' : 'received'}`}>
-                          <div className="message-text">{msg.content}</div>
-                          <div className="message-time">{new Date(msg.createdAt).toLocaleTimeString()}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="message-input-area">
-                      <textarea value={messageText} onChange={(e) => setMessageText(e.target.value)} placeholder="Type your message..." onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}></textarea>
-                      <button onClick={handleSendMessage}><i className="fas fa-paper-plane"></i></button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="no-conversation-selected"><i className="fas fa-comments"></i><h3>No conversation selected</h3><p>Select a user to start messaging</p></div>
-                )}
-              </div>
-            </div>
-          </div>
+            ) : (
+              filteredUsers.map(user => (
+                <div 
+                  key={user._id} 
+                  className={`conversation-item ${selectedUser?._id === user._id ? 'active' : ''}`}
+                  onClick={() => {
+                    handleSelectUser(user);
+                    setActiveMessageTab('inbox');
+                  }}
+                >
+                  <div className="conv-avatar">
+                    <i className={`fas ${user.role === 'teacher' ? 'fa-chalkboard-user' : user.role === 'student' ? 'fa-user-graduate' : 'fa-user'}`}></i>
+                  </div>
+                  <div className="conv-info">
+                    <div className="conv-name">{user.fullName}</div>
+                    <div className="conv-role">{user.role}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </>
         )}
-
-        {/* Profile Tab */}
+      </div>
+      
+      {/* Messages Area */}
+      <div className="messages-area">
+        {!selectedUser ? (
+          <div className="no-conversation-selected">
+            <i className="fas fa-comments"></i>
+            <h3>No conversation selected</h3>
+            <p>Select a user from the sidebar to start messaging</p>
+            <button 
+              className="start-new-chat-btn"
+              onClick={() => {
+                setActiveMessageTab('new');
+                setShowNewMessage(true);
+                fetchUsersForMessaging();
+              }}
+            >
+              <i className="fas fa-plus"></i> Start New Conversation
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="messages-header-info">
+              <div className="conv-avatar-large">
+                <i className={`fas ${selectedUser.role === 'teacher' ? 'fa-chalkboard-user' : selectedUser.role === 'student' ? 'fa-user-graduate' : 'fa-user'}`}></i>
+              </div>
+              <div className="user-details-header">
+                <h3>{selectedUser.fullName}</h3>
+                <p>{selectedUser.role} • {selectedUser.email}</p>
+              </div>
+              <button 
+                className="new-msg-btn"
+                onClick={() => setShowNewMessage(!showNewMessage)}
+              >
+                <i className="fas fa-plus"></i>
+              </button>
+            </div>
+            
+            {/* Compose new message area */}
+            {showNewMessage && (
+              <div className="compose-message-area">
+                <input
+                  type="text"
+                  placeholder="Subject"
+                  value={messageSubject}
+                  onChange={(e) => setMessageSubject(e.target.value)}
+                  className="compose-subject"
+                />
+                <textarea
+                  placeholder="Type your message..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  rows="3"
+                  className="compose-textarea"
+                />
+                <div className="compose-actions">
+                  <button onClick={() => setShowNewMessage(false)} className="cancel-btn">Cancel</button>
+                  <button onClick={handleSendMessage} className="send-btn">Send Message</button>
+                </div>
+              </div>
+            )}
+            
+            {/* Messages List */}
+            <div className="messages-list">
+              {messages.length === 0 ? (
+                <div className="no-messages">
+                  <i className="fas fa-envelope-open-text"></i>
+                  <p>No messages yet. Start a conversation!</p>
+                </div>
+              ) : (
+                messages.map(msg => (
+                  <div 
+                    key={msg._id} 
+                    className={`message-bubble ${msg.senderId === currentUserId ? 'sent' : 'received'}`}
+                  >
+                    <div className="message-subject-line">
+                      <strong>{msg.subject}</strong>
+                    </div>
+                    <div className="message-text-content">{msg.content}</div>
+                    <div className="message-footer">
+                      <div className="message-time">
+                        {new Date(msg.createdAt).toLocaleString()}
+                      </div>
+                      {msg.senderId === currentUserId && (
+                        <button 
+                          className="delete-msg-btn"
+                          onClick={() => handleDeleteMessage(msg._id)}
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      )}
+                      {msg.senderId !== currentUserId && !msg.isRead && (
+                        <span className="unread-indicator">● New</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            
+            {/* Quick reply input */}
+            {!showNewMessage && (
+              <div className="quick-reply-area">
+                <input
+                  type="text"
+                  placeholder="Type a quick reply..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                />
+                <button onClick={handleSendMessage}>
+                  <i className="fas fa-paper-plane"></i>
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}  {/* Profile Tab */}
         {activeTab === 'profile' && (
           <div className="profile-card">
             <div className="profile-header">
@@ -1361,6 +1616,195 @@ const AcademicAdminDashboard = () => {
         .assign-btn { background: #f39c12; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
 
         /* Messages Tab Styles */
+        /* Additional Messages Styles */
+.start-new-chat-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-details-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.user-details-header p {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #666;
+}
+
+.new-msg-btn {
+  margin-left: auto;
+  width: 35px;
+  height: 35px;
+  background: #1a3a5c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.compose-message-area {
+  padding: 15px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.compose-subject {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+}
+
+.compose-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.compose-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  background: #e0e0e0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.send-btn {
+  padding: 8px 16px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.no-messages {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.no-messages i {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+.message-subject-line {
+  font-size: 0.75rem;
+  margin-bottom: 5px;
+  opacity: 0.8;
+}
+
+.message-text-content {
+  word-wrap: break-word;
+}
+
+.message-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+
+.delete-msg-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  color: #e74c3c;
+}
+
+.message-bubble:hover .delete-msg-btn {
+  opacity: 1;
+}
+
+.unread-indicator {
+  color: #e74c3c;
+  font-size: 0.6rem;
+}
+
+.quick-reply-area {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  border-top: 1px solid #e0e0e0;
+  background: white;
+}
+
+.quick-reply-area input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+.quick-reply-area input:focus {
+  outline: none;
+  border-color: #1a3a5c;
+}
+
+.quick-reply-area button {
+  width: 40px;
+  height: 40px;
+  background: #1a3a5c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quick-reply-area button:hover {
+  background: #27ae60;
+  transform: scale(1.05);
+}
+
+/* Add to existing mobile styles */
+@media (max-width: 768px) {
+  .conversations-list {
+    max-height: 250px;
+  }
+  
+  .message-bubble {
+    max-width: 90%;
+  }
+  
+  .messages-header-info {
+    flex-wrap: wrap;
+  }
+  
+  .user-details-header {
+    flex: 1;
+  }
+}
         .messages-container { background: white; border-radius: 16px; overflow: hidden; height: calc(100vh - 180px); min-height: 500px; display: flex; flex-direction: column; }
         .messages-header { padding: 15px 20px; border-bottom: 1px solid #e0e0e0; background: white; }
         .messages-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
