@@ -106,7 +106,7 @@ const HomePage = () => {
 
   // Counter animation
   useEffect(() => {
-    const targets = { students: 1000, teachers: 40, years: 20 };
+    const targets = { students: 800, teachers: 40, years: 20 };
     const duration = 2000;
     const stepTime = 20;
     const steps = duration / stepTime;
@@ -206,7 +206,7 @@ const HomePage = () => {
               <p>Founded with a mission to provide quality education, ESSA Nyarugunga is one of the respected secondary schools in Kigali's Kicukiro District. We offer a nurturing environment where students grow academically, socially, and spiritually.</p>
               <p>Our dedicated staff and modern facilities ensure that every learner reaches their full potential. We follow the Rwandan national curriculum with a focus on Economics, technology, and character formation.</p>
               <div className="features">
-                <div><i className="fas fa-check-circle"></i> Modern Laboratories</div>
+                <div><i className="fas fa-check-circle"></i> Modern Facilities</div>
                 <div><i className="fas fa-check-circle"></i> Computer Lab with Internet</div>
                 <div><i className="fas fa-check-circle"></i> Library & Reading Room</div>
                 <div><i className="fas fa-check-circle"></i> Sports Facilities</div>
