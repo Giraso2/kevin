@@ -2,8 +2,8 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
-const dns = require("dns");
-dns.setDefaultResultOrder("ipv4first");
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 
 const express = require('express');
 const cors = require('cors');
@@ -20,115 +20,64 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: { origin: "http://localhost:5173", credentials: true }
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true
+  }
 });
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==================== FILE UPLOAD CONFIGURATION ====================
-
-// Create upload directories if they don't exist
 const uploadDirs = ['./uploads', './uploads/news', './uploads/gallery', './uploads/profile'];
 uploadDirs.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Configure storage for news images
-const newsStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/news/');
-  },
+const makeStorage = (folder, prefix) => multer.diskStorage({
+  destination: (req, file, cb) => cb(null, `uploads/${folder}/`),
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'news-' + uniqueSuffix + path.extname(file.originalname));
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `${prefix}-${unique}${path.extname(file.originalname)}`);
   }
 });
 
-// Configure storage for gallery images
-const galleryStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/gallery/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'gallery-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-// Configure storage for profile pictures
-const profileStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/profile/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-// File filter for images
 const imageFileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-  
-  if (mimetype && extname) {
+  const allowed = /jpeg|jpg|png|gif|webp/;
+  if (allowed.test(path.extname(file.originalname).toLowerCase()) && allowed.test(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error('Only image files are allowed'), false);
   }
 };
 
-// Multer upload instances
-const uploadNews = multer({ 
-  storage: newsStorage, 
-  fileFilter: imageFileFilter, 
-  limits: { fileSize: 5 * 1024 * 1024 }
-});
+const uploadNews    = multer({ storage: makeStorage('news',    'news'),    fileFilter: imageFileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const uploadGallery = multer({ storage: makeStorage('gallery', 'gallery'), fileFilter: imageFileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const uploadProfile = multer({ storage: makeStorage('profile', 'profile'), fileFilter: imageFileFilter, limits: { fileSize: 2 * 1024 * 1024 } });
 
-const uploadGallery = multer({ 
-  storage: galleryStorage, 
-  fileFilter: imageFileFilter, 
-  limits: { fileSize: 5 * 1024 * 1024 } 
-});
-
-const uploadProfile = multer({ 
-  storage: profileStorage, 
-  fileFilter: imageFileFilter, 
-  limits: { fileSize: 2 * 1024 * 1024 }
-});
-
-// Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ==================== EMAIL CONFIGURATION ====================
-
 const emailTransporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'muekeshimanakevin20@gmail.com',
-    pass: process.env.EMAIL_PASS || 'your-16-character-app-password'
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   },
-  tls: {
-    rejectUnauthorized: false
-  }
+  tls: { rejectUnauthorized: false }
 });
 
-emailTransporter.verify((error, success) => {
-  if (error) {
-    console.error('❌ Email configuration error:', error);
-  } else {
-    console.log('✅ Email configured successfully for:', process.env.EMAIL_USER);
-  }
+emailTransporter.verify((error) => {
+  if (error) console.error('❌ Email config error:', error.message);
+  else console.log('✅ Email configured for:', process.env.EMAIL_USER);
 });
 
-// ==================== MODELS (DEFINED ONCE) ====================
-
-// User Schema
+// ==================== SCHEMAS ====================
 const userSchema = new mongoose.Schema({
   fullName: String,
   email: { type: String, unique: true },
@@ -141,7 +90,6 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Teacher Profile Schema
 const teacherProfileSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   fullName: String,
@@ -151,7 +99,6 @@ const teacherProfileSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Student Schema
 const studentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   studentId: String,
@@ -165,7 +112,6 @@ const studentSchema = new mongoose.Schema({
   enrollmentDate: { type: Date, default: Date.now }
 });
 
-// Class Schema
 const classSchema = new mongoose.Schema({
   className: String,
   grade: { type: String, enum: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] },
@@ -175,7 +121,6 @@ const classSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Assignment Schema
 const assignmentSchema = new mongoose.Schema({
   title: String,
   description: String,
@@ -196,7 +141,6 @@ const assignmentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Attendance Schema
 const attendanceSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
@@ -205,7 +149,6 @@ const attendanceSchema = new mongoose.Schema({
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
 
-// Grade Schema
 const gradeSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   subject: String,
@@ -217,7 +160,6 @@ const gradeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Discipline Schema
 const disciplineSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   studentName: String,
@@ -234,7 +176,6 @@ const disciplineSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Permission Schema
 const permissionSchema = new mongoose.Schema({
   requesterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   requesterName: String,
@@ -250,7 +191,6 @@ const permissionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Announcement Schema
 const announcementSchema = new mongoose.Schema({
   title: String,
   content: String,
@@ -261,10 +201,9 @@ const announcementSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// News Schema
 const newsSchema = new mongoose.Schema({
-  title: { type: String },
-  summary: { type: String },
+  title: String,
+  summary: String,
   content: String,
   image: String,
   category: { type: String, default: 'news' },
@@ -276,9 +215,8 @@ const newsSchema = new mongoose.Schema({
   isPublished: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
-}); 
+});
 
-// Gallery Schema
 const gallerySchema = new mongoose.Schema({
   title: { type: String, required: true },
   image: { type: String, required: true },
@@ -291,7 +229,6 @@ const gallerySchema = new mongoose.Schema({
   isPublished: { type: Boolean, default: true }
 });
 
-// Message Schema
 const messageSchema = new mongoose.Schema({
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   senderName: { type: String, required: true },
@@ -302,30 +239,28 @@ const messageSchema = new mongoose.Schema({
   subject: { type: String, required: true },
   content: { type: String, required: true },
   isRead: { type: Boolean, default: false },
-  readAt: { type: Date },
+  readAt: Date,
   isArchived: { type: Boolean, default: false },
   isDeleted: { type: Boolean, default: false },
-  attachments: [{ type: String }],
+  attachments: [String],
   parentMessageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
   createdAt: { type: Date, default: Date.now }
 });
 
-// Conversation Schema
 const conversationSchema = new mongoose.Schema({
-  participants: [{ 
+  participants: [{
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     name: String,
     role: String,
     lastReadAt: Date
   }],
-  lastMessage: { type: String },
+  lastMessage: String,
   lastMessageAt: { type: Date, default: Date.now },
-  subject: { type: String },
+  subject: String,
   messageCount: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true }
 });
 
-// Admission Application Schema
 const admissionApplicationSchema = new mongoose.Schema({
   fullName: { type: String, required: true },
   dateOfBirth: { type: Date, required: true },
@@ -347,19 +282,27 @@ const admissionApplicationSchema = new mongoose.Schema({
   birthCertUrl: { type: String, default: '' },
   studentPhotoUrl: { type: String, default: '' },
   applicationNumber: { type: String, unique: true },
-  status: { 
-    type: String, 
-    enum: ['pending', 'reviewing', 'accepted', 'rejected', 'waitlisted'], 
-    default: 'pending' 
+  status: {
+    type: String,
+    enum: ['pending', 'reviewing', 'accepted', 'rejected', 'waitlisted'],
+    default: 'pending'
   },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewNotes: { type: String, default: '' },
-  reviewedAt: { type: Date },
+  reviewedAt: Date,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Contact Schema
+// Auto-generate application number
+admissionApplicationSchema.pre('save', async function (next) {
+  if (!this.applicationNumber) {
+    const count = await mongoose.model('AdmissionApplication').countDocuments();
+    this.applicationNumber = `APP-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+  }
+  next();
+});
+
 const contactSchema = new mongoose.Schema({
   fullName: { type: String, required: true },
   email: { type: String, required: true },
@@ -370,14 +313,12 @@ const contactSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Subscription Schema
 const subscriptionSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   isActive: { type: Boolean, default: true },
   subscribedAt: { type: Date, default: Date.now }
 });
 
-// Fee Structure Schema
 const feeStructureSchema = new mongoose.Schema({
   classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
   feeType: String,
@@ -387,7 +328,6 @@ const feeStructureSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Fee Payment Schema
 const feePaymentSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   studentName: String,
@@ -398,7 +338,6 @@ const feePaymentSchema = new mongoose.Schema({
   status: { type: String, default: 'completed' }
 });
 
-// Salary Schema
 const salarySchema = new mongoose.Schema({
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   teacherName: String,
@@ -412,14 +351,12 @@ const salarySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Budget Schema
 const budgetSchema = new mongoose.Schema({
   total: { type: Number, default: 0 },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Income Schema
 const incomeSchema = new mongoose.Schema({
   source: String,
   amount: Number,
@@ -430,7 +367,6 @@ const incomeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Expense Schema
 const expenseSchema = new mongoose.Schema({
   category: String,
   amount: Number,
@@ -441,225 +377,196 @@ const expenseSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// ==================== REGISTER MODELS (ONCE) ====================
-const User = mongoose.model('User', userSchema);
-const TeacherProfile = mongoose.model('TeacherProfile', teacherProfileSchema);
-const Student = mongoose.model('Student', studentSchema);
-const Class = mongoose.model('Class', classSchema);
-const Assignment = mongoose.model('Assignment', assignmentSchema);
-const Attendance = mongoose.model('Attendance', attendanceSchema);
-const Grade = mongoose.model('Grade', gradeSchema);
-const Discipline = mongoose.model('Discipline', disciplineSchema);
-const Permission = mongoose.model('Permission', permissionSchema);
-const Announcement = mongoose.model('Announcement', announcementSchema);
-const News = mongoose.model('News', newsSchema);
-const Gallery = mongoose.model('Gallery', gallerySchema);
-const Message = mongoose.model('Message', messageSchema);
-const Conversation = mongoose.model('Conversation', conversationSchema);
+// ==================== REGISTER MODELS ====================
+const User               = mongoose.model('User', userSchema);
+const TeacherProfile     = mongoose.model('TeacherProfile', teacherProfileSchema);
+const Student            = mongoose.model('Student', studentSchema);
+const Class              = mongoose.model('Class', classSchema);
+const Assignment         = mongoose.model('Assignment', assignmentSchema);
+const Attendance         = mongoose.model('Attendance', attendanceSchema);
+const Grade              = mongoose.model('Grade', gradeSchema);
+const Discipline         = mongoose.model('Discipline', disciplineSchema);
+const Permission         = mongoose.model('Permission', permissionSchema);
+const Announcement       = mongoose.model('Announcement', announcementSchema);
+const News               = mongoose.model('News', newsSchema);
+const Gallery            = mongoose.model('Gallery', gallerySchema);
+const Message            = mongoose.model('Message', messageSchema);
+const Conversation       = mongoose.model('Conversation', conversationSchema);
 const AdmissionApplication = mongoose.model('AdmissionApplication', admissionApplicationSchema);
-const Contact = mongoose.model('Contact', contactSchema);
-const Subscription = mongoose.model('Subscription', subscriptionSchema);
-const FeeStructure = mongoose.model('FeeStructure', feeStructureSchema);
-const FeePayment = mongoose.model('FeePayment', feePaymentSchema);
-const Salary = mongoose.model('Salary', salarySchema);
-const Budget = mongoose.model('Budget', budgetSchema);
-const Income = mongoose.model('Income', incomeSchema);
-const Expense = mongoose.model('Expense', expenseSchema);
+const Contact            = mongoose.model('Contact', contactSchema);
+const Subscription       = mongoose.model('Subscription', subscriptionSchema);
+const FeeStructure       = mongoose.model('FeeStructure', feeStructureSchema);
+const FeePayment         = mongoose.model('FeePayment', feePaymentSchema);
+const Salary             = mongoose.model('Salary', salarySchema);
+const Budget             = mongoose.model('Budget', budgetSchema);
+const Income             = mongoose.model('Income', incomeSchema);
+const Expense            = mongoose.model('Expense', expenseSchema);
 
 // ==================== MIDDLEWARE ====================
 const authMiddleware = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
+  if (!token) return res.status(401).json({ message: 'No token provided' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
-    req.userId = decoded.id;
+    req.userId   = decoded.id;
     req.userRole = decoded.role;
     req.userName = decoded.name;
     next();
-  } catch (error) {
+  } catch {
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
 
-// ==================== SOCKET.IO CONFIGURATION ====================
-io.use(async (socket, next) => {
+const requireRole = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.userRole)) return res.status(403).json({ message: 'Access denied' });
+  next();
+};
+
+// ==================== SOCKET.IO ====================
+io.use((socket, next) => {
   try {
     const token = socket.handshake.auth.token;
-    if (!token) {
-      return next(new Error('Authentication error'));
-    }
-    
+    if (!token) return next(new Error('Authentication error'));
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
-    socket.userId = decoded.id;
+    socket.userId   = decoded.id;
     socket.userRole = decoded.role;
     next();
-  } catch (err) {
+  } catch {
     next(new Error('Authentication error'));
   }
 });
 
 io.on('connection', (socket) => {
-  console.log('🔌 User connected:', socket.userId);
-  
+  console.log('🔌 Connected:', socket.userId);
   socket.join(socket.userId);
-  
+
+  socket.on('join', (userId) => { if (userId) socket.join(userId); });
+  socket.on('sendMessage', (data) => { io.to(data.receiverId).emit('newMessage', data); });
   socket.on('typing', ({ recipientId, isTyping }) => {
-    socket.to(recipientId).emit('user_typing', {
-      userId: socket.userId,
-      isTyping
-    });
+    socket.to(recipientId).emit('user_typing', { userId: socket.userId, isTyping });
   });
-  
   socket.on('mark_read', ({ messageId, senderId }) => {
     socket.to(senderId).emit('message_read', { messageId });
   });
-  
-  socket.on('join', (userId) => {
-    if (userId) socket.join(userId);
-    console.log(`User ${userId} joined room`);
-  });
-  
-  socket.on('sendMessage', (data) => {
-    io.to(data.receiverId).emit('newMessage', data);
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('🔌 User disconnected:', socket.userId);
-  });
+  socket.on('disconnect', () => { console.log('🔌 Disconnected:', socket.userId); });
 });
 
-// ==================== EMAIL TEMPLATES ====================
+// ==================== EMAIL HELPERS ====================
 const sendWelcomeEmail = async (user) => {
-  const mailOptions = {
+  if (!process.env.EMAIL_USER) return;
+  await emailTransporter.sendMail({
     from: process.env.EMAIL_USER,
     to: user.email,
     subject: `Welcome to ESSA Nyarugunga Portal, ${user.fullName}!`,
-    html: `<!DOCTYPE html><html><head><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333;}.container{max-width:600px;margin:0 auto;padding:20px;}.header{background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:30px;text-align:center;border-radius:10px 10px 0 0;}.content{background:#f5f5f5;padding:30px;border-radius:0 0 10px 10px;}.credentials{background:white;padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid #ffc107;}.footer{text-align:center;padding:20px;font-size:12px;color:#777;}.button{background:#1a3a5c;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;}</style></head><body><div class="container"><div class="header"><h2>🎓 Welcome to ESSA Nyarugunga Portal</h2><p>École Secondaire des Sciences et Administrative</p></div><div class="content"><h3>Dear ${user.fullName},</h3><p>Welcome to the ESSA Nyarugunga School Management Portal! Your account has been created successfully.</p><div class="credentials"><h4>📋 Your Account Details:</h4><p><strong>Email:</strong> ${user.email}</p><p><strong>Password:</strong> ${user.tempPassword || 'Use the password provided by your administrator'}</p><p><strong>Role:</strong> ${user.role.toUpperCase()}</p></div><p>You can now log in to the portal to access academic information, attendance tracking, fee payment status, messaging system, and school announcements.</p><div style="text-align:center;margin:30px 0;"><a href="http://localhost:5173/portal/login" class="button">🔐 Login to Portal</a></div><p>Best regards,<br><strong>ESSA Nyarugunga Administration</strong></p></div><div class="footer"><p>© ${new Date().getFullYear()} ESSA Nyarugunga School | Excellence in Education</p><p>Nyarugunga Sector, Kicukiro District, Kigali, Rwanda</p></div></div></body></html>`
-  };
-  await emailTransporter.sendMail(mailOptions);
+    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:30px;text-align:center;border-radius:10px 10px 0 0;">
+        <h2>🎓 Welcome to ESSA Nyarugunga Portal</h2></div>
+      <div style="background:#f5f5f5;padding:30px;border-radius:0 0 10px 10px;">
+        <h3>Dear ${user.fullName},</h3>
+        <p>Your account has been created successfully.</p>
+        <div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #ffc107;">
+          <p><strong>Email:</strong> ${user.email}</p>
+          <p><strong>Password:</strong> ${user.tempPassword || 'Set by administrator'}</p>
+          <p><strong>Role:</strong> ${user.role?.toUpperCase()}</p>
+        </div>
+        <p>Best regards,<br><strong>ESSA Nyarugunga Administration</strong></p>
+      </div></div>`
+  });
 };
 
 const sendNewsNotificationEmail = async (news) => {
+  if (!process.env.EMAIL_USER) return;
   const subscribers = await Subscription.find({ isActive: true });
-  for (const subscriber of subscribers) {
-    const mailOptions = {
+  for (const sub of subscribers) {
+    await emailTransporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: subscriber.email,
+      to: sub.email,
       subject: `📰 New: ${news.title} - ESSA Nyarugunga`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;"><div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:20px;text-align:center;"><h2>📢 New Update from ESSA Nyarugunga</h2></div><div style="padding:20px;"><h3>${news.title}</h3>${news.image ? `<img src="${news.image}" style="max-width:100%;border-radius:8px;margin:15px 0;" />` : ''}<p>${news.summary}</p><div style="text-align:center;margin:20px 0;"><a href="http://localhost:5173/news" style="background:#1a3a5c;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">📖 Read Full Article</a></div></div></div>`
-    };
-    await emailTransporter.sendMail(mailOptions);
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:20px;text-align:center;"><h2>📢 New Update</h2></div>
+        <div style="padding:20px;"><h3>${news.title}</h3><p>${news.summary}</p></div></div>`
+    }).catch(console.error);
   }
-};
-
-const sendContactNotificationEmail = async (contact) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: 'admin@essa.rw',
-    subject: `📬 New Contact Message from ${contact.fullName}`,
-    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;"><div style="background:#1a3a5c;color:white;padding:15px;"><h2>New Contact Form Submission</h2></div><div style="padding:20px;background:#f5f5f5;"><h3>Contact Details:</h3><p><strong>Name:</strong> ${contact.fullName}</p><p><strong>Email:</strong> ${contact.email}</p><p><strong>Phone:</strong> ${contact.phone || 'Not provided'}</p><p><strong>Subject:</strong> ${contact.subject || 'General Inquiry'}</p><p><strong>Message:</strong></p><p style="background:white;padding:15px;border-radius:5px;">${contact.message}</p></div></div>`
-  };
-  await emailTransporter.sendMail(mailOptions);
 };
 
 const sendAdmissionConfirmationEmail = async (application) => {
-  const mailOptions = {
+  if (!process.env.EMAIL_USER) return;
+  await emailTransporter.sendMail({
     from: process.env.EMAIL_USER,
     to: application.email,
     subject: `🎓 Admission Application Received - ESSA Nyarugunga`,
-    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;"><div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:20px;text-align:center;"><h2>🎓 Application Received!</h2></div><div style="padding:20px;background:#f5f5f5;"><h3>Dear ${application.fullName},</h3><p>Thank you for applying to <strong>ESSA Nyarugunga School</strong>!</p><p>We have successfully received your admission application.</p><div style="background:white;padding:15px;border-radius:8px;margin:15px 0;"><p><strong>Application Number:</strong> ${application.applicationNumber}</p><p><strong>Submitted Date:</strong> ${new Date(application.createdAt).toLocaleString()}</p><p><strong>Status:</strong> Pending Review</p></div><p>Our admissions team will review your application and contact you within 3-5 business days.</p></div></div>`
-  };
-  await emailTransporter.sendMail(mailOptions);
+    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:20px;text-align:center;"><h2>Application Received!</h2></div>
+      <div style="padding:20px;background:#f5f5f5;">
+        <h3>Dear ${application.fullName},</h3>
+        <p>Application Number: <strong>${application.applicationNumber}</strong></p>
+        <p>Status: Pending Review. We'll contact you within 3–5 business days.</p>
+      </div></div>`
+  });
 };
 
-// ==================== SEEDING SYSTEM ====================
+// ==================== SEEDING ====================
 const seedDatabase = async () => {
-  try {
-    console.log('\n🌱 Seeding database...');
-    
-    await User.deleteMany({});
-    await TeacherProfile.deleteMany({});
-    await Student.deleteMany({});
-    await Class.deleteMany({});
-    await Announcement.deleteMany({});
-    await News.deleteMany({});
-    await Gallery.deleteMany({});
-    await AdmissionApplication.deleteMany({});
-    await Contact.deleteMany({});
-    await Subscription.deleteMany({});
-    
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const superAdmin = await User.create({
-      fullName: 'Head Master',
-      email: 'admin@essa.rw',
-      password: hashedPassword,
-      role: 'super_admin',
-      phone: '+250788123456',
-      isActive: true,
-      createdAt: new Date()
-    });
-    console.log('✅ Super Admin created: admin@essa.rw / admin123');
-    
-    await Announcement.create([
-      { title: 'Welcome to 2026 Academic Year', content: 'We are excited to welcome all students back for the 2026 academic year.', audience: ['all'], priority: 'high', createdBy: superAdmin._id },
-      { title: 'Parent-Teacher Conference', content: 'Parent-teacher conference will be held on May 20, 2026.', audience: ['parents'], priority: 'normal', createdBy: superAdmin._id }
-    ]);
-    
-    await News.create([
-      { title: 'ESSA Nyarugunga Wins Science Competition', summary: 'Our students won first place in the National Science Fair.', category: 'achievement', author: 'Science Department', isPublished: true },
-      { title: 'New Computer Laboratory Opens', summary: 'State-of-the-art computer lab with 50 new computers.', category: 'announcement', author: 'ICT Department', isPublished: true }
-    ]);
-    
-    await Gallery.create([
-      { title: 'Graduation Ceremony 2025', image: 'https://via.placeholder.com/500x350', category: 'events', description: 'S6 graduation ceremony', isPublished: true },
-      { title: 'Sports Day', image: 'https://via.placeholder.com/500x350', category: 'sports', description: 'Annual sports day', isPublished: true }
-    ]);
-    
-    console.log('✅ Sample data created');
-    console.log('\n🎉 Seeding completed!');
-  } catch (error) {
-    console.error('Seeding error:', error);
-  }
+  console.log('\n🌱 Seeding database...');
+  await Promise.all([
+    User.deleteMany({}), TeacherProfile.deleteMany({}), Student.deleteMany({}),
+    Class.deleteMany({}), Announcement.deleteMany({}), News.deleteMany({}),
+    Gallery.deleteMany({}), AdmissionApplication.deleteMany({}),
+    Contact.deleteMany({}), Subscription.deleteMany({})
+  ]);
+
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const superAdmin = await User.create({
+    fullName: 'Head Master', email: 'admin@essa.rw',
+    password: hashedPassword, role: 'super_admin',
+    phone: '+250788123456', isActive: true
+  });
+
+  await Announcement.create([
+    { title: 'Welcome to 2026 Academic Year', content: 'We are excited to welcome all students back.', audience: ['all'], priority: 'high', createdBy: superAdmin._id },
+    { title: 'Parent-Teacher Conference', content: 'Scheduled for May 20, 2026.', audience: ['parents'], priority: 'normal', createdBy: superAdmin._id }
+  ]);
+  await News.create([
+    { title: 'ESSA Wins Science Competition', summary: 'First place at the National Science Fair.', category: 'achievement', author: 'Science Dept', isPublished: true },
+    { title: 'New Computer Lab Opens', summary: 'State-of-the-art lab with 50 new computers.', category: 'announcement', author: 'ICT Dept', isPublished: true }
+  ]);
+  await Gallery.create([
+    { title: 'Graduation 2025', image: 'https://via.placeholder.com/500x350', category: 'events', isPublished: true },
+    { title: 'Sports Day',      image: 'https://via.placeholder.com/500x350', category: 'sports', isPublished: true }
+  ]);
+
+  console.log('✅ Super Admin: admin@essa.rw / admin123');
+  console.log('🎉 Seeding done!\n');
 };
 
-// ==================== AUTH ROUTES ====================
+// ==================== HEALTH ====================
+app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
+
+// ==================== AUTH ====================
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-    
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
-    
+    if (!user || !(await bcrypt.compare(password, user.password)))
+      return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user.isActive)
+      return res.status(403).json({ message: 'Account is deactivated' });
+
     const token = jwt.sign(
       { id: user._id, role: user.role, name: user.fullName },
       process.env.JWT_SECRET || 'secretkey',
       { expiresIn: '7d' }
     );
-    
-    res.json({
-      success: true,
-      _id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      role: user.role,
-      profileImage: user.profileImage,
-      token
-    });
+    res.json({ success: true, _id: user._id, fullName: user.fullName, email: user.email, role: user.role, profileImage: user.profileImage, token });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// ==================== PROFILE ROUTES ====================
+// ==================== PROFILE ====================
 app.post('/api/user/upload-profile', authMiddleware, uploadProfile.single('profileImage'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
-    }
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
     const imageUrl = `${req.protocol}://${req.get('host')}/uploads/profile/${req.file.filename}`;
     await User.findByIdAndUpdate(req.userId, { profileImage: imageUrl });
     res.json({ success: true, imageUrl });
@@ -668,57 +575,100 @@ app.post('/api/user/upload-profile', authMiddleware, uploadProfile.single('profi
   }
 });
 
-// ==================== CONTACT ROUTES ====================
+app.get('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const { fullName, phone } = req.body;
+    const user = await User.findByIdAndUpdate(req.userId, { fullName, phone }, { new: true }).select('-password');
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/user/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.userId);
+    if (!(await bcrypt.compare(currentPassword, user.password)))
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== CONTACT ====================
 app.post('/api/contact/submit', async (req, res) => {
   try {
     const { fullName, email, phone, subject, message } = req.body;
-    const contact = new Contact({ fullName, email, phone, subject, message });
-    await contact.save();
-    await sendContactNotificationEmail(contact);
+    const contact = await Contact.create({ fullName, email, phone, subject, message });
+    if (process.env.EMAIL_USER) {
+      emailTransporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: process.env.ADMIN_EMAIL || 'admin@essa.rw',
+        subject: `📬 New Contact from ${fullName}`,
+        html: `<p><b>Name:</b> ${fullName}</p><p><b>Email:</b> ${email}</p><p><b>Phone:</b> ${phone || '-'}</p><p><b>Subject:</b> ${subject || '-'}</p><p><b>Message:</b> ${message}</p>`
+      }).catch(console.error);
+    }
     res.json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-app.get('/api/admin/contacts', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.get('/api/admin/contacts', authMiddleware, requireRole('super_admin'), async (req, res) => {
   const contacts = await Contact.find().sort({ createdAt: -1 });
   res.json(contacts);
 });
 
-// ==================== SUBSCRIPTION ROUTES ====================
+// ==================== SUBSCRIPTIONS ====================
 app.post('/api/subscriptions/subscribe', async (req, res) => {
   try {
     const { email } = req.body;
-    let subscription = await Subscription.findOne({ email });
-    
-    if (subscription) {
-      if (!subscription.isActive) {
-        subscription.isActive = true;
-        await subscription.save();
-        return res.json({ success: true, message: 'Welcome back! You have been resubscribed.' });
-      }
-      return res.json({ success: true, message: 'You are already subscribed!' });
+    let sub = await Subscription.findOne({ email });
+    if (sub) {
+      if (!sub.isActive) { sub.isActive = true; await sub.save(); }
+      return res.json({ success: true, message: 'Subscribed successfully!' });
     }
-    
-    subscription = new Subscription({ email });
-    await subscription.save();
-    
-    const welcomeMailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: '📧 Welcome to ESSA Nyarugunga Newsletter!',
-      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;"><div style="background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:white;padding:30px;text-align:center;"><h2>Welcome to Our Newsletter! 📧</h2></div><div style="padding:20px;background:#f5f5f5;"><h3>Thank you for subscribing!</h3><p>You will now receive the latest news, events, and announcements from ESSA Nyarugunga School.</p></div></div>`
-    };
-    await emailTransporter.sendMail(welcomeMailOptions);
+    await Subscription.create({ email });
     res.json({ success: true, message: 'Subscribed successfully!' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// ==================== NEWS ROUTES ====================
+app.post('/api/subscriptions/unsubscribe', async (req, res) => {
+  try {
+    await Subscription.findOneAndUpdate({ email: req.body.email }, { isActive: false });
+    res.json({ success: true, message: 'Unsubscribed successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==================== ANNOUNCEMENTS ====================
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const announcements = await Announcement.find({ isActive: true }).sort({ createdAt: -1 });
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== NEWS ====================
 app.get('/api/news/public', async (req, res) => {
   try {
     const { category, limit = 10 } = req.query;
@@ -733,64 +683,53 @@ app.get('/api/news/public', async (req, res) => {
 
 app.get('/api/news/:id', async (req, res) => {
   try {
-    const news = await News.findById(req.params.id);
+    const news = await News.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }, { new: true });
     if (!news) return res.status(404).json({ success: false, message: 'Not found' });
-    news.views += 1;
-    await news.save();
     res.json({ success: true, data: news });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-app.get('/api/academic-admin/news', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'academic_admin' && req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.get('/api/academic-admin/news', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
   const news = await News.find().sort({ date: -1 });
   res.json(news);
 });
 
-app.post('/api/academic-admin/news', authMiddleware, uploadNews.single('image'), async (req, res) => {
+app.post('/api/academic-admin/news', authMiddleware, requireRole('academic_admin', 'super_admin'), uploadNews.single('image'), async (req, res) => {
   try {
     const { title, summary, content, category, tags } = req.body;
     const currentUser = await User.findById(req.userId);
-    
-    let imageUrl = null;
-    if (req.file) {
-      imageUrl = `${req.protocol}://${req.get('host')}/uploads/news/${req.file.filename}`;
-    }
-    
-    const news = new News({
-      title,
-      summary,
-      content: content || summary,
-      image: imageUrl || null,
-      category: category || 'news',
-      tags: tags ? tags.split(',') : [],
+    const imageUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/news/${req.file.filename}` : null;
+    const news = await News.create({
+      title, summary, content: content || summary,
+      image: imageUrl, category: category || 'news',
+      tags: tags ? tags.split(',').map(t => t.trim()) : [],
       author: currentUser?.fullName || 'Academic Admin',
-      date: new Date(),
-      isPublished: true
+      date: new Date(), isPublished: true
     });
-    
-    await news.save();
-    try {
-      await sendNewsNotificationEmail(news);
-      console.log('📧 Newsletter sent to subscribers');
-    } catch (emailError) {
-      console.error('Email error:', emailError);
-    }
+    sendNewsNotificationEmail(news).catch(console.error);
     res.json({ success: true, news, imageUrl });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-app.delete('/api/academic-admin/news/:id', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'academic_admin' && req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.put('/api/academic-admin/news/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const news = await News.findByIdAndUpdate(req.params.id, { ...req.body, updatedAt: new Date() }, { new: true });
+    res.json({ success: true, news });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/academic-admin/news/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
   await News.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// ==================== GALLERY ROUTES ====================
+// ==================== GALLERY ====================
 app.get('/api/gallery/public', async (req, res) => {
   try {
     const { category, limit = 20 } = req.query;
@@ -803,272 +742,633 @@ app.get('/api/gallery/public', async (req, res) => {
   }
 });
 
-app.get('/api/academic-admin/gallery', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'academic_admin' && req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.get('/api/academic-admin/gallery', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
   const gallery = await Gallery.find().sort({ date: -1 });
   res.json(gallery);
 });
 
-app.post('/api/academic-admin/gallery', authMiddleware, uploadGallery.single('image'), async (req, res) => {
+app.post('/api/academic-admin/gallery', authMiddleware, requireRole('academic_admin', 'super_admin'), uploadGallery.single('image'), async (req, res) => {
   try {
     const { title, category, description } = req.body;
-    
-    let imageUrl = null;
-    if (req.file) {
-      imageUrl = `${req.protocol}://${req.get('host')}/uploads/gallery/${req.file.filename}`;
-    }
-    
-    const galleryItem = new Gallery({
-      title,
-      image: imageUrl,
-      category: category || 'events',
-      description: description || '',
-      date: new Date(),
-      isPublished: true
-    });
-    
-    await galleryItem.save();
+    const imageUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/gallery/${req.file.filename}` : null;
+    if (!imageUrl) return res.status(400).json({ message: 'Image is required' });
+    const galleryItem = await Gallery.create({ title, image: imageUrl, category: category || 'events', description: description || '', isPublished: true });
     res.json({ success: true, gallery: galleryItem, imageUrl });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-app.delete('/api/academic-admin/gallery/:id', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'academic_admin' && req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.delete('/api/academic-admin/gallery/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
   await Gallery.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// ==================== ADMISSION ROUTES ====================
+// ==================== ADMISSIONS ====================
 app.post('/api/admissions/submit', async (req, res) => {
   try {
-    const applicationData = req.body;
-    const newApplication = new AdmissionApplication({
-      fullName: applicationData.fullName,
-      dateOfBirth: new Date(applicationData.dateOfBirth),
-      nationality: applicationData.nationality || 'Rwandan',
-      nationalId: applicationData.nationalId || '',
-      email: applicationData.email,
-      phone: applicationData.phone,
-      address: applicationData.address,
-      level: applicationData.level,
-      previousSchool: applicationData.previousSchool,
-      lastAverage: parseFloat(applicationData.lastAverage),
-      achievements: applicationData.achievements || '',
-      parentName: applicationData.parentName,
-      parentPhone: applicationData.parentPhone,
-      parentEmail: applicationData.parentEmail || '',
-      parentOccupation: applicationData.parentOccupation || '',
-      applyScholarship: applicationData.applyScholarship || false,
-      status: 'pending'
+    const data = req.body;
+    const application = await AdmissionApplication.create({
+      fullName: data.fullName, dateOfBirth: new Date(data.dateOfBirth),
+      nationality: data.nationality || 'Rwandan', nationalId: data.nationalId || '',
+      email: data.email, phone: data.phone, address: data.address,
+      level: data.level, previousSchool: data.previousSchool,
+      lastAverage: parseFloat(data.lastAverage), achievements: data.achievements || '',
+      parentName: data.parentName, parentPhone: data.parentPhone,
+      parentEmail: data.parentEmail || '', parentOccupation: data.parentOccupation || '',
+      applyScholarship: data.applyScholarship || false
     });
-    await newApplication.save();
-    await sendAdmissionConfirmationEmail(newApplication);
-    res.json({ success: true, message: 'Application submitted successfully!', applicationNumber: newApplication.applicationNumber });
+    sendAdmissionConfirmationEmail(application).catch(console.error);
+    res.json({ success: true, message: 'Application submitted!', applicationNumber: application.applicationNumber });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-app.get('/api/academic-admin/applications', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'academic_admin' && req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.get('/api/academic-admin/applications', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
   const applications = await AdmissionApplication.find().sort({ createdAt: -1 });
   res.json(applications);
 });
 
-app.put('/api/academic-admin/applications/:id/status', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'academic_admin' && req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
-  const application = await AdmissionApplication.findByIdAndUpdate(req.params.id, { status: req.body.status, reviewedAt: new Date() }, { new: true });
+app.put('/api/academic-admin/applications/:id/status', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  const application = await AdmissionApplication.findByIdAndUpdate(
+    req.params.id,
+    { status: req.body.status, reviewNotes: req.body.reviewNotes || '', reviewedAt: new Date(), reviewedBy: req.userId },
+    { new: true }
+  );
   res.json({ success: true, application });
 });
 
-// ==================== SUPER ADMIN ROUTES ====================
-app.get('/api/super-admin/admins', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+// ==================== SUPER ADMIN ====================
+app.get('/api/super-admin/admins', authMiddleware, requireRole('super_admin'), async (req, res) => {
   const admins = await User.find({ role: { $in: ['academic_admin', 'discipline_admin', 'accounts_admin'] } }).select('-password');
   res.json(admins);
 });
 
-app.post('/api/super-admin/create-admin', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
-  const { fullName, email, password, phone, role } = req.body;
-  const existing = await User.findOne({ email });
-  if (existing) return res.status(400).json({ message: 'Email exists' });
-  const hashedPassword = await bcrypt.hash(password || 'admin123', 10);
-  const newAdmin = new User({ fullName, email, password: hashedPassword, role, phone: phone || '', createdBy: req.userId });
-  await newAdmin.save();
-  res.json({ success: true, user: { _id: newAdmin._id, fullName, email, role } });
+app.post('/api/super-admin/create-admin', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  try {
+    const { fullName, email, password, phone, role } = req.body;
+    if (await User.findOne({ email })) return res.status(400).json({ message: 'Email already exists' });
+    const hashedPassword = await bcrypt.hash(password || 'admin123', 10);
+    const newAdmin = await User.create({ fullName, email, password: hashedPassword, role, phone: phone || '', createdBy: req.userId });
+    sendWelcomeEmail({ fullName, email, role, tempPassword: password || 'admin123' }).catch(console.error);
+    res.json({ success: true, user: { _id: newAdmin._id, fullName, email, role } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
-app.delete('/api/super-admin/admins/:id', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.put('/api/super-admin/admins/:id', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  try {
+    const { fullName, phone, isActive } = req.body;
+    const user = await User.findByIdAndUpdate(req.params.id, { fullName, phone, isActive }, { new: true }).select('-password');
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/super-admin/admins/:id', authMiddleware, requireRole('super_admin'), async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-app.post('/api/super-admin/announcements', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
-  const announcement = new Announcement({ ...req.body, createdBy: req.userId });
-  await announcement.save();
-  res.json({ success: true, announcement });
+app.post('/api/super-admin/announcements', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  try {
+    const announcement = await Announcement.create({ ...req.body, createdBy: req.userId });
+    res.json({ success: true, announcement });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
-app.get('/api/super-admin/announcements', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.get('/api/super-admin/announcements', authMiddleware, requireRole('super_admin'), async (req, res) => {
   const announcements = await Announcement.find().sort({ createdAt: -1 });
   res.json(announcements);
 });
 
-app.delete('/api/super-admin/announcements/:id', authMiddleware, async (req, res) => {
-  if (req.userRole !== 'super_admin') return res.status(403).json({ message: 'Access denied' });
+app.put('/api/super-admin/announcements/:id', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  const announcement = await Announcement.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json({ success: true, announcement });
+});
+
+app.delete('/api/super-admin/announcements/:id', authMiddleware, requireRole('super_admin'), async (req, res) => {
   await Announcement.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-app.get('/api/announcements', async (req, res) => {
-  const announcements = await Announcement.find({ isActive: true }).sort({ createdAt: -1 });
-  res.json(announcements);
+// Super admin dashboard stats
+app.get('/api/super-admin/stats', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  try {
+    const [totalStudents, totalTeachers, totalClasses, pendingApplications, pendingDiscipline, pendingPermissions, totalIncome, totalExpenses] = await Promise.all([
+      Student.countDocuments({ isActive: true }),
+      TeacherProfile.countDocuments(),
+      Class.countDocuments(),
+      AdmissionApplication.countDocuments({ status: 'pending' }),
+      Discipline.countDocuments({ status: 'pending' }),
+      Permission.countDocuments({ status: 'pending' }),
+      Income.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
+      Expense.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }])
+    ]);
+    res.json({
+      success: true,
+      totalStudents, totalTeachers, totalClasses, pendingApplications,
+      pendingDiscipline, pendingPermissions,
+      totalIncome: totalIncome[0]?.total || 0,
+      totalExpenses: totalExpenses[0]?.total || 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
-// ==================== TEACHER ROUTES ====================
+// ==================== TEACHERS ====================
 app.get('/api/academic-admin/teachers-list', authMiddleware, async (req, res) => {
-  const teachers = await TeacherProfile.find();
+  const teachers = await TeacherProfile.find().sort({ fullName: 1 });
   res.json(teachers);
 });
 
-app.post('/api/academic-admin/create-teacher-credentials', authMiddleware, async (req, res) => {
+app.post('/api/academic-admin/create-teacher-credentials', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
   try {
     const { fullName, email, password, subject, phone } = req.body;
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: 'Email already exists' });
-    
+    if (await User.findOne({ email })) return res.status(400).json({ message: 'Email already exists' });
     const finalPassword = password || 'teacher123';
     const hashedPassword = await bcrypt.hash(finalPassword, 10);
-    
-    const teacherUser = new User({
-      fullName, email, password: hashedPassword, role: 'teacher',
-      phone: phone || '', createdBy: req.userId, isActive: true
-    });
-    await teacherUser.save();
-    
-    const teacherProfile = new TeacherProfile({
-      userId: teacherUser._id, fullName, email, subject: subject || 'General', phone: phone || ''
-    });
-    await teacherProfile.save();
-    
-    try {
-      await sendWelcomeEmail({ fullName, email, role: 'teacher', tempPassword: finalPassword });
-      console.log(`📧 Welcome email sent to ${email}`);
-    } catch (emailError) {
-      console.error('Email error:', emailError);
-    }
-    
+    const teacherUser = await User.create({ fullName, email, password: hashedPassword, role: 'teacher', phone: phone || '', createdBy: req.userId });
+    const teacherProfile = await TeacherProfile.create({ userId: teacherUser._id, fullName, email, subject: subject || 'General', phone: phone || '' });
+    sendWelcomeEmail({ fullName, email, role: 'teacher', tempPassword: finalPassword }).catch(console.error);
     res.json({ success: true, teacher: teacherProfile, password: finalPassword });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-app.delete('/api/academic-admin/teachers/:id', authMiddleware, async (req, res) => {
-  const teacher = await TeacherProfile.findById(req.params.id);
-  if (teacher) {
-    await User.findByIdAndDelete(teacher.userId);
+app.put('/api/academic-admin/teachers/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const { fullName, email, subject, phone } = req.body;
+    const teacher = await TeacherProfile.findByIdAndUpdate(req.params.id, { fullName, email, subject, phone }, { new: true });
+    if (teacher?.userId) await User.findByIdAndUpdate(teacher.userId, { fullName, email, phone });
+    res.json({ success: true, teacher });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/academic-admin/teachers/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const teacher = await TeacherProfile.findById(req.params.id);
+    if (teacher?.userId) await User.findByIdAndDelete(teacher.userId);
     await TeacherProfile.findByIdAndDelete(req.params.id);
-  }
-  res.json({ success: true });
-});
-
-// ==================== CLASSES ROUTES ====================
-app.get('/api/academic-admin/classes', authMiddleware, async (req, res) => {
-  try {
-    const classes = await Class.find().lean();
-    for (let cls of classes) {
-      if (cls.teacherId) {
-        const teacher = await TeacherProfile.findOne({ userId: cls.teacherId });
-        if (teacher) {
-          cls.teacherId = { _id: cls.teacherId, fullName: teacher.fullName };
-        }
-      }
-    }
-    res.json(classes);
-  } catch (error) {
-    res.json([]);
-  }
-});
-
-app.post('/api/academic-admin/classes', authMiddleware, async (req, res) => {
-  try {
-    const { className, grade, academicYear, teacherId } = req.body;
-    const newClass = new Class({ className, grade, academicYear, teacherId: teacherId || null, students: [] });
-    await newClass.save();
-    res.json({ success: true, class: newClass });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, async (req, res) => {
-  try {
-    const { teacherId } = req.body;
-    const classItem = await Class.findById(req.params.classId);
-    if (!classItem) return res.status(404).json({ message: 'Class not found' });
-    classItem.teacherId = teacherId;
-    await classItem.save();
-    res.json({ success: true, class: classItem });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.delete('/api/academic-admin/classes/:id', authMiddleware, async (req, res) => {
-  try {
-    await Class.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// ==================== PERFORMANCE ROUTES ====================
+// ==================== CLASSES ====================
+app.get('/api/academic-admin/classes', authMiddleware, async (req, res) => {
+  try {
+    const classes = await Class.find().lean();
+    for (const cls of classes) {
+      if (cls.teacherId) {
+        const teacher = await TeacherProfile.findOne({ userId: cls.teacherId });
+        if (teacher) cls.teacherInfo = { _id: cls.teacherId, fullName: teacher.fullName };
+      }
+    }
+    res.json(classes);
+  } catch {
+    res.json([]);
+  }
+});
+
+app.post('/api/academic-admin/classes', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const { className, grade, academicYear, teacherId } = req.body;
+    const newClass = await Class.create({ className, grade, academicYear, teacherId: teacherId || null, students: [] });
+    res.json({ success: true, class: newClass });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const classItem = await Class.findByIdAndUpdate(req.params.classId, { teacherId: req.body.teacherId }, { new: true });
+    if (!classItem) return res.status(404).json({ message: 'Class not found' });
+    res.json({ success: true, class: classItem });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/academic-admin/classes/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  await Class.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// ==================== STUDENTS ====================
+app.get('/api/academic-admin/students', authMiddleware, async (req, res) => {
+  try {
+    const students = await Student.find().populate('classId', 'grade className').sort({ fullName: 1 });
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/academic-admin/students', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const count = await Student.countDocuments();
+    const studentId = `STU${new Date().getFullYear()}${String(count + 1).padStart(4, '0')}`;
+    const student = await Student.create({ ...req.body, studentId });
+    if (req.body.classId) {
+      await Class.findByIdAndUpdate(req.body.classId, { $addToSet: { students: student._id } });
+    }
+    res.json({ success: true, student });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/academic-admin/students/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const student = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json({ success: true, student });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/academic-admin/students/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const student = await Student.findByIdAndDelete(req.params.id);
+    if (student?.classId) await Class.findByIdAndUpdate(student.classId, { $pull: { students: student._id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== PERFORMANCE ====================
 app.get('/api/academic-admin/students-performance', authMiddleware, async (req, res) => {
   try {
     const students = await Student.find().populate('classId', 'grade className');
-    const performanceData = students.map(student => ({
-      studentId: student.studentId || `STU${student._id.toString().slice(-6)}`,
-      name: student.fullName,
-      class: student.classId ? `${student.classId.grade} ${student.classId.className}` : 'Not Assigned',
+    const performanceData = students.map(s => ({
+      studentId: s.studentId || `STU${s._id.toString().slice(-6)}`,
+      name: s.fullName,
+      class: s.classId ? `${s.classId.grade} ${s.classId.className}` : 'Not Assigned',
       averageScore: Math.floor(Math.random() * 30) + 65
     }));
     res.json(performanceData);
-  } catch (error) {
+  } catch {
     res.json([]);
   }
 });
 
 app.get('/api/academic-admin/class-performance', authMiddleware, async (req, res) => {
   try {
-    const classes = await Class.find().populate('teacherId', 'fullName');
+    const classes = await Class.find();
     const performanceData = classes.map(cls => ({
       className: `${cls.grade} ${cls.className}`,
-      teacher: cls.teacherId?.fullName || 'Not Assigned',
       studentCount: cls.students?.length || 0,
       averageScore: Math.floor(Math.random() * 25) + 70
     }));
     res.json(performanceData);
-  } catch (error) {
+  } catch {
     res.json([]);
   }
 });
 
-// ==================== MESSAGING ROUTES ====================
+// ==================== GRADES ====================
+app.get('/api/teacher/grades', authMiddleware, async (req, res) => {
+  try {
+    const grades = await Grade.find({ teacherId: req.userId }).populate('studentId', 'fullName studentId');
+    res.json(grades);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/teacher/grades', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const grade = await Grade.create({ ...req.body, teacherId: req.userId });
+    res.json({ success: true, grade });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/student/grades/:studentId', authMiddleware, async (req, res) => {
+  try {
+    const grades = await Grade.find({ studentId: req.params.studentId }).sort({ createdAt: -1 });
+    res.json(grades);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ATTENDANCE ====================
+app.post('/api/teacher/attendance', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const { classId, date, records } = req.body;
+    const bulk = records.map(r => ({
+      updateOne: {
+        filter: { studentId: r.studentId, classId, date: new Date(date) },
+        update: { $set: { status: r.status, teacherId: req.userId } },
+        upsert: true
+      }
+    }));
+    await Attendance.bulkWrite(bulk);
+    res.json({ success: true, message: 'Attendance saved' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/teacher/attendance/:classId', authMiddleware, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const query = { classId: req.params.classId };
+    if (date) query.date = new Date(date);
+    const attendance = await Attendance.find(query).populate('studentId', 'fullName studentId');
+    res.json(attendance);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ASSIGNMENTS ====================
+app.get('/api/teacher/assignments', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const assignments = await Assignment.find({ teacherId: req.userId }).sort({ createdAt: -1 });
+    res.json(assignments);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/teacher/assignments', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const assignment = await Assignment.create({ ...req.body, teacherId: req.userId });
+    res.json({ success: true, assignment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/teacher/assignments/:id', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
+  try {
+    const assignment = await Assignment.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json({ success: true, assignment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/teacher/assignments/:id', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
+  await Assignment.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// ==================== DISCIPLINE ====================
+app.get('/api/discipline-admin/cases', authMiddleware, requireRole('discipline_admin', 'super_admin'), async (req, res) => {
+  try {
+    const cases = await Discipline.find().sort({ createdAt: -1 });
+    res.json(cases);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/discipline-admin/cases', authMiddleware, async (req, res) => {
+  try {
+    const disciplineCase = await Discipline.create({ ...req.body, reportedBy: req.userId, reporterName: req.userName });
+    res.json({ success: true, case: disciplineCase });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/discipline-admin/cases/:id', authMiddleware, requireRole('discipline_admin', 'super_admin'), async (req, res) => {
+  try {
+    const disciplineCase = await Discipline.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, reviewedBy: req.userId, reviewedAt: new Date() },
+      { new: true }
+    );
+    res.json({ success: true, case: disciplineCase });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/discipline-admin/stats', authMiddleware, requireRole('discipline_admin', 'super_admin'), async (req, res) => {
+  try {
+    const [pending, resolved, total] = await Promise.all([
+      Discipline.countDocuments({ status: 'pending' }),
+      Discipline.countDocuments({ status: 'resolved' }),
+      Discipline.countDocuments()
+    ]);
+    res.json({ success: true, pending, resolved, total });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== PERMISSIONS ====================
+app.get('/api/permissions', authMiddleware, async (req, res) => {
+  try {
+    let permissions;
+    if (req.userRole === 'super_admin' || req.userRole === 'discipline_admin') {
+      permissions = await Permission.find().sort({ createdAt: -1 });
+    } else {
+      permissions = await Permission.find({ requesterId: req.userId }).sort({ createdAt: -1 });
+    }
+    res.json(permissions);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/permissions', authMiddleware, async (req, res) => {
+  try {
+    const permission = await Permission.create({
+      ...req.body, requesterId: req.userId,
+      requesterName: req.userName, requesterRole: req.userRole
+    });
+    res.json({ success: true, permission });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/permissions/:id', authMiddleware, requireRole('discipline_admin', 'super_admin'), async (req, res) => {
+  try {
+    const permission = await Permission.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, reviewedBy: req.userId, reviewedAt: new Date() },
+      { new: true }
+    );
+    res.json({ success: true, permission });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== FEES ====================
+app.get('/api/accounts/fee-structures', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  const feeStructures = await FeeStructure.find().populate('classId', 'grade className').sort({ createdAt: -1 });
+  res.json(feeStructures);
+});
+
+app.post('/api/accounts/fee-structures', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const feeStructure = await FeeStructure.create(req.body);
+    res.json({ success: true, feeStructure });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/accounts/fee-structures/:id', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  await FeeStructure.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/accounts/payments', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  const payments = await FeePayment.find().populate('studentId', 'fullName studentId').sort({ paymentDate: -1 });
+  res.json(payments);
+});
+
+app.post('/api/accounts/payments', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const count = await FeePayment.countDocuments();
+    const receiptNo = `RCP-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+    const payment = await FeePayment.create({ ...req.body, receiptNo, paymentDate: new Date() });
+    res.json({ success: true, payment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== SALARIES ====================
+app.get('/api/accounts/salaries', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  const salaries = await Salary.find().sort({ createdAt: -1 });
+  res.json(salaries);
+});
+
+app.post('/api/accounts/salaries', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const salary = await Salary.create(req.body);
+    res.json({ success: true, salary });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/accounts/salaries/:id/approve', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const salary = await Salary.findByIdAndUpdate(
+      req.params.id,
+      { status: 'approved', approvedBy: req.userId, approvedAt: new Date() },
+      { new: true }
+    );
+    res.json({ success: true, salary });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== BUDGET / INCOME / EXPENSES ====================
+app.get('/api/accounts/budget', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  let budget = await Budget.findOne().sort({ updatedAt: -1 });
+  if (!budget) budget = { total: 0 };
+  res.json(budget);
+});
+
+app.put('/api/accounts/budget', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    let budget = await Budget.findOne();
+    if (budget) {
+      budget.total = req.body.total; budget.updatedBy = req.userId; budget.updatedAt = new Date();
+      await budget.save();
+    } else {
+      budget = await Budget.create({ total: req.body.total, updatedBy: req.userId });
+    }
+    res.json({ success: true, budget });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/accounts/income', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  const income = await Income.find().sort({ date: -1 });
+  res.json(income);
+});
+
+app.post('/api/accounts/income', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const income = await Income.create({ ...req.body, recordedBy: req.userId, date: req.body.date || new Date() });
+    res.json({ success: true, income });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/accounts/expenses', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  const expenses = await Expense.find().sort({ date: -1 });
+  res.json(expenses);
+});
+
+app.post('/api/accounts/expenses', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const expense = await Expense.create({ ...req.body, recordedBy: req.userId, date: req.body.date || new Date() });
+    res.json({ success: true, expense });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/accounts/financial-summary', authMiddleware, requireRole('accounts_admin', 'super_admin'), async (req, res) => {
+  try {
+    const [incomeAgg, expenseAgg, pendingSalaries, completedPayments] = await Promise.all([
+      Income.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
+      Expense.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
+      Salary.countDocuments({ status: 'pending' }),
+      FeePayment.countDocuments({ status: 'completed' })
+    ]);
+    const totalIncome   = incomeAgg[0]?.total || 0;
+    const totalExpenses = expenseAgg[0]?.total || 0;
+    res.json({ success: true, totalIncome, totalExpenses, netBalance: totalIncome - totalExpenses, pendingSalaries, completedPayments });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== MESSAGING ====================
+app.get('/api/messages/users', authMiddleware, async (req, res) => {
+  try {
+    const users = await User.find({ _id: { $ne: req.userId }, isActive: true }, 'fullName email role profileImage').sort('fullName');
+    const grouped = {
+      super_admin:      users.filter(u => u.role === 'super_admin'),
+      academic_admin:   users.filter(u => u.role === 'academic_admin'),
+      discipline_admin: users.filter(u => u.role === 'discipline_admin'),
+      accounts_admin:   users.filter(u => u.role === 'accounts_admin'),
+      teachers:         users.filter(u => u.role === 'teacher'),
+      students:         users.filter(u => u.role === 'student'),
+      parents:          users.filter(u => u.role === 'parent')
+    };
+    res.json({ success: true, users: grouped });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.get('/api/messages/conversations', authMiddleware, async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = new mongoose.Types.ObjectId(req.userId);
     const conversations = await Conversation.aggregate([
-      { $match: { 'participants.userId': mongoose.Types.ObjectId.createFromHexString(userId), isActive: true } },
-      { $lookup: { from: 'messages', localField: '_id', foreignField: 'conversationId', as: 'messages' } },
-      { $addFields: { unreadCount: { $size: { $filter: { input: '$messages', cond: { $and: [{ $eq: ['$$this.isRead', false] }, { $ne: ['$$this.senderId', mongoose.Types.ObjectId.createFromHexString(userId)] }] } } } } } },
+      { $match: { 'participants.userId': userId, isActive: true } },
       { $sort: { lastMessageAt: -1 } }
     ]);
     res.json({ success: true, conversations });
@@ -1079,17 +1379,17 @@ app.get('/api/messages/conversations', authMiddleware, async (req, res) => {
 
 app.get('/api/messages/conversation/:userId', authMiddleware, async (req, res) => {
   try {
-    const currentUserId = req.userId;
-    const otherUserId = req.params.userId;
     const messages = await Message.find({
       $or: [
-        { senderId: currentUserId, recipientId: otherUserId },
-        { senderId: otherUserId, recipientId: currentUserId }
+        { senderId: req.userId, recipientId: req.params.userId },
+        { senderId: req.params.userId, recipientId: req.userId }
       ],
       isDeleted: false
     }).sort({ createdAt: 1 }).limit(100);
-    
-    await Message.updateMany({ senderId: otherUserId, recipientId: currentUserId, isRead: false }, { isRead: true, readAt: new Date() });
+    await Message.updateMany(
+      { senderId: req.params.userId, recipientId: req.userId, isRead: false },
+      { isRead: true, readAt: new Date() }
+    );
     res.json({ success: true, messages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1099,49 +1399,36 @@ app.get('/api/messages/conversation/:userId', authMiddleware, async (req, res) =
 app.post('/api/messages/send', authMiddleware, async (req, res) => {
   try {
     const { recipientId, subject, content } = req.body;
-    const senderId = req.userId;
-    const sender = await User.findById(senderId);
-    const recipient = await User.findById(recipientId);
+    const [sender, recipient] = await Promise.all([User.findById(req.userId), User.findById(recipientId)]);
     if (!sender || !recipient) return res.status(404).json({ success: false, message: 'User not found' });
-    
-    const message = new Message({
-      senderId, senderName: sender.fullName, senderRole: sender.role,
+
+    const message = await Message.create({
+      senderId: req.userId, senderName: sender.fullName, senderRole: sender.role,
       recipientId, recipientName: recipient.fullName, recipientRole: recipient.role,
       subject, content
     });
-    await message.save();
-    
-    let conversation = await Conversation.findOne({ 'participants.userId': { $all: [senderId, recipientId] }, isActive: true });
+
+    let conversation = await Conversation.findOne({ 'participants.userId': { $all: [req.userId, recipientId] }, isActive: true });
     if (conversation) {
       conversation.lastMessage = content.substring(0, 100);
       conversation.lastMessageAt = new Date();
       conversation.messageCount += 1;
       await conversation.save();
     } else {
-      conversation = new Conversation({
-        participants: [{ userId: senderId, name: sender.fullName, role: sender.role }, { userId: recipientId, name: recipient.fullName, role: recipient.role }],
-        lastMessage: content.substring(0, 100), lastMessageAt: new Date(), subject: subject, messageCount: 1
+      conversation = await Conversation.create({
+        participants: [
+          { userId: req.userId, name: sender.fullName, role: sender.role },
+          { userId: recipientId, name: recipient.fullName, role: recipient.role }
+        ],
+        lastMessage: content.substring(0, 100), lastMessageAt: new Date(), subject, messageCount: 1
       });
-      await conversation.save();
     }
-    
-    io.to(recipientId.toString()).emit('new_message', { message: { _id: message._id, senderName: sender.fullName, subject, content, createdAt: message.createdAt }, conversationId: conversation._id });
-    res.json({ success: true, message, conversationId: conversation._id });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
-app.delete('/api/messages/:messageId', authMiddleware, async (req, res) => {
-  try {
-    const messageId = req.params.messageId;
-    const userId = req.userId;
-    const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ success: false, message: 'Message not found' });
-    if (message.senderId.toString() !== userId && message.recipientId.toString() !== userId) return res.status(403).json({ success: false, message: 'Unauthorized' });
-    message.isDeleted = true;
-    await message.save();
-    res.json({ success: true, message: 'Message deleted successfully' });
+    io.to(recipientId.toString()).emit('new_message', {
+      message: { _id: message._id, senderName: sender.fullName, subject, content, createdAt: message.createdAt },
+      conversationId: conversation._id
+    });
+    res.json({ success: true, message, conversationId: conversation._id });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1149,26 +1436,8 @@ app.delete('/api/messages/:messageId', authMiddleware, async (req, res) => {
 
 app.get('/api/messages/unread-count', authMiddleware, async (req, res) => {
   try {
-    const userId = req.userId;
-    const count = await Message.countDocuments({ recipientId: userId, isRead: false, isDeleted: false });
+    const count = await Message.countDocuments({ recipientId: req.userId, isRead: false, isDeleted: false });
     res.json({ success: true, count });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.get('/api/messages/users', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.userId;
-    const users = await User.find({ _id: { $ne: userId }, isActive: true }, 'fullName email role profileImage').sort('fullName');
-    const groupedUsers = {
-      admin: users.filter(u => u.role === 'admin'),
-      academic_admin: users.filter(u => u.role === 'academic_admin'),
-      teachers: users.filter(u => u.role === 'teacher'),
-      students: users.filter(u => u.role === 'student'),
-      parents: users.filter(u => u.role === 'parent')
-    };
-    res.json({ success: true, users: groupedUsers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1176,55 +1445,104 @@ app.get('/api/messages/users', authMiddleware, async (req, res) => {
 
 app.put('/api/messages/:messageId/read', authMiddleware, async (req, res) => {
   try {
-    const messageId = req.params.messageId;
-    const userId = req.userId;
-    const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ success: false, message: 'Message not found' });
-    if (message.recipientId.toString() !== userId) return res.status(403).json({ success: false, message: 'Unauthorized' });
-    message.isRead = true;
-    message.readAt = new Date();
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ success: false, message: 'Not found' });
+    if (message.recipientId.toString() !== req.userId) return res.status(403).json({ success: false, message: 'Unauthorized' });
+    message.isRead = true; message.readAt = new Date();
     await message.save();
-    res.json({ success: true, message: 'Message marked as read' });
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// ==================== HEALTH CHECK ====================
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.delete('/api/messages/:messageId', authMiddleware, async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ success: false, message: 'Not found' });
+    if (message.senderId.toString() !== req.userId && message.recipientId.toString() !== req.userId)
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    message.isDeleted = true;
+    await message.save();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
-// ==================== DATABASE CONNECTION & SERVER START ====================
+// ==================== USERS (SUPER ADMIN) ====================
+app.get('/api/super-admin/users', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/super-admin/users/:id/toggle-active', authMiddleware, requireRole('super_admin'), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.isActive = !user.isActive;
+    await user.save();
+    res.json({ success: true, isActive: user.isActive });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== TEACHER DASHBOARD ====================
+app.get('/api/teacher/dashboard', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const teacherProfile = await TeacherProfile.findOne({ userId: req.userId });
+    const classes = await Class.find({ teacherId: req.userId });
+    const classIds = classes.map(c => c._id);
+    const [totalStudents, pendingAssignments, recentGrades] = await Promise.all([
+      Student.countDocuments({ classId: { $in: classIds } }),
+      Assignment.countDocuments({ teacherId: req.userId, dueDate: { $gte: new Date() } }),
+      Grade.find({ teacherId: req.userId }).sort({ createdAt: -1 }).limit(5)
+    ]);
+    res.json({ success: true, teacherProfile, classes, totalStudents, pendingAssignments, recentGrades });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== 404 HANDLER ====================
+app.use((req, res) => {
+  res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
+});
+
+// ==================== ERROR HANDLER ====================
+app.use((err, req, res, next) => {
+  console.error('Server error:', err.message);
+  if (err.name === 'MulterError') return res.status(400).json({ message: err.message });
+  res.status(500).json({ message: err.message || 'Internal Server Error' });
+});
+
+// ==================== DATABASE CONNECTION & START ====================
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/essa_school';
+const PORT = process.env.PORT || 5000;
 
 mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 10000,
+  serverSelectionTimeoutMS: 10000
 })
 .then(async () => {
   console.log('✅ MongoDB Connected');
-  const shouldSeed = process.argv.includes('--seed') || process.env.SEED_DB === 'true';
   const userCount = await User.countDocuments();
-  if (shouldSeed || userCount === 0) {
+  if (process.argv.includes('--seed') || process.env.SEED_DB === 'true' || userCount === 0) {
     await seedDatabase();
   }
-  const PORT = process.env.PORT || 5000;
   server.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
     console.log(`📍 Health: http://localhost:${PORT}/api/health`);
     console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
-    console.log(`📧 Email: ${process.env.EMAIL_USER ? 'Configured' : 'Not configured'}`);
-    console.log(`\n📋 Login Credentials:`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔑 SUPER ADMIN (Head Master):');
-    console.log('   Email: admin@essa.rw');
-    console.log('   Password: admin123');
+    console.log(`\n🔑 Super Admin: admin@essa.rw / admin123`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   });
 })
 .catch(err => {
-  console.error('MongoDB Connection Error:', err.message);
+  console.error('❌ MongoDB Connection Error:', err.message);
   process.exit(1);
 });
