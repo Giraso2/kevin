@@ -252,7 +252,11 @@ const PortalLogin = () => {
         .overlay {
           position: absolute;
           inset: 0;
-          
+            background: linear-gradient(
+  135deg,
+  hsla(220, 60%, 18%, 0.80) 0%,
+  hsla(45, 90%, 70%, 0.45) 100%
+);
           z-index: 1;
         }
 
