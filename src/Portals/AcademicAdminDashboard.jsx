@@ -1,1872 +1,916 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 
-// API Base URL
 const API_URL = 'http://localhost:5000/api';
+const SOCKET_URL = 'http://localhost:5000';
+const getToken = () => localStorage.getItem('portalToken');
+const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
-const AcademicAdminDashboard = () => {
-  const [userName, setUserName] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  // Data states
-  const [teachers, setTeachers] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [news, setNews] = useState([]);
-  const [gallery, setGallery] = useState([]);
-  const [studentPerformance, setStudentPerformance] = useState([]);
-  const [classPerformance, setClassPerformance] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
-  
-  // Chat states
- 
-const [unreadCount, setUnreadCount] = useState(0);
-const [usersList, setUsersList] = useState({ teachers: [], students: [], admins: [] });
-const [messages, setMessages] = useState([]);
-const [selectedUser, setSelectedUser] = useState(null);
-const [messageText, setMessageText] = useState('');
-const [messageSubject, setMessageSubject] = useState('');
-const [socket, setSocket] = useState(null);
-const [showNewMessage, setShowNewMessage] = useState(false);
-const [searchTerm, setSearchTerm] = useState('');
-const [activeMessageTab, setActiveMessageTab] = useState('inbox');
-  
-  const navigate = useNavigate();
-  const getToken = () => localStorage.getItem('portalToken');
-  // Get current user ID from localStorage
-const currentUserId = localStorage.getItem('userId')
+// ─── helpers ─────────────────────────────────────────────────────────────────
+const fmt = (d) => d ? new Date(d).toLocaleDateString('en-RW', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtTime = (d) => d ? new Date(d).toLocaleTimeString('en-RW', { hour: '2-digit', minute: '2-digit' }) : '';
 
-  // API Request function
-  const apiRequest = async (endpoint, options = {}) => {
-    const token = getToken();
-    const headers = {};
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    if (!(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json';
-    }
-    
-    try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        ...options,
-        headers,
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
+const roleBadge = (role) => {
+  const map = {
+    super_admin: { label: 'Super Admin', color: '#ffc107', bg: '#fff8e1' },
+    academic_admin: { label: 'Academic Admin', color: '#27ae60', bg: '#e8f5e9' },
+    discipline_admin: { label: 'Discipline Admin', color: '#e74c3c', bg: '#fdecea' },
+    accounts_admin: { label: 'Accounts Admin', color: '#3498db', bg: '#e3f2fd' },
+    teacher: { label: 'Teacher', color: '#9b59b6', bg: '#f3e5f5' },
+    student: { label: 'Student', color: '#1abc9c', bg: '#e0f7fa' },
+    parent: { label: 'Parent', color: '#e67e22', bg: '#fff3e0' },
   };
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 1024);
-      if (window.innerWidth > 1024) setMobileMenuOpen(false);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // ==================== SOCKET.IO SETUP ====================
-useEffect(() => {
-  const token = getToken();
-  if (token) {
-    const newSocket = io('http://localhost:5000', {
-      auth: { token }
-    });
-    
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
-      if (currentUserId) {
-        newSocket.emit('join', currentUserId);
-      }
-    });
-    
-    newSocket.on('new_message', (data) => {
-      // Refresh messages if the current conversation is open
-      if (selectedUser && data.message.senderId === selectedUser._id) {
-        fetchMessages(selectedUser._id);
-      }
-      fetchUnreadCount();
-      // Show notification
-      Swal.fire({
-        title: 'New Message',
-        text: `New message from ${data.message.senderName}`,
-        icon: 'info',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000
-      });
-    });
-    
-    newSocket.on('message_read', ({ messageId }) => {
-      // Update message read status in UI
-      setMessages(prev => prev.map(msg => 
-        msg._id === messageId ? { ...msg, isRead: true } : msg
-      ));
-    });
-    
-    setSocket(newSocket);
-    
-    return () => {
-      if (newSocket) newSocket.disconnect();
-    };
-  }
-}, [currentUserId]);
-// Fetch users for messaging
-const fetchUsersForMessaging = async () => {
-  try {
-    const data = await apiRequest('/messages/users');
-    setUsersList(data.users || { teachers: [], students: [], admins: [] });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-  }
+  return map[role] || { label: role || '—', color: '#666', bg: '#f0f0f0' };
 };
 
-// Fetch messages with a specific user
-const fetchMessages = async (userId) => {
-  if (!userId) return;
-  try {
-    const data = await apiRequest(`/messages/conversation/${userId}`);
-    setMessages(Array.isArray(data.messages) ? data.messages : []);
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    setMessages([]);
-  }
-};
-
-// Fetch unread count
-const fetchUnreadCount = async () => {
-  try {
-    const data = await apiRequest('/messages/unread-count');
-    setUnreadCount(data.count || 0);
-  } catch (error) {
-    console.error('Error fetching unread count:', error);
-  }
-};
-
-// Send a new message
-const handleSendMessage = async () => {
-  if (!messageText.trim() || !selectedUser) {
-    Swal.fire('Error', 'Please select a user and enter a message', 'warning');
-    return;
-  }
-  
-  try {
-    const data = await apiRequest('/messages/send', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipientId: selectedUser._id,
-        subject: messageSubject || 'New Message',
-        content: messageText
-      })
-    });
-    
-    if (data.success) {
-      // Add message to the list
-      setMessages([...messages, data.message]);
-      setMessageText('');
-      setMessageSubject('');
-      setShowNewMessage(false);
-      fetchUnreadCount();
-      
-      // Emit socket event
-      if (socket) {
-        socket.emit('send_message', {
-          recipientId: selectedUser._id,
-          message: data.message
-        });
-      }
-    }
-  } catch (error) {
-    console.error('Error sending message:', error);
-    Swal.fire('Error', 'Failed to send message', 'error');
-  }
-};
-
-// Mark message as read
-const markMessageAsRead = async (messageId) => {
-  try {
-    await apiRequest(`/messages/${messageId}/read`, {
-      method: 'PUT'
-    });
-    fetchUnreadCount();
-  } catch (error) {
-    console.error('Error marking message as read:', error);
-  }
-};
-
-// Delete message
-const handleDeleteMessage = async (messageId) => {
-  const result = await Swal.fire({
-    title: 'Delete Message?',
-    text: 'This action cannot be undone.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#e74c3c',
-    confirmButtonText: 'Yes, Delete'
-  });
-  
-  if (result.isConfirmed) {
-    try {
-      await apiRequest(`/messages/${messageId}`, {
-        method: 'DELETE'
-      });
-      fetchMessages(selectedUser?._id);
-      Swal.fire('Deleted!', 'Message deleted successfully', 'success');
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      Swal.fire('Error', 'Failed to delete message', 'error');
-    }
-  }
-};
-
-// Select a user to chat with
-const handleSelectUser = async (user) => {
-  setSelectedUser(user);
-  setShowNewMessage(false);
-  await fetchMessages(user._id);
-};
-
-// Get all users flattened for display
-const getAllUsers = () => {
-  const all = [];
-  if (usersList.teachers) all.push(...usersList.teachers.map(u => ({ ...u, role: 'teacher' })));
-  if (usersList.students) all.push(...usersList.students.map(u => ({ ...u, role: 'student' })));
-  if (usersList.admins) all.push(...usersList.admins.map(u => ({ ...u, role: 'admin' })));
-  if (usersList.academic_admin) all.push(...usersList.academic_admin.map(u => ({ ...u, role: 'academic_admin' })));
-  if (usersList.parents) all.push(...usersList.parents.map(u => ({ ...u, role: 'parent' })));
-  
-  // Filter out current user
-  return all.filter(u => u._id !== currentUserId);
-};
-
-const filteredUsers = getAllUsers().filter(user => 
-  user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  user.role?.toLowerCase().includes(searchTerm.toLowerCase())
+// ─── shared UI atoms ─────────────────────────────────────────────────────────
+const Badge = ({ text, color, bg, size = 11 }) => (
+  <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 20, fontSize: size, fontWeight: 700, color, background: bg, whiteSpace: 'nowrap' }}>
+    {typeof text === 'string' ? text.replace(/_/g, ' ').toUpperCase() : text}
+  </span>
 );
 
-  // ==================== TEACHER MANAGEMENT ====================
-  const handleCreateTeacher = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Create Teacher Account',
-      html: `
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="position: relative;">
-            <i class="fas fa-user" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="fullName" class="swal2-input" placeholder="Full Name *" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-envelope" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="email" id="email" class="swal2-input" placeholder="Email *" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-lock" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="password" id="password" class="swal2-input" placeholder="Password (default: teacher123)" style="padding-left: 40px;">
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-book" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="subject" class="swal2-input" placeholder="Subject" style="padding-left: 40px;">
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-phone" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="tel" id="phone" class="swal2-input" placeholder="Phone Number" style="padding-left: 40px;">
-          </div>
-        </div>
-      `,
-      confirmButtonText: 'Create Teacher',
-      confirmButtonColor: '#27ae60',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const fullName = document.getElementById('fullName')?.value;
-        const email = document.getElementById('email')?.value;
-        if (!fullName || !email) {
-          Swal.showValidationMessage('Please fill required fields');
-          return false;
-        }
-        return {
-          fullName: fullName.trim(),
-          email: email.trim().toLowerCase(),
-          password: document.getElementById('password')?.value || 'teacher123',
-          subject: document.getElementById('subject')?.value || 'General',
-          phone: document.getElementById('phone')?.value || ''
-        };
-      }
-    });
-    // Fetch messaging data when tab changes to messages
-useEffect(() => {
-  if (activeTab === 'messages') {
-    fetchUsersForMessaging();
-    fetchUnreadCount();
-  }
-}, [activeTab]);
-
-    if (formValues) {
-      try {
-        await apiRequest('/academic-admin/create-teacher-credentials', {
-          method: 'POST',
-          body: JSON.stringify(formValues)
-        });
-        Swal.fire({
-          title: '✅ Teacher Created!',
-          html: `
-            <div style="text-align: left; background: #f0f4f8; padding: 15px; border-radius: 8px;">
-              <p><strong>Name:</strong> ${formValues.fullName}</p>
-              <p><strong>Email:</strong> ${formValues.email}</p>
-              <p><strong>Password:</strong> <code style="background: #1a3a5c; color: white; padding: 2px 8px; border-radius: 4px;">${formValues.password}</code></p>
-              <p><strong>Subject:</strong> ${formValues.subject}</p>
-            </div>
-          `,
-          icon: 'success'
-        });
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', error.message || 'Failed to create teacher', 'error');
-      }
-    }
-  };
-
-  const handleDeleteTeacher = async (teacher) => {
-    const result = await Swal.fire({
-      title: 'Delete Teacher?',
-      text: `Remove ${teacher.fullName}? This action cannot be undone.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Yes, Delete'
-    });
-    if (result.isConfirmed) {
-      try {
-        await apiRequest(`/academic-admin/teachers/${teacher._id}`, { method: 'DELETE' });
-        Swal.fire('Deleted!', 'Teacher removed successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to delete teacher', 'error');
-      }
-    }
-  };
-
-  // ==================== CLASS MANAGEMENT ====================
-  const handleCreateClass = async () => {
-    if (teachers.length === 0) {
-      Swal.fire('No Teachers', 'Please create teachers first.', 'warning');
-      return;
-    }
-    
-    const teacherOptions = { '': '-- Select Teacher (Optional) --' };
-    teachers.forEach(teacher => {
-      teacherOptions[teacher._id] = `${teacher.fullName} (${teacher.subject || 'General'})`;
-    });
-    
-    const { value: formValues } = await Swal.fire({
-      title: 'Create Class',
-      html: `
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="position: relative;">
-            <i class="fas fa-tag" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="className" class="swal2-input" placeholder="Class Name (e.g., A, B, C)" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-layer-group" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <select id="grade" class="swal2-select" style="padding-left: 40px; width: 100%;">
-              <option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option>
-              <option value="S4">S4</option><option value="S5">S5</option><option value="S6">S6</option>
-            </select>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-calendar" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <input type="text" id="academicYear" class="swal2-input" placeholder="Academic Year (e.g., 2026)" style="padding-left: 40px;" required>
-          </div>
-          <div style="position: relative;">
-            <i class="fas fa-chalkboard-user" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999;"></i>
-            <select id="teacherId" class="swal2-select" style="padding-left: 40px; width: 100%;">
-              ${Object.entries(teacherOptions).map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-      `,
-      confirmButtonText: 'Create Class',
-      confirmButtonColor: '#3498db',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const className = document.getElementById('className')?.value;
-        const grade = document.getElementById('grade')?.value;
-        const academicYear = document.getElementById('academicYear')?.value;
-        if (!className || !grade || !academicYear) {
-          Swal.showValidationMessage('Please fill all required fields');
-          return false;
-        }
-        return { className, grade, academicYear, teacherId: document.getElementById('teacherId')?.value || null };
-      }
-    });
-
-    if (formValues) {
-      try {
-        await apiRequest('/academic-admin/classes', {
-          method: 'POST',
-          body: JSON.stringify(formValues)
-        });
-        Swal.fire('Success!', 'Class created successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', error.message || 'Failed to create class', 'error');
-      }
-    }
-  };
-
-  const handleDeleteClass = async (classItem) => {
-    const result = await Swal.fire({
-      title: 'Delete Class?',
-      text: `Remove ${classItem.grade} ${classItem.className}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Yes, Delete'
-    });
-    if (result.isConfirmed) {
-      try {
-        await apiRequest(`/academic-admin/classes/${classItem._id}`, { method: 'DELETE' });
-        Swal.fire('Deleted!', 'Class removed successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to delete class', 'error');
-      }
-    }
-  };
-
-  // ==================== ASSIGN TEACHER - FIXED ====================
-  const handleAssignTeacher = async (classItem) => {
-    if (teachers.length === 0) {
-      Swal.fire({ title: 'No Teachers', text: 'Please create teachers first.', icon: 'warning' });
-      return;
-    }
-    
-    const teacherOptions = {};
-    teachers.forEach(teacher => {
-      teacherOptions[teacher._id] = `${teacher.fullName} (${teacher.subject || 'General'})`;
-    });
-    teacherOptions['none'] = '-- Remove Teacher --';
-    
-    const { value: selectedTeacherId } = await Swal.fire({
-      title: `Assign Teacher to ${classItem.grade} ${classItem.className}`,
-      text: 'Select a teacher:',
-      input: 'select',
-      inputOptions: teacherOptions,
-      showCancelButton: true,
-      confirmButtonText: 'Assign',
-      confirmButtonColor: '#27ae60',
-      preConfirm: (selected) => {
-        if (!selected) {
-          Swal.showValidationMessage('Please select a teacher');
-          return false;
-        }
-        return selected;
-      }
-    });
-    
-    if (selectedTeacherId) {
-      const teacherIdToAssign = selectedTeacherId === 'none' ? null : selectedTeacherId;
-      
-      try {
-        Swal.fire({ title: 'Assigning...', allowOutsideClick: false, showConfirmButton: false, willOpen: () => Swal.showLoading() });
-        
-        const result = await apiRequest(`/academic-admin/classes/${classItem._id}/assign-teacher`, {
-          method: 'PUT',
-          body: JSON.stringify({ teacherId: teacherIdToAssign })
-        });
-        
-        Swal.close();
-        
-        if (result.success) {
-          await fetchAllData();
-          Swal.fire({ 
-            title: 'Success!', 
-            text: teacherIdToAssign ? 'Teacher assigned successfully' : 'Teacher removed', 
-            icon: 'success', 
-            timer: 2000 
-          });
-        } else {
-          throw new Error(result.message || 'Failed to assign teacher');
-        }
-      } catch (error) {
-        Swal.close();
-        Swal.fire({ title: 'Error', text: error.message || 'Failed to assign teacher', icon: 'error' });
-      }
-    }
-  };
-
-  const handleRefreshClasses = async () => {
-    Swal.fire({ title: 'Refreshing...', allowOutsideClick: false, showConfirmButton: false, willOpen: () => Swal.showLoading() });
-    try {
-      const classesData = await apiRequest('/academic-admin/classes');
-      setClasses(Array.isArray(classesData) ? classesData : []);
-      Swal.close();
-      Swal.fire({ title: 'Refreshed!', text: 'Class list updated', icon: 'success', timer: 1500 });
-    } catch (error) {
-      Swal.close();
-      Swal.fire('Error', 'Failed to refresh', 'error');
-    }
-  };
-
-  // ==================== NEWS MANAGEMENT ====================
-  const handleCreateNews = async () => {
-  const { value: formValues } = await Swal.fire({
-    title: 'Create News/Event',
-    html: `
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <input type="text" id="title" class="swal2-input" placeholder="Title" required>
-        <textarea id="summary" class="swal2-textarea" placeholder="Short Summary" rows="3" required></textarea>
-        <textarea id="content" class="swal2-textarea" placeholder="Full Content" rows="4"></textarea>
-        <input type="file" id="imageFile" class="swal2-file" accept="image/*">
-        <select id="category" class="swal2-select">
-          <option value="news">📰 News</option>
-          <option value="event">🎉 Event</option>
-          <option value="announcement">📢 Announcement</option>
-        </select>
-        <input type="text" id="tags" class="swal2-input" placeholder="Tags (comma separated)">
-      </div>
-    `,
-    confirmButtonText: 'Publish',
-    confirmButtonColor: '#27ae60',
-    showCancelButton: true,
-    width: '550px',
-    preConfirm: () => {
-      const title = document.getElementById('title')?.value;
-      const summary = document.getElementById('summary')?.value;
-      const imageFile = document.getElementById('imageFile')?.files[0];
-      if (!title || !summary) {
-        Swal.showValidationMessage('Please fill title and summary');
-        return false;
-      }
-      return {
-        title: title.trim(),
-        summary: summary.trim(),
-        content: document.getElementById('content')?.value || summary,
-        imageFile: imageFile,
-        category: document.getElementById('category')?.value,
-        tags: document.getElementById('tags')?.value || ''
-      };
-    }
-  });
-
-  if (formValues) {
-    const token = getToken();
-    const formData = new FormData();
-    formData.append('title', formValues.title);
-    formData.append('summary', formValues.summary);
-    formData.append('content', formValues.content);
-    formData.append('category', formValues.category);
-    if (formValues.tags) formData.append('tags', formValues.tags);
-    if (formValues.imageFile) {
-      formData.append('image', formValues.imageFile);
-    }
-    
-    try {
-      const response = await fetch(`${API_URL}/academic-admin/news`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        Swal.fire('Published!', 'News added successfully', 'success');
-        fetchAllData();
-        Swal.fire({
-          title: 'View on Website',
-          text: 'News has been published. Click OK to view on the news page.',
-          icon: 'info',
-          confirmButtonText: 'View News Page',
-          showCancelButton: true
-        }).then((result) => {
-          if (result.isConfirmed) {
-            window.open('/news', '_blank');
-          }
-        });
-      } else {
-        throw new Error(data.message || 'Failed to publish');
-      }
-    } catch (error) {
-      Swal.fire('Error', error.message || 'Failed to publish news', 'error');
-    }
-  }
+const Avatar = ({ name = '?', size = 36, bg = '#1a3a5c', color = '#ffc107', img }) => {
+  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  return img
+    ? <img src={img} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />
+    : <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0, letterSpacing: 1 }}>{initials}</div>;
 };
-  const handleDeleteNews = async (newsItem) => {
-    const result = await Swal.fire({
-      title: 'Delete News?',
-      text: `Remove "${newsItem.title}"?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Yes, Delete'
-    });
-    if (result.isConfirmed) {
-      try {
-        await apiRequest(`/academic-admin/news/${newsItem._id}`, { method: 'DELETE' });
-        Swal.fire('Deleted!', 'News removed successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to delete news', 'error');
-      }
-    }
-  };
 
-  // ==================== GALLERY MANAGEMENT ====================
-  const handleAddGalleryImage = async () => {
-  const { value: formValues } = await Swal.fire({
-    title: 'Add Gallery Image',
-    html: `
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <input type="text" id="title" class="swal2-input" placeholder="Image Title" required>
-        <input type="file" id="imageFile" class="swal2-file" accept="image/*" required>
-        <select id="category" class="swal2-select">
-          <option value="academic">📚 Academic</option>
-          <option value="sports">⚽ Sports</option>
-          <option value="cultural">🎭 Cultural</option>
-          <option value="events">🎪 Events</option>
-        </select>
-        <textarea id="description" class="swal2-textarea" placeholder="Description (optional)" rows="3"></textarea>
+const Modal = ({ open, onClose, title, children, width = 520 }) => {
+  if (!open) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: width, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,.25)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1, borderRadius: '16px 16px 0 0' }}>
+          <h3 style={{ margin: 0, fontSize: 16, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#999', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '20px 22px' }}>{children}</div>
       </div>
-    `,
-    confirmButtonText: 'Add Image',
-    confirmButtonColor: '#3498db',
-    showCancelButton: true,
-    width: '500px',
-    preConfirm: () => {
-      const title = document.getElementById('title')?.value;
-      const imageFile = document.getElementById('imageFile')?.files[0];
-      if (!title || !imageFile) {
-        Swal.showValidationMessage('Please fill title and select an image');
-        return false;
-      }
-      return {
-        title: title.trim(),
-        imageFile: imageFile,
-        category: document.getElementById('category')?.value,
-        description: document.getElementById('description')?.value || ''
-      };
-    }
-  });
-
-  if (formValues) {
-    const token = getToken();
-    const formData = new FormData();
-    formData.append('title', formValues.title);
-    formData.append('category', formValues.category);
-    formData.append('description', formValues.description);
-    formData.append('image', formValues.imageFile);
-    
-    try {
-      const response = await fetch(`${API_URL}/academic-admin/gallery`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        Swal.fire('Added!', 'Image added to gallery', 'success');
-        fetchAllData();
-        Swal.fire({
-          title: 'View on Website',
-          text: 'Image has been added to gallery. Click OK to view on the gallery page.',
-          icon: 'info',
-          confirmButtonText: 'View Gallery Page',
-          showCancelButton: true
-        }).then((result) => {
-          if (result.isConfirmed) {
-            window.open('/gallery', '_blank');
-          }
-        });
-      } else {
-        throw new Error(data.message || 'Failed to add image');
-      }
-    } catch (error) {
-      Swal.fire('Error', error.message || 'Failed to add image', 'error');
-    }
-  }
+    </div>
+  );
 };
-  const handleDeleteGalleryImage = async (image) => {
-    const result = await Swal.fire({
-      title: 'Delete Image?',
-      text: `Remove "${image.title}"?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#e74c3c',
-      confirmButtonText: 'Yes, Delete'
-    });
-    if (result.isConfirmed) {
-      try {
-        await apiRequest(`/academic-admin/gallery/${image._id}`, { method: 'DELETE' });
-        Swal.fire('Deleted!', 'Image removed successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to delete image', 'error');
-      }
-    }
+
+const Field = ({ label, children, required }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 5, letterSpacing: 0.5 }}>
+      {label?.toUpperCase()}{required && <span style={{ color: '#e74c3c' }}> *</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const inputStyle = { width: '100%', padding: '9px 12px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' };
+const Inp = (props) => <input {...props} style={{ ...inputStyle, ...props.style }}
+  onFocus={e => e.target.style.borderColor = '#1a3a5c'} onBlur={e => e.target.style.borderColor = '#e0e0e0'} />;
+const Sel = ({ children, ...props }) => <select {...props} style={{ ...inputStyle, background: 'white', ...props.style }}>{children}</select>;
+const Txt = (props) => <textarea {...props} style={{ ...inputStyle, resize: 'vertical', minHeight: 80, ...props.style }}
+  onFocus={e => e.target.style.borderColor = '#1a3a5c'} onBlur={e => e.target.style.borderColor = '#e0e0e0'} />;
+
+const Btn = ({ children, onClick, icon, color = '#1a3a5c', textColor = 'white', small, danger, disabled, style: s }) => {
+  const bg = danger ? '#e74c3c' : disabled ? '#ccc' : color;
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ background: bg, color: textColor, border: 'none', borderRadius: 8, padding: small ? '6px 13px' : '9px 18px', fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'filter .2s, transform .2s', whiteSpace: 'nowrap', ...s }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.filter = 'brightness(1.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+      onMouseLeave={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = ''; }}>
+      {icon && <i className={icon} style={{ fontSize: 13 }} />}{children}
+    </button>
+  );
+};
+
+const StatCard = ({ icon, label, value, sub, accent = '#27ae60', bg = '#e8f5e9', onClick }) => (
+  <div onClick={onClick} style={{ background: 'white', borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 2px 12px rgba(0,0,0,.06)', cursor: onClick ? 'pointer' : 'default', transition: 'transform .2s, box-shadow .2s', border: '1px solid #f0f0f0' }}
+    onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(0,0,0,.12)'; } }}
+    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,.06)'; }}>
+    <div style={{ width: 50, height: 50, borderRadius: 14, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <i className={icon} style={{ fontSize: 20, color: accent }} />
+    </div>
+    <div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: '#1a3a5c', lineHeight: 1, fontFamily: 'Georgia, serif' }}>{value ?? '—'}</div>
+      <div style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{label}</div>
+      {sub && <div style={{ fontSize: 11, color: accent, marginTop: 3, fontWeight: 600 }}>{sub}</div>}
+    </div>
+  </div>
+);
+
+const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
+  <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+      <thead>
+        <tr style={{ background: '#f7f9fb' }}>
+          {cols.map((c, i) => <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#888', letterSpacing: .8, borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>{c.toUpperCase()}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0
+          ? <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 36, color: '#bbb', fontSize: 13 }}>{emptyMsg}</td></tr>
+          : rows.map((row, i) => <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }} onMouseEnter={e => e.currentTarget.style.background = '#fafbff'} onMouseLeave={e => e.currentTarget.style.background = ''}>{row}</tr>)}
+      </tbody>
+    </table>
+  </div>
+);
+const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</td>;
+
+// ═══════════════════════════════════════════════════════════════════
+const AcademicAdminDashboard = () => {
+  const navigate = useNavigate();
+  const msgEndRef = useRef(null);
+
+  // layout
+  const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // data
+  const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [news, setNews] = useState([]);
+  const [gallery, setGallery] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [studentPerformance, setStudentPerformance] = useState([]);
+  const [classPerformance, setClassPerformance] = useState([]);
+  const [applications, setApplications] = useState([]);
+
+  // modals
+  const [teacherModal, setTeacherModal] = useState(false);
+  const [classModal, setClassModal] = useState(false);
+  const [studentModal, setStudentModal] = useState(false);
+  const [newsModal, setNewsModal] = useState(false);
+  const [galleryModal, setGalleryModal] = useState(false);
+  const [teacherForm, setTeacherForm] = useState({ fullName: '', email: '', password: '', subject: '', phone: '' });
+  const [classForm, setClassForm] = useState({ className: '', grade: 'S1', academicYear: new Date().getFullYear().toString(), teacherId: '' });
+  const [studentForm, setStudentForm] = useState({ fullName: '', email: '', classId: '', parentName: '', parentPhone: '' });
+  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'news', tags: '' });
+  const [galleryForm, setGalleryForm] = useState({ title: '', category: 'events', description: '' });
+  const [newsImageFile, setNewsImageFile] = useState(null);
+  const [galleryImageFile, setGalleryImageFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // messaging
+  const [msgUsers, setMsgUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [msgText, setMsgText] = useState('');
+  const [msgTab, setMsgTab] = useState('inbox');
+  const [unread, setUnread] = useState(0);
+  const [msgSearch, setMsgSearch] = useState('');
+  const [socket, setSocket] = useState(null);
+
+  const userName = localStorage.getItem('userName') || 'Academic Admin';
+  const userId = localStorage.getItem('userId');
+
+  // responsive
+  useEffect(() => {
+    const check = () => { setIsMobile(window.innerWidth <= 1024); if (window.innerWidth > 1024) setMobileOpen(false); };
+    check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // socket
+  useEffect(() => {
+    const token = getToken(); if (!token) return;
+    const sock = io(SOCKET_URL, { auth: { token } });
+    setSocket(sock);
+    if (userId) sock.emit('join', userId);
+    sock.on('new_message', () => { fetchUnread(); fetchMsgUsers(); });
+    return () => sock.disconnect();
+  }, [userId]);
+
+  // auth + load
+  useEffect(() => {
+    const token = getToken(); const role = localStorage.getItem('userRole');
+    if (!token || role !== 'academic_admin') { navigate('/portal/login'); return; }
+    loadAll();
+  }, [navigate]);
+
+  useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  // ─── API ──────────────────────────────────────────────────────────
+  const api = useCallback(async (path, opts = {}) => {
+    const res = await fetch(`${API_URL}${path}`, { headers: authHeaders(), ...opts });
+    if (!res.ok) return Promise.reject(await res.json());
+    return res.json();
+  }, []);
+
+  const loadAll = () => Promise.all([
+    fetchTeachers(), fetchClasses(), fetchStudents(), fetchNews(),
+    fetchGallery(), fetchAnnouncements(), fetchPerformance(),
+    fetchApplications(), fetchMsgUsers(), fetchUnread(),
+  ]).finally(() => setLoading(false));
+
+  const fetchTeachers = () => api('/academic-admin/teachers-list').then(d => setTeachers(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchClasses = () => api('/academic-admin/classes').then(d => setClasses(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchStudents = () => api('/academic-admin/students').then(d => setStudents(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchNews = () => api('/academic-admin/news').then(d => setNews(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchGallery = () => api('/academic-admin/gallery').then(d => setGallery(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchAnnouncements = () => api('/announcements').then(d => setAnnouncements(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchApplications = () => api('/academic-admin/applications').then(d => setApplications(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchPerformance = () => {
+    api('/academic-admin/students-performance').then(d => setStudentPerformance(Array.isArray(d) ? d : [])).catch(() => {});
+    api('/academic-admin/class-performance').then(d => setClassPerformance(Array.isArray(d) ? d : [])).catch(() => {});
+  };
+  const fetchMsgUsers = () => api('/messages/users').then(d => { const all = Object.values(d.users || d || {}).flat(); setMsgUsers(all); }).catch(() => {});
+  const fetchUnread = () => api('/messages/unread-count').then(d => setUnread(d.count || 0)).catch(() => {});
+  const fetchConversation = (uid) => api(`/messages/conversation/${uid}`).then(d => setMessages(Array.isArray(d.messages) ? d.messages : [])).catch(() => {});
+
+  // ─── ACTIONS ──────────────────────────────────────────────────────
+  const createTeacher = async () => {
+    if (!teacherForm.fullName || !teacherForm.email) { Swal.fire('Missing Fields', 'Name and Email are required', 'warning'); return; }
+    setSaving(true);
+    try {
+      await api('/academic-admin/create-teacher-credentials', { method: 'POST', body: JSON.stringify(teacherForm) });
+      Swal.fire('✅ Teacher Created!', `<b>${teacherForm.fullName}</b><br>Email: <code>${teacherForm.email}</code><br>Password: <code>${teacherForm.password || 'teacher123'}</code>`, 'success');
+      setTeacherModal(false); setTeacherForm({ fullName: '', email: '', password: '', subject: '', phone: '' });
+      fetchTeachers();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/portal/login');
+  const deleteTeacher = async (t) => {
+    const ok = await Swal.fire({ title: `Delete ${t.fullName}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/academic-admin/teachers/${t._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchTeachers();
+  };
+
+  const createClass = async () => {
+    if (!classForm.className || !classForm.academicYear) { Swal.fire('Missing Fields', 'Class name and academic year required', 'warning'); return; }
+    setSaving(true);
+    try {
+      await api('/academic-admin/classes', { method: 'POST', body: JSON.stringify({ ...classForm, teacherId: classForm.teacherId || null }) });
+      Swal.fire('✅ Class Created!', '', 'success');
+      setClassModal(false); setClassForm({ className: '', grade: 'S1', academicYear: new Date().getFullYear().toString(), teacherId: '' });
+      fetchClasses();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteClass = async (c) => {
+    const ok = await Swal.fire({ title: `Delete ${c.grade} ${c.className}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/academic-admin/classes/${c._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchClasses();
+  };
+
+  const assignTeacher = async (cls) => {
+    const opts = { '': '— Remove Teacher —' };
+    teachers.forEach(t => { opts[t._id] = `${t.fullName} (${t.subject || 'General'})`; });
+    const { value } = await Swal.fire({ title: `Assign Teacher to ${cls.grade} ${cls.className}`, input: 'select', inputOptions: opts, showCancelButton: true, confirmButtonText: 'Assign', confirmButtonColor: '#27ae60' });
+    if (value === undefined) return;
+    try {
+      await api(`/academic-admin/classes/${cls._id}/assign-teacher`, { method: 'PUT', body: JSON.stringify({ teacherId: value || null }) });
+      Swal.fire('✅ Updated!', '', 'success'); fetchClasses();
+    } catch (e) { Swal.fire('Error', e.message, 'error'); }
+  };
+
+  const createStudent = async () => {
+    if (!studentForm.fullName) { Swal.fire('Missing Fields', 'Student name required', 'warning'); return; }
+    setSaving(true);
+    try {
+      await api('/academic-admin/students', { method: 'POST', body: JSON.stringify(studentForm) });
+      Swal.fire('✅ Student Added!', '', 'success');
+      setStudentModal(false); setStudentForm({ fullName: '', email: '', classId: '', parentName: '', parentPhone: '' });
+      fetchStudents();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteStudent = async (s) => {
+    const ok = await Swal.fire({ title: `Remove ${s.fullName}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/academic-admin/students/${s._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchStudents();
+  };
+
+  const postNews = async () => {
+    if (!newsForm.title || !newsForm.summary) { Swal.fire('Missing Fields', 'Title and summary required', 'warning'); return; }
+    setSaving(true);
+    try {
+      const token = getToken();
+      const fd = new FormData();
+      Object.entries(newsForm).forEach(([k, v]) => fd.append(k, v));
+      if (newsImageFile) fd.append('image', newsImageFile);
+      const res = await fetch(`${API_URL}/academic-admin/news`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      if (!res.ok) throw await res.json();
+      Swal.fire('✅ Published!', 'News posted successfully', 'success');
+      setNewsModal(false); setNewsForm({ title: '', summary: '', content: '', category: 'news', tags: '' }); setNewsImageFile(null);
+      fetchNews();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteNews = async (item) => {
+    const ok = await Swal.fire({ title: `Delete "${item.title}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/academic-admin/news/${item._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchNews();
+  };
+
+  const addGalleryImage = async () => {
+    if (!galleryForm.title || !galleryImageFile) { Swal.fire('Missing Fields', 'Title and image required', 'warning'); return; }
+    setSaving(true);
+    try {
+      const token = getToken();
+      const fd = new FormData();
+      Object.entries(galleryForm).forEach(([k, v]) => fd.append(k, v));
+      fd.append('image', galleryImageFile);
+      const res = await fetch(`${API_URL}/academic-admin/gallery`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      if (!res.ok) throw await res.json();
+      Swal.fire('✅ Added!', 'Image added to gallery', 'success');
+      setGalleryModal(false); setGalleryForm({ title: '', category: 'events', description: '' }); setGalleryImageFile(null);
+      fetchGallery();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteGallery = async (img) => {
+    const ok = await Swal.fire({ title: `Delete "${img.title}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/academic-admin/gallery/${img._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchGallery();
+  };
+
+  const reviewApplication = async (app, status) => {
+    const { value: reviewNotes } = await Swal.fire({ title: `${status === 'accepted' ? 'Accept' : 'Reject'} Application`, input: 'textarea', inputLabel: 'Notes (optional)', showCancelButton: true, confirmButtonText: status === 'accepted' ? '✅ Accept' : '❌ Reject', confirmButtonColor: status === 'accepted' ? '#27ae60' : '#e74c3c' });
+    if (reviewNotes === undefined) return;
+    await api(`/academic-admin/applications/${app._id}/status`, { method: 'PUT', body: JSON.stringify({ status, reviewNotes: reviewNotes || '' }) });
+    Swal.fire('Updated!', '', 'success'); fetchApplications();
+  };
+
+  const sendMessage = async () => {
+    if (!msgText.trim() || !selectedUser) return;
+    try {
+      const res = await api('/messages/send', { method: 'POST', body: JSON.stringify({ recipientId: selectedUser._id, subject: 'Direct Message', content: msgText.trim() }) });
+      setMessages(prev => [...prev, res.message]);
+      setMsgText('');
+      if (socket) socket.emit('sendMessage', { receiverId: selectedUser._id, ...res.message });
+      fetchUnread();
+    } catch {}
   };
 
   const menuItems = [
-    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line', color: '#3498db' },
-    { id: 'teachers', label: 'Teachers', icon: 'fas fa-chalkboard-user', color: '#27ae60' },
-    { id: 'classes', label: 'Classes', icon: 'fas fa-school', color: '#9b59b6' },
-    { id: 'news', label: 'News & Events', icon: 'fas fa-newspaper', color: '#f39c12' },
-    { id: 'gallery', label: 'Gallery', icon: 'fas fa-images', color: '#e74c3c' },
-    { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn', color: '#1abc9c' },
-    { id: 'performance', label: 'Performance', icon: 'fas fa-chart-bar', color: '#1abc9c' },
-    { id: 'messages', label: 'Messages', icon: 'fas fa-comments', color: '#9b59b6' },
-    { id: 'profile', label: 'Profile', icon: 'fas fa-user-circle', color: '#34495e' }
+    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
+    { id: 'teachers', label: 'Teachers', icon: 'fas fa-chalkboard-user' },
+    { id: 'classes', label: 'Classes', icon: 'fas fa-school' },
+    { id: 'students', label: 'Students', icon: 'fas fa-user-graduate' },
+    { id: 'news', label: 'News & Events', icon: 'fas fa-newspaper' },
+    { id: 'gallery', label: 'Gallery', icon: 'fas fa-images' },
+    { id: 'applications', label: 'Applications', icon: 'fas fa-file-alt', badge: applications.filter(a => a.status === 'pending').length },
+    { id: 'performance', label: 'Performance', icon: 'fas fa-chart-bar' },
+    { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn' },
+    { id: 'messages', label: 'Messages', icon: 'fas fa-comments', badge: unread },
+    { id: 'profile', label: 'Profile', icon: 'fas fa-user-shield' },
   ];
 
-  const sidebarWidth = sidebarCollapsed ? '80px' : '260px';
-  const sidebarWidthMobile = mobileMenuOpen ? sidebarWidth : '0px';
+  const filteredUsers = msgUsers.filter(u =>
+    u.fullName?.toLowerCase().includes(msgSearch.toLowerCase()) || u.role?.toLowerCase().includes(msgSearch.toLowerCase())
+  );
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading Dashboard...</p>
-      </div>
-    );
-  }
+  const sideW = isMobile ? 0 : sidebarOpen ? 260 : 72;
+
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'linear-gradient(135deg,#0d2b42,#1a3a5c)', color: 'white', gap: 20 }}>
+      <div style={{ width: 44, height: 44, border: '3px solid rgba(255,255,255,.15)', borderTopColor: '#ffc107', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+      <p style={{ margin: 0, fontSize: 16 }}>Loading Dashboard…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
   return (
-    <div className="academic-admin-dashboard">
-      {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f0f3f8', fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        .tab-anim{animation:fadeIn .22s ease}
+        ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:10px}
+        .sent-bubble{background:#1a3a5c;color:white;border-radius:18px 18px 4px 18px;padding:10px 15px;max-width:70%;align-self:flex-end;font-size:13px}
+        .recv-bubble{background:white;color:#333;border-radius:18px 18px 18px 4px;padding:10px 15px;max-width:70%;align-self:flex-start;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+        @media(max-width:768px){.hide-mobile{display:none!important}.stats-g{grid-template-columns:1fr 1fr!important}}
+      `}</style>
 
-      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} style={{ width: isMobile ? sidebarWidthMobile : sidebarWidth }}>
-        <div className="sidebar-header">
-          {!sidebarCollapsed && (
-            <div className="logo-area">
-              <div className="logo-icon"><i className="fas fa-user-graduate"></i></div>
-              <div className="logo-text"><h3>ESSA Portal</h3><p>Academic Admin</p></div>
-            </div>
-          )}
-          <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            <i className={`fas fa-chevron-${sidebarCollapsed ? 'right' : 'left'}`}></i>
-          </button>
+      {/* Mobile overlay */}
+      {isMobile && mobileOpen && <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 998 }} />}
+
+      {/* ─── SIDEBAR ─── */}
+      <aside style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 999, width: isMobile ? (mobileOpen ? 260 : 0) : sideW, background: 'linear-gradient(180deg,#0d1f33 0%,#1a3a5c 100%)', color: 'white', display: 'flex', flexDirection: 'column', transition: 'width .3s ease', overflow: 'hidden', boxShadow: '3px 0 20px rgba(0,0,0,.18)' }}>
+        <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0 }}>
+          <div style={{ width: 38, height: 38, background: '#ffc107', borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className="fas fa-user-graduate" style={{ fontSize: 16, color: '#1a3a5c' }} />
+          </div>
+          {(sidebarOpen || isMobile) && <div><div style={{ fontFamily: 'Georgia, serif', fontSize: 15, fontWeight: 600 }}>ESSA Portal</div><div style={{ fontSize: 10, opacity: .6, letterSpacing: 1 }}>ACADEMIC ADMIN</div></div>}
+          {!isMobile && <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,.4)', cursor: 'pointer', fontSize: 13, flexShrink: 0 }}><i className={`fas fa-chevron-${sidebarOpen ? 'left' : 'right'}`} /></button>}
         </div>
-
-        <div className="user-profile">
-          <div className="user-avatar"><i className="fas fa-user-graduate"></i></div>
-          {!sidebarCollapsed && (
-            <div className="user-info">
-              <h4>{userName}</h4>
-              <span className="user-role">Academic Administrator</span>
-            </div>
-          )}
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <Avatar name={userName} size={36} bg='rgba(255,193,7,.2)' color='#ffc107' />
+          {(sidebarOpen || isMobile) && <div><div style={{ fontSize: 13, fontWeight: 600 }}>{userName}</div><div style={{ fontSize: 10, color: '#ffc107' }}>Academic Admin</div></div>}
         </div>
-
-        <div className="sidebar-nav-wrapper">
-          <nav className="sidebar-nav">
-            {menuItems.map((item) => (
-              <button key={item.id} className={`nav-item ${activeTab === item.id ? 'active' : ''}`} onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}>
-                <i className={item.icon} style={{ color: item.color }}></i>
-                {!sidebarCollapsed && <span>{item.label}</span>}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+          {menuItems.map(item => {
+            const active = activeTab === item.id;
+            return (
+              <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setMobileOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '10px 16px', background: active ? 'rgba(255,193,7,.15)' : 'transparent', border: 'none', borderRight: active ? '3px solid #ffc107' : '3px solid transparent', color: active ? '#ffc107' : 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 400, transition: 'all .2s', textAlign: 'left' }}>
+                <i className={item.icon} style={{ fontSize: 15, width: 18, flexShrink: 0 }} />
+                {(sidebarOpen || isMobile) && <span style={{ flex: 1 }}>{item.label}</span>}
+                {item.badge > 0 && (sidebarOpen || isMobile) && <span style={{ background: '#e74c3c', color: 'white', borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>{item.badge}</span>}
               </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="sidebar-footer">
-          <button className="logout-btn" onClick={handleLogout}><i className="fas fa-sign-out-alt"></i>{!sidebarCollapsed && <span>Logout</span>}</button>
+            );
+          })}
+        </nav>
+        <div style={{ padding: 12, borderTop: '1px solid rgba(255,255,255,.08)', flexShrink: 0 }}>
+          <button onClick={() => { localStorage.clear(); navigate('/portal/login'); }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', background: 'rgba(231,76,60,.2)', border: '1px solid rgba(231,76,60,.3)', borderRadius: 9, color: '#ff8a80', cursor: 'pointer', fontSize: 13 }}>
+            <i className="fas fa-sign-out-alt" style={{ fontSize: 13 }} />{(sidebarOpen || isMobile) && 'Logout'}
+          </button>
         </div>
       </aside>
 
-      <main className="main-content" style={{ marginLeft: isMobile ? '0' : sidebarWidth }}>
-        <div className="top-bar">
-          <div className="top-bar-left">
-            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}><i className="fas fa-bars"></i></button>
-            <h2>Academic Admin Dashboard</h2>
+      {/* ─── MAIN ─── */}
+      <main style={{ flex: 1, marginLeft: isMobile ? 0 : sideW, transition: 'margin-left .3s', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Top bar */}
+        <div style={{ background: 'white', padding: '11px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {isMobile && <button onClick={() => setMobileOpen(!mobileOpen)} style={{ background: '#1a3a5c', color: 'white', border: 'none', padding: '7px 10px', borderRadius: 8, cursor: 'pointer' }}><i className="fas fa-bars" /></button>}
+            <div>
+              <div style={{ fontSize: 10, color: '#aaa', letterSpacing: .5 }}>ESSA NYARUGUNGA</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>{menuItems.find(m => m.id === activeTab)?.label || 'Dashboard'}</div>
+            </div>
           </div>
-          <div className="top-bar-right">
-            <div className="user-menu">
-              <div className="user-avatar-small"><i className="fas fa-user-graduate"></i></div>
-              <div className="user-details"><span className="user-name">{userName}</span><span className="user-role-badge">Academic Admin</span></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {unread > 0 && <button onClick={() => setActiveTab('messages')} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 17 }}>
+              <i className="fas fa-bell" />
+              <span style={{ position: 'absolute', top: -4, right: -4, background: '#e74c3c', color: 'white', borderRadius: '50%', fontSize: 9, width: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{unread}</span>
+            </button>}
+            <Avatar name={userName} size={32} />
+            <div className="hide-mobile">
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>{userName}</div>
+              <div style={{ fontSize: 10, color: '#ffc107' }}>ACADEMIC ADMIN</div>
             </div>
           </div>
         </div>
 
-        <div className="welcome-banner">
-          <div className="welcome-text"><h1>Welcome back, {userName.split(' ')[0]}! 📚</h1><p>Manage teachers, classes, and academic content from your dashboard.</p></div>
-          <div className="welcome-date"><i className="fas fa-calendar-alt"></i><span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
-        </div>
+        {/* Content */}
+        <div style={{ flex: 1, padding: 20, overflowY: 'auto' }} className="tab-anim">
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="dashboard-content">
-            <div className="stats-grid">
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#e8f5e9' }}><i className="fas fa-chalkboard-user" style={{ color: '#27ae60' }}></i></div><div className="stat-info"><h3>{teachers.length}</h3><p>Teachers</p><span className="stat-trend">Active educators</span></div></div>
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#e3f2fd' }}><i className="fas fa-school" style={{ color: '#3498db' }}></i></div><div className="stat-info"><h3>{classes.length}</h3><p>Classes</p><span className="stat-trend">Active classes</span></div></div>
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#fff3e0' }}><i className="fas fa-newspaper" style={{ color: '#f39c12' }}></i></div><div className="stat-info"><h3>{news.length}</h3><p>News & Events</p><span className="stat-trend">Published articles</span></div></div>
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#fdecea' }}><i className="fas fa-images" style={{ color: '#e74c3c' }}></i></div><div className="stat-info"><h3>{gallery.length}</h3><p>Gallery Images</p><span className="stat-trend">Captured moments</span></div></div>
-            </div>
-            <div className="quick-actions">
-              <button onClick={handleCreateTeacher} className="action-btn primary"><i className="fas fa-user-plus"></i> Add Teacher</button>
-              <button onClick={handleCreateClass} className="action-btn secondary"><i className="fas fa-plus-circle"></i> Create Class</button>
-              <button onClick={handleCreateNews} className="action-btn warning"><i className="fas fa-newspaper"></i> Post News</button>
-              <button onClick={handleAddGalleryImage} className="action-btn danger"><i className="fas fa-image"></i> Add to Gallery</button>
-            </div>
-          </div>
-        )}
-{/* Teachers Tab */}
-{activeTab === 'teachers' && (
-  <div className="data-card">
-
-    <div className="card-header">
-
-      <h2>
-        <i className="fas fa-chalkboard-user"></i>
-        {' '}Teachers
-      </h2>
-
-      <button
-        onClick={handleCreateTeacher}
-        className="btn-primary-sm"
-      >
-        <i className="fas fa-plus"></i>
-        {' '}Add Teacher
-      </button>
-
-    </div>
-
-    <div className="table-responsive">
-
-      <table className="data-table">
-
-        <thead>
-          <tr>
-            <th>Teacher</th>
-            <th>Email</th>
-            <th>Subject</th>
-            <th>Phone</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-
-          {teachers.map((t) => (
-            <tr key={t._id}>
-
-              <td>
-                <strong>{t.fullName}</strong>
-              </td>
-
-              <td>{t.email}</td>
-
-              <td>{t.subject || '-'}</td>
-
-              <td>{t.phone || '-'}</td>
-
-              <td>
-
-                <button
-                  onClick={() =>
-                    handleDeleteTeacher(t)
-                  }
-                  className="delete-btn-sm"
-                >
-                  <i className="fas fa-trash"></i>
-                </button>
-
-              </td>
-
-            </tr>
-          ))}
-
-          {teachers.length === 0 && (
-            <tr>
-              <td
-                colSpan="5"
-                className="no-data"
-              >
-                No teachers yet.
-                Click "Add Teacher"
-                to create one.
-              </td>
-            </tr>
-          )}
-
-        </tbody>
-
-      </table>
-
-    </div>
-
-  </div>
-)}
-      {/* Classes Tab - FIXED DISPLAY */}
-{activeTab === 'classes' && (
-  <div className="data-card">
-
-    <div className="card-header">
-
-      <h2>
-        <i className="fas fa-school"></i>
-        {' '}Classes
-      </h2>
-
-      <div className="header-actions">
-
-        <button
-          onClick={handleRefreshClasses}
-          className="btn-secondary-sm"
-        >
-          <i className="fas fa-sync-alt"></i>
-          {' '}Refresh
-        </button>
-
-        <button
-          onClick={handleCreateClass}
-          className="btn-primary-sm"
-        >
-          <i className="fas fa-plus"></i>
-          {' '}Create Class
-        </button>
-
-      </div>
-
-    </div>
-
-    <div className="table-responsive">
-
-      <table className="data-table">
-
-        <thead>
-          <tr>
-            <th>Grade</th>
-            <th>Class Name</th>
-            <th>Academic Year</th>
-            <th>Teacher</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-
-          {classes.map((c) => (
-            <tr key={c._id}>
-
-              <td>
-                <strong>{c.grade}</strong>
-              </td>
-
-              <td>{c.className}</td>
-
-              <td>{c.academicYear}</td>
-
-              <td>
-                {c.teacherId ? (
-                  <span className="assigned-badge">
-                    <i className="fas fa-chalkboard-user"></i>
-                    {' '}
-                    {typeof c.teacherId === 'object'
-                      ? c.teacherId.fullName
-                      : teachers.find(
-                          (t) =>
-                            t._id === c.teacherId
-                        )?.fullName ||
-                        'Teacher assigned'}
-                  </span>
-                ) : (
-                  <span className="unassigned-badge">
-                    Not Assigned
-                  </span>
-                )}
-              </td>
-
-              <td>
-
-                <div className="action-buttons">
-
-                  <button
-                    onClick={() =>
-                      handleAssignTeacher(c)
-                    }
-                    className="assign-btn"
-                  >
-                    <i className="fas fa-user-plus"></i>
-                    {' '}Assign
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleDeleteClass(c)
-                    }
-                    className="delete-btn-sm"
-                  >
-                    <i className="fas fa-trash"></i>
-                  </button>
-
+          {/* ══ OVERVIEW ══ */}
+          {activeTab === 'overview' && (
+            <div>
+              <div style={{ background: 'linear-gradient(135deg,#0d1f33,#1a3a5c)', borderRadius: 18, padding: '24px 28px', marginBottom: 22, color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, boxShadow: '0 6px 24px rgba(26,58,92,.35)' }}>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 600, fontFamily: 'Georgia, serif', marginBottom: 5 }}>Welcome, {userName.split(' ')[0]}! 📚</div>
+                  <div style={{ fontSize: 12, opacity: .75 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
-
-              </td>
-
-            </tr>
-          ))}
-
-          {classes.length === 0 && (
-            <tr>
-              <td
-                colSpan="5"
-                className="no-data"
-              >
-                No classes yet.
-                Click "Create Class"
-                to create one.
-              </td>
-            </tr>
-          )}
-
-        </tbody>
-
-      </table>
-
-    </div>
-
-  </div>
-)}
-
-        {/* News Tab */}
-        {activeTab === 'news' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-newspaper"></i> News & Events</h2><button onClick={handleCreateNews} className="btn-primary-sm"><i className="fas fa-plus"></i> Post News</button></div>
-            <div className="news-list">
-              {news.map(item => (
-                <div key={item._id} className="news-item">
-                  <div className="news-content">
-                    <h3>{item.title}</h3>
-                    <p>{item.summary}</p>
-                    <div className="news-meta">
-                      <span className={`category-badge ${item.category}`}><i className={`fas ${item.category === 'news' ? 'fa-newspaper' : item.category === 'event' ? 'fa-calendar' : 'fa-bullhorn'}`}></i> {item.category}</span>
-                      <span><i className="fas fa-calendar"></i> {new Date(item.date).toLocaleDateString()}</span>
-                      {item.image && <span><i className="fas fa-image"></i> Has Image</span>}
-                    </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <Btn onClick={() => setTeacherModal(true)} icon="fas fa-user-plus" color="#ffc107" textColor="#1a3a5c">Add Teacher</Btn>
+                  <Btn onClick={() => setClassModal(true)} icon="fas fa-plus" color="rgba(255,255,255,.15)" textColor="white">New Class</Btn>
+                </div>
+              </div>
+              <div className="stats-g" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14, marginBottom: 20 }}>
+                <StatCard icon="fas fa-chalkboard-user" label="Teachers" value={teachers.length} sub="Active educators" accent="#27ae60" bg="#e8f5e9" onClick={() => setActiveTab('teachers')} />
+                <StatCard icon="fas fa-school" label="Classes" value={classes.length} sub="Active classes" accent="#3498db" bg="#e3f2fd" onClick={() => setActiveTab('classes')} />
+                <StatCard icon="fas fa-user-graduate" label="Students" value={students.length} sub="Enrolled students" accent="#9b59b6" bg="#f3e5f5" onClick={() => setActiveTab('students')} />
+                <StatCard icon="fas fa-newspaper" label="News & Events" value={news.length} sub="Published articles" accent="#f39c12" bg="#fff3e0" onClick={() => setActiveTab('news')} />
+                <StatCard icon="fas fa-images" label="Gallery" value={gallery.length} sub="Images uploaded" accent="#e74c3c" bg="#fdecea" onClick={() => setActiveTab('gallery')} />
+                <StatCard icon="fas fa-file-alt" label="Applications" value={applications.filter(a => a.status === 'pending').length} sub="Pending review" accent="#1abc9c" bg="#e0f7fa" onClick={() => setActiveTab('applications')} />
+              </div>
+              {/* recent news */}
+              <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}><i className="fas fa-newspaper" style={{ marginRight: 7, color: '#f39c12' }} />Recent News</h3>
+                  <Btn small onClick={() => setNewsModal(true)} icon="fas fa-plus" color="#f39c12">Post News</Btn>
+                </div>
+                {news.slice(0, 3).map(n => (
+                  <div key={n._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+                    <div><div style={{ fontSize: 13, fontWeight: 600 }}>{n.title}</div><div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{n.category} · {fmt(n.date)}</div></div>
+                    <Btn small danger icon="fas fa-trash" onClick={() => deleteNews(n)} />
                   </div>
-                  <button onClick={() => handleDeleteNews(item)} className="delete-btn-sm"><i className="fas fa-trash"></i></button>
-                </div>
-              ))}
-              {news.length === 0 && <p className="no-data">No news articles yet. Click "Post News" to create one.</p>}
+                ))}
+                {news.length === 0 && <p style={{ textAlign: 'center', color: '#bbb', fontSize: 13, padding: 20 }}>No news published yet</p>}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Gallery Tab */}
-        {activeTab === 'gallery' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-images"></i> Gallery</h2><button onClick={handleAddGalleryImage} className="btn-primary-sm"><i className="fas fa-plus"></i> Add Image</button></div>
-            {gallery.length === 0 ? <p className="no-data">No images in gallery. Click "Add Image" to upload.</p> : (
-              <div className="gallery-grid">
-                {gallery.map(img => (
-                  <div key={img._id} className="gallery-item">
-                    <img src={img.image} alt={img.title} />
-                    <div className="gallery-overlay">
-                      <h4>{img.title}</h4>
-                      <span className="category-tag">{img.category}</span>
-                      <button onClick={() => handleDeleteGalleryImage(img)} className="delete-btn"><i className="fas fa-trash"></i> Delete</button>
+          {/* ══ TEACHERS ══ */}
+          {activeTab === 'teachers' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Teachers</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{teachers.length} educators registered</p></div>
+                <Btn onClick={() => setTeacherModal(true)} icon="fas fa-plus" color="#1a3a5c">Add Teacher</Btn>
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <Table cols={['Teacher', 'Email', 'Subject', 'Phone', 'Actions']} emptyMsg="No teachers yet. Click Add Teacher."
+                  rows={teachers.map(t => (
+                    <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><Avatar name={t.fullName} size={32} /><div><div style={{ fontWeight: 600, fontSize: 13 }}>{t.fullName}</div></div></div></TD>
+                      <TD><span style={{ color: '#3498db', fontSize: 12 }}>{t.email}</span></TD>
+                      <TD><Badge text={t.subject || 'General'} color="#9b59b6" bg="#f3e5f5" /></TD>
+                      <TD style={{ fontSize: 12 }}>{t.phone || '—'}</TD>
+                      <TD><div style={{ display: 'flex', gap: 6 }}>
+                        <Btn small icon="fas fa-comment" color="#3498db" onClick={() => { setSelectedUser(t); setActiveTab('messages'); fetchConversation(t._id); }}>Message</Btn>
+                        <Btn small danger icon="fas fa-trash" onClick={() => deleteTeacher(t)} />
+                      </div></TD></>
+                  ))}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ══ CLASSES ══ */}
+          {activeTab === 'classes' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Classes</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{classes.length} classes registered</p></div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Btn onClick={() => fetchClasses()} icon="fas fa-sync" color="#3498db" small>Refresh</Btn>
+                  <Btn onClick={() => setClassModal(true)} icon="fas fa-plus" color="#1a3a5c">Create Class</Btn>
+                </div>
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <Table cols={['Grade', 'Class', 'Year', 'Teacher', 'Students', 'Actions']} emptyMsg="No classes yet."
+                  rows={classes.map(c => {
+                    const tInfo = c.teacherInfo || (c.teacherId && typeof c.teacherId === 'object' ? c.teacherId : null);
+                    const studentCount = students.filter(s => s.classId?._id === c._id || s.classId === c._id).length;
+                    return (
+                      <><TD><Badge text={c.grade} color="#1a3a5c" bg="#e8f0fb" /></TD>
+                        <TD><strong style={{ fontSize: 13 }}>{c.className}</strong></TD>
+                        <TD style={{ fontSize: 12 }}>{c.academicYear}</TD>
+                        <TD>{tInfo ? <Badge text={tInfo.fullName} color="#27ae60" bg="#e8f5e9" /> : <span style={{ color: '#e74c3c', fontSize: 12 }}>Not assigned</span>}</TD>
+                        <TD><Badge text={`${studentCount}`} color="#3498db" bg="#e3f2fd" /></TD>
+                        <TD><div style={{ display: 'flex', gap: 6 }}>
+                          <Btn small icon="fas fa-user-plus" color="#f39c12" onClick={() => assignTeacher(c)}>Assign</Btn>
+                          <Btn small danger icon="fas fa-trash" onClick={() => deleteClass(c)} />
+                        </div></TD></>
+                    );
+                  })}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ══ STUDENTS ══ */}
+          {activeTab === 'students' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Students</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{students.length} students enrolled</p></div>
+                <Btn onClick={() => setStudentModal(true)} icon="fas fa-user-plus" color="#1a3a5c">Add Student</Btn>
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <Table cols={['Student', 'Email', 'Class', 'Parent', 'Contact', 'Actions']} emptyMsg="No students enrolled yet."
+                  rows={students.map(s => (
+                    <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><Avatar name={s.fullName} size={30} /><div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.fullName}</div><div style={{ fontSize: 11, color: '#aaa' }}>{s.studentId || ''}</div></div></div></TD>
+                      <TD style={{ fontSize: 12 }}>{s.email || '—'}</TD>
+                      <TD>{s.classId ? <Badge text={`${s.classId.grade || ''} ${s.classId.className || ''}`} color="#3498db" bg="#e3f2fd" /> : <span style={{ color: '#aaa', fontSize: 12 }}>Not assigned</span>}</TD>
+                      <TD style={{ fontSize: 12 }}>{s.parentName || '—'}</TD>
+                      <TD style={{ fontSize: 12 }}>{s.parentPhone || '—'}</TD>
+                      <TD><Btn small danger icon="fas fa-trash" onClick={() => deleteStudent(s)} /></TD></>
+                  ))}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ══ NEWS ══ */}
+          {activeTab === 'news' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>News & Events</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{news.length} articles published</p></div>
+                <Btn onClick={() => setNewsModal(true)} icon="fas fa-plus" color="#1a3a5c">Post News</Btn>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {news.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-newspaper" style={{ fontSize: 36, marginBottom: 10, display: 'block', opacity: .3 }} />No news published yet</div>}
+                {news.map(n => (
+                  <div key={n._id} style={{ background: 'white', borderRadius: 13, padding: '16px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', boxShadow: '0 2px 8px rgba(0,0,0,.05)' }}>
+                    {n.image && <img src={n.image} alt={n.title} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c' }}>{n.title}</h3>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Badge text={n.category} color="#f39c12" bg="#fff3e0" />
+                          <span style={{ fontSize: 11, color: '#aaa' }}>{fmt(n.date)}</span>
+                          <Btn small danger icon="fas fa-trash" onClick={() => deleteNews(n)} />
+                        </div>
+                      </div>
+                      <p style={{ margin: '6px 0 0', fontSize: 12, color: '#666', lineHeight: 1.6 }}>{n.summary}</p>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#aaa' }}>
+                        <span><i className="fas fa-eye" style={{ marginRight: 4 }} />{n.views || 0} views</span>
+                        <span><i className="fas fa-user" style={{ marginRight: 4 }} />{n.author}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Announcements Tab */}
-        {activeTab === 'announcements' && (
-          <div className="data-card">
-            <h2><i className="fas fa-bullhorn"></i> School Announcements</h2>
-            <div className="announcements-list">
-              {announcements.map(ann => (
-                <div key={ann._id} className={`announcement-item ${ann.priority}`}>
-                  <div className="announcement-header">
-                    <div><h3>{ann.title}</h3><span className={`priority-badge ${ann.priority}`}>{ann.priority === 'urgent' ? '🔴 URGENT' : ann.priority === 'high' ? '⚠️ HIGH' : 'ℹ️ NORMAL'}</span></div>
-                  </div>
-                  <p>{ann.content}</p>
-                  <div className="announcement-footer"><span><i className="fas fa-clock"></i> {new Date(ann.createdAt).toLocaleDateString()}</span></div>
-                </div>
-              ))}
-              {announcements.length === 0 && <p className="no-data">No announcements yet.</p>}
             </div>
-          </div>
-        )}
+          )}
 
-      {/* Performance Tab */}
-{activeTab === 'performance' && (
-  <div>
-
-    {/* Class Performance */}
-    <div className="data-card">
-
-      <h2>
-        <i className="fas fa-chart-line"></i>
-        {' '}Class Performance
-      </h2>
-
-      <div className="table-responsive">
-
-        <table className="data-table">
-
-          <thead>
-            <tr>
-              <th>Class</th>
-              <th>Teacher</th>
-              <th>Students</th>
-              <th>Avg Score</th>
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {classPerformance.map((c, i) => (
-              <tr key={i}>
-
-                <td>
-                  <strong>{c.className}</strong>
-                </td>
-
-                <td>{c.teacher}</td>
-
-                <td>{c.studentCount}</td>
-
-                <td>
-                  <span className="score-badge">
-                    {c.averageScore}%
-                  </span>
-                </td>
-
-              </tr>
-            ))}
-
-            {classPerformance.length === 0 && (
-              <tr>
-                <td
-                  colSpan="4"
-                  className="no-data"
-                >
-                  No performance data available yet.
-                </td>
-              </tr>
-            )}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
-
-    {/* Top Students */}
-    <div className="data-card">
-
-      <h2>
-        <i className="fas fa-trophy"></i>
-        {' '}Top Students
-      </h2>
-
-      <div className="table-responsive">
-
-        <table className="data-table">
-
-          <thead>
-            <tr>
-              <th>Student ID</th>
-              <th>Name</th>
-              <th>Class</th>
-              <th>Average</th>
-            </tr>
-          </thead>
-
-          <tbody>
-
-            {studentPerformance
-              .slice(0, 10)
-              .map((s, i) => (
-                <tr key={i}>
-
-                  <td>{s.studentId}</td>
-
-                  <td>
-                    <strong>{s.name}</strong>
-                  </td>
-
-                  <td>
-                    <strong>{s.class}</strong>
-                  </td>
-
-                  <td>
-                    <span className="score-badge success">
-                      {s.averageScore}%
-                    </span>
-                  </td>
-
-                </tr>
-              ))}
-
-            {studentPerformance.length === 0 && (
-              <tr>
-                <td
-                  colSpan="4"
-                  className="no-data"
-                >
-                  No student performance data available yet.
-                </td>
-              </tr>
-            )}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
-
-      {/* Messages Tab - COMPLETELY FIXED */}
-{activeTab === 'messages' && (
-  <div className="messages-container">
-    <div className="messages-header">
-      <div className="messages-tabs">
-        <button 
-          className={`msg-tab ${activeMessageTab === 'inbox' ? 'active' : ''}`}
-          onClick={() => setActiveMessageTab('inbox')}
-        >
-          <i className="fas fa-inbox"></i> Inbox 
-          {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}
-        </button>
-        <button 
-          className={`msg-tab ${activeMessageTab === 'new' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveMessageTab('new');
-            setShowNewMessage(true);
-            fetchUsersForMessaging();
-          }}
-        >
-          <i className="fas fa-pen-alt"></i> New Message
-        </button>
-      </div>
-    </div>
-    
-    <div className="inbox-container">
-      {/* Conversations Sidebar */}
-      <div className="conversations-list">
-        <div className="search-conversations">
-          <i className="fas fa-search"></i>
-          <input 
-            type="text" 
-            placeholder="Search users..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        {activeMessageTab === 'inbox' ? (
-          <>
-            {filteredUsers.length === 0 ? (
-              <div className="no-conversations">
-                <i className="fas fa-comments"></i>
-                <p>No conversations yet</p>
+          {/* ══ GALLERY ══ */}
+          {activeTab === 'gallery' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Photo Gallery</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{gallery.length} images</p></div>
+                <Btn onClick={() => setGalleryModal(true)} icon="fas fa-plus" color="#1a3a5c">Add Image</Btn>
               </div>
-            ) : (
-              filteredUsers.map(user => (
-                <div 
-                  key={user._id} 
-                  className={`conversation-item ${selectedUser?._id === user._id ? 'active' : ''}`}
-                  onClick={() => handleSelectUser(user)}
-                >
-                  <div className="conv-avatar">
-                    <i className={`fas ${user.role === 'teacher' ? 'fa-chalkboard-user' : user.role === 'student' ? 'fa-user-graduate' : 'fa-user'}`}></i>
+              {gallery.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-images" style={{ fontSize: 36, marginBottom: 10, display: 'block', opacity: .3 }} />No gallery images yet</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
+                {gallery.map(img => (
+                  <div key={img._id} style={{ borderRadius: 12, overflow: 'hidden', position: 'relative', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
+                    <img src={img.image} alt={img.title} style={{ width: '100%', height: 150, objectFit: 'cover' }} />
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a3a5c' }}>{img.title}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                        <Badge text={img.category} color="#3498db" bg="#e3f2fd" size={10} />
+                        <button onClick={() => deleteGallery(img)} style={{ background: '#fdecea', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#e74c3c', fontSize: 11 }}><i className="fas fa-trash" /></button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="conv-info">
-                    <div className="conv-name">{user.fullName}</div>
-                    <div className="conv-role">{user.role}</div>
-                  </div>
-                </div>
-              ))
-            )}
-          </>
-        ) : (
-          <>
-            {filteredUsers.length === 0 ? (
-              <div className="no-conversations">
-                <i className="fas fa-users"></i>
-                <p>No users found</p>
+                ))}
               </div>
-            ) : (
-              filteredUsers.map(user => (
-                <div 
-                  key={user._id} 
-                  className={`conversation-item ${selectedUser?._id === user._id ? 'active' : ''}`}
-                  onClick={() => {
-                    handleSelectUser(user);
-                    setActiveMessageTab('inbox');
-                  }}
-                >
-                  <div className="conv-avatar">
-                    <i className={`fas ${user.role === 'teacher' ? 'fa-chalkboard-user' : user.role === 'student' ? 'fa-user-graduate' : 'fa-user'}`}></i>
-                  </div>
-                  <div className="conv-info">
-                    <div className="conv-name">{user.fullName}</div>
-                    <div className="conv-role">{user.role}</div>
-                  </div>
-                </div>
-              ))
-            )}
-          </>
-        )}
-      </div>
-      
-      {/* Messages Area */}
-      <div className="messages-area">
-        {!selectedUser ? (
-          <div className="no-conversation-selected">
-            <i className="fas fa-comments"></i>
-            <h3>No conversation selected</h3>
-            <p>Select a user from the sidebar to start messaging</p>
-            <button 
-              className="start-new-chat-btn"
-              onClick={() => {
-                setActiveMessageTab('new');
-                setShowNewMessage(true);
-                fetchUsersForMessaging();
-              }}
-            >
-              <i className="fas fa-plus"></i> Start New Conversation
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="messages-header-info">
-              <div className="conv-avatar-large">
-                <i className={`fas ${selectedUser.role === 'teacher' ? 'fa-chalkboard-user' : selectedUser.role === 'student' ? 'fa-user-graduate' : 'fa-user'}`}></i>
-              </div>
-              <div className="user-details-header">
-                <h3>{selectedUser.fullName}</h3>
-                <p>{selectedUser.role} • {selectedUser.email}</p>
-              </div>
-              <button 
-                className="new-msg-btn"
-                onClick={() => setShowNewMessage(!showNewMessage)}
-              >
-                <i className="fas fa-plus"></i>
-              </button>
             </div>
-            
-            {/* Compose new message area */}
-            {showNewMessage && (
-              <div className="compose-message-area">
-                <input
-                  type="text"
-                  placeholder="Subject"
-                  value={messageSubject}
-                  onChange={(e) => setMessageSubject(e.target.value)}
-                  className="compose-subject"
+          )}
+
+          {/* ══ APPLICATIONS ══ */}
+          {activeTab === 'applications' && (
+            <div>
+              <div style={{ marginBottom: 18 }}><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Admission Applications</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{applications.length} total · {applications.filter(a => a.status === 'pending').length} pending</p></div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <Table cols={['Applicant', 'Level', 'Previous School', 'Average', 'Applied', 'Status', 'Actions']} emptyMsg="No applications submitted yet."
+                  rows={applications.map(app => (
+                    <><TD><div style={{ fontWeight: 600, fontSize: 13 }}>{app.fullName}</div><div style={{ fontSize: 11, color: '#aaa' }}>{app.email}</div></TD>
+                      <TD><Badge text={app.level} color="#3498db" bg="#e3f2fd" /></TD>
+                      <TD style={{ fontSize: 12 }}>{app.previousSchool}</TD>
+                      <TD><span style={{ fontWeight: 700, color: app.lastAverage >= 70 ? '#27ae60' : '#e74c3c' }}>{app.lastAverage}%</span></TD>
+                      <TD style={{ fontSize: 12, color: '#aaa' }}>{fmt(app.createdAt)}</TD>
+                      <TD>{(() => { const sc = { pending: { color: '#f39c12', bg: '#fff3e0' }, accepted: { color: '#27ae60', bg: '#e8f5e9' }, rejected: { color: '#e74c3c', bg: '#fdecea' }, reviewing: { color: '#3498db', bg: '#e3f2fd' } }[app.status] || {}; return <Badge text={app.status} color={sc.color} bg={sc.bg} />; })()}</TD>
+                      <TD>{app.status === 'pending' && <div style={{ display: 'flex', gap: 6 }}>
+                        <Btn small onClick={() => reviewApplication(app, 'accepted')} color="#27ae60">Accept</Btn>
+                        <Btn small onClick={() => reviewApplication(app, 'rejected')} danger>Reject</Btn>
+                      </div>}</TD></>
+                  ))}
                 />
-                <textarea
-                  placeholder="Type your message..."
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  rows="3"
-                  className="compose-textarea"
-                />
-                <div className="compose-actions">
-                  <button onClick={() => setShowNewMessage(false)} className="cancel-btn">Cancel</button>
-                  <button onClick={handleSendMessage} className="send-btn">Send Message</button>
+              </div>
+            </div>
+          )}
+
+          {/* ══ PERFORMANCE ══ */}
+          {activeTab === 'performance' && (
+            <div>
+              <div style={{ marginBottom: 18 }}><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Academic Performance</h2></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))', gap: 18 }}>
+                <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                  <h3 style={{ margin: '0 0 14px', fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}><i className="fas fa-chart-bar" style={{ marginRight: 7, color: '#3498db' }} />Class Performance</h3>
+                  {classPerformance.length === 0 && <p style={{ textAlign: 'center', color: '#bbb', fontSize: 13 }}>No data available</p>}
+                  {classPerformance.map((c, i) => (
+                    <div key={i} style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                        <span>{c.className}</span><span style={{ fontWeight: 700, color: c.averageScore >= 70 ? '#27ae60' : '#e74c3c' }}>{c.averageScore}%</span>
+                      </div>
+                      <div style={{ height: 8, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${c.averageScore}%`, background: c.averageScore >= 70 ? '#27ae60' : '#e74c3c', borderRadius: 4, transition: 'width .5s' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                  <h3 style={{ margin: '0 0 14px', fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}><i className="fas fa-trophy" style={{ marginRight: 7, color: '#f39c12' }} />Top Students</h3>
+                  <Table cols={['Student', 'Class', 'Average']} emptyMsg="No data yet."
+                    rows={studentPerformance.slice(0, 10).map((s, i) => (
+                      <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: i < 3 ? '#ffc107' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: i < 3 ? '#1a3a5c' : '#888' }}>{i + 1}</div>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</span>
+                      </div></TD>
+                        <TD style={{ fontSize: 12 }}>{s.class}</TD>
+                        <TD><span style={{ fontWeight: 700, color: s.averageScore >= 70 ? '#27ae60' : '#e74c3c' }}>{s.averageScore}%</span></TD></>
+                    ))}
+                  />
                 </div>
               </div>
-            )}
-            
-            {/* Messages List */}
-            <div className="messages-list">
-              {messages.length === 0 ? (
-                <div className="no-messages">
-                  <i className="fas fa-envelope-open-text"></i>
-                  <p>No messages yet. Start a conversation!</p>
+            </div>
+          )}
+
+          {/* ══ ANNOUNCEMENTS ══ */}
+          {activeTab === 'announcements' && (
+            <div>
+              <div style={{ marginBottom: 18 }}><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>School Announcements</h2></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {announcements.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-bullhorn" style={{ fontSize: 32, display: 'block', marginBottom: 10, opacity: .3 }} />No announcements yet</div>}
+                {announcements.map(ann => {
+                  const pc = ann.priority === 'urgent' ? '#e74c3c' : ann.priority === 'high' ? '#f39c12' : '#27ae60';
+                  return (
+                    <div key={ann._id} style={{ background: 'white', borderRadius: 12, padding: '15px 18px', borderLeft: `4px solid ${pc}`, boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                        <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c' }}>{ann.title}</h3>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <Badge text={ann.priority} color={pc} bg={pc + '22'} />
+                          <span style={{ fontSize: 11, color: '#aaa' }}>{fmt(ann.createdAt)}</span>
+                        </div>
+                      </div>
+                      <p style={{ margin: '8px 0 0', fontSize: 13, color: '#555', lineHeight: 1.6 }}>{ann.content}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ══ MESSAGES ══ */}
+          {activeTab === 'messages' && (
+            <div style={{ background: 'white', borderRadius: 14, overflow: 'hidden', height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+              <div style={{ padding: '12px 18px', borderBottom: '1px solid #eee', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {['inbox', 'compose'].map(t => (
+                  <button key={t} onClick={() => { setMsgTab(t); if (t === 'compose') { setSelectedUser(null); setMessages([]); } }}
+                    style={{ padding: '7px 18px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, background: msgTab === t ? '#1a3a5c' : '#f0f3f8', color: msgTab === t ? 'white' : '#666', transition: 'all .2s' }}>
+                    {t === 'inbox' ? <><i className="fas fa-inbox" style={{ marginRight: 6 }} />Inbox{unread > 0 && <span style={{ marginLeft: 6, background: '#e74c3c', color: 'white', borderRadius: 20, fontSize: 10, padding: '1px 6px' }}>{unread}</span>}</> : <><i className="fas fa-pen" style={{ marginRight: 6 }} />New Message</>}
+                  </button>
+                ))}
+              </div>
+              {msgTab === 'inbox' ? (
+                <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                  <div style={{ width: 260, borderRight: '1px solid #eee', display: 'flex', flexDirection: 'column', background: '#fafbff', flexShrink: 0 }}>
+                    <div style={{ padding: '10px 12px', borderBottom: '1px solid #eee' }}>
+                      <div style={{ position: 'relative' }}>
+                        <i className="fas fa-search" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#ccc', fontSize: 11 }} />
+                        <input value={msgSearch} onChange={e => setMsgSearch(e.target.value)} placeholder="Search…" style={{ width: '100%', padding: '7px 10px 7px 28px', border: '1px solid #eee', borderRadius: 20, fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                      {filteredUsers.length === 0 && <div style={{ textAlign: 'center', padding: 28, color: '#ccc', fontSize: 13 }}>No users found</div>}
+                      {filteredUsers.map(u => (
+                        <div key={u._id} onClick={() => { setSelectedUser(u); fetchConversation(u._id); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', cursor: 'pointer', background: selectedUser?._id === u._id ? '#e8f0fe' : 'transparent', borderLeft: selectedUser?._id === u._id ? '3px solid #ffc107' : '3px solid transparent', transition: 'background .15s' }}>
+                          <Avatar name={u.fullName} size={34} img={u.profileImage} />
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.fullName}</div>
+                            <div style={{ fontSize: 10, color: '#ffc107', fontWeight: 700 }}>{roleBadge(u.role).label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {selectedUser ? (
+                      <>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: 11 }}>
+                          <Avatar name={selectedUser.fullName} size={38} img={selectedUser.profileImage} />
+                          <div><div style={{ fontWeight: 600, fontSize: 14, color: '#1a3a5c' }}>{selectedUser.fullName}</div><div style={{ fontSize: 11, color: '#ffc107', fontWeight: 700 }}>{roleBadge(selectedUser.role).label}</div></div>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10, background: '#f8f9ff' }}>
+                          {messages.length === 0 && <div style={{ textAlign: 'center', color: '#ccc', paddingTop: 40 }}><i className="fas fa-comments" style={{ fontSize: 30, display: 'block', marginBottom: 8 }} />Start a conversation</div>}
+                          {messages.map(m => (
+                            <div key={m._id} className={m.senderId === userId ? 'sent-bubble' : 'recv-bubble'}>
+                              <div>{m.content}</div>
+                              <div style={{ fontSize: 10, opacity: .6, marginTop: 4, textAlign: 'right' }}>{fmtTime(m.createdAt)}</div>
+                            </div>
+                          ))}
+                          <div ref={msgEndRef} />
+                        </div>
+                        <div style={{ padding: '10px 14px', borderTop: '1px solid #eee', display: 'flex', gap: 9, background: 'white', alignItems: 'flex-end' }}>
+                          <textarea value={msgText} onChange={e => setMsgText(e.target.value)} placeholder={`Message ${selectedUser.fullName}…`} rows={2}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                            style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e0e0e0', borderRadius: 12, resize: 'none', fontFamily: 'inherit', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                          <button onClick={sendMessage} disabled={!msgText.trim()} style={{ width: 40, height: 40, background: msgText.trim() ? '#1a3a5c' : '#ddd', border: 'none', borderRadius: '50%', cursor: msgText.trim() ? 'pointer' : 'default', color: 'white', fontSize: 15, flexShrink: 0 }}><i className="fas fa-paper-plane" /></button>
+                        </div>
+                      </>
+                    ) : <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ccc', gap: 10 }}><i className="fas fa-comments" style={{ fontSize: 44, opacity: .3 }} /><div style={{ fontSize: 14 }}>Select a user to message</div></div>}
+                  </div>
                 </div>
               ) : (
-                messages.map(msg => (
-                  <div 
-                    key={msg._id} 
-                    className={`message-bubble ${msg.senderId === currentUserId ? 'sent' : 'received'}`}
-                  >
-                    <div className="message-subject-line">
-                      <strong>{msg.subject}</strong>
-                    </div>
-                    <div className="message-text-content">{msg.content}</div>
-                    <div className="message-footer">
-                      <div className="message-time">
-                        {new Date(msg.createdAt).toLocaleString()}
-                      </div>
-                      {msg.senderId === currentUserId && (
-                        <button 
-                          className="delete-msg-btn"
-                          onClick={() => handleDeleteMessage(msg._id)}
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
-                      )}
-                      {msg.senderId !== currentUserId && !msg.isRead && (
-                        <span className="unread-indicator">● New</span>
-                      )}
-                    </div>
-                  </div>
-                ))
+                <div style={{ flex: 1, padding: 24, maxWidth: 580, margin: '0 auto', width: '100%', overflowY: 'auto' }}>
+                  <h3 style={{ margin: '0 0 18px', color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>New Message</h3>
+                  <Field label="Recipient" required>
+                    <Sel value={selectedUser?._id || ''} onChange={e => setSelectedUser(msgUsers.find(u => u._id === e.target.value) || null)}>
+                      <option value="">Select user…</option>
+                      {msgUsers.map(u => <option key={u._id} value={u._id}>{u.fullName} — {roleBadge(u.role).label}</option>)}
+                    </Sel>
+                  </Field>
+                  <Field label="Message" required>
+                    <Txt value={msgText} onChange={e => setMsgText(e.target.value)} rows={7} placeholder="Type your message…" />
+                  </Field>
+                  <Btn icon="fas fa-paper-plane" color="#1a3a5c" style={{ width: '100%', justifyContent: 'center', padding: 11, marginTop: 4 }}
+                    onClick={async () => { if (!selectedUser || !msgText.trim()) { Swal.fire('Error', 'Select recipient and enter message', 'warning'); return; } await sendMessage(); Swal.fire('✅ Sent!', '', 'success'); setMsgTab('inbox'); }}>Send Message</Btn>
+                </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
-            
-            {/* Quick reply input */}
-            {!showNewMessage && (
-              <div className="quick-reply-area">
-                <input
-                  type="text"
-                  placeholder="Type a quick reply..."
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                />
-                <button onClick={handleSendMessage}>
-                  <i className="fas fa-paper-plane"></i>
-                </button>
+          )}
+
+          {/* ══ PROFILE ══ */}
+          {activeTab === 'profile' && (
+            <div style={{ maxWidth: 600, margin: '0 auto' }}>
+              <div style={{ background: 'linear-gradient(135deg,#0d1f33,#1a3a5c)', borderRadius: 18, padding: '30px', textAlign: 'center', marginBottom: 18, color: 'white' }}>
+                <Avatar name={userName} size={72} bg='rgba(255,193,7,.2)' color='#ffc107' />
+                <h2 style={{ margin: '14px 0 3px', fontFamily: 'Georgia, serif', fontSize: 22 }}>{userName}</h2>
+                <div style={{ fontSize: 11, opacity: .7, letterSpacing: 1 }}>ACADEMIC ADMINISTRATOR</div>
+                <div style={{ fontSize: 12, opacity: .6, marginTop: 4 }}>{localStorage.getItem('userEmail') || 'academic@essa.rw'}</div>
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}  {/* Profile Tab */}
-        {activeTab === 'profile' && (
-          <div className="profile-card">
-            <div className="profile-header">
-              <div className="profile-avatar"><i className="fas fa-user-graduate"></i></div>
-              <h2>{userName}</h2>
-              <p className="profile-role">Academic Administrator</p>
+              <div style={{ background: 'white', borderRadius: 14, padding: 22, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#1a3a5c', fontFamily: 'Georgia, serif', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <i className="fas fa-lock" style={{ color: '#ffc107' }} />Change Password
+                </h3>
+                {[['Current Password', 'currentPw'], ['New Password', 'newPw'], ['Confirm New Password', 'confirmPw']].map(([label, id]) => (
+                  <Field key={id} label={label} required><Inp type="password" id={id} placeholder={`Enter ${label.toLowerCase()}`} /></Field>
+                ))}
+                <Btn icon="fas fa-key" color="#1a3a5c" onClick={() => {
+                  const cur = document.getElementById('currentPw')?.value;
+                  const nw = document.getElementById('newPw')?.value;
+                  const cf = document.getElementById('confirmPw')?.value;
+                  if (!cur || !nw || !cf) { Swal.fire('Error', 'All fields required', 'warning'); return; }
+                  if (nw !== cf) { Swal.fire('Error', 'Passwords do not match', 'error'); return; }
+                  if (nw.length < 6) { Swal.fire('Error', 'Min 6 characters', 'error'); return; }
+                  api('/user/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) })
+                    .then(() => Swal.fire('✅ Password Updated!', '', 'success'))
+                    .catch(e => Swal.fire('Error', e.message || 'Current password incorrect', 'error'));
+                }}>Update Password</Btn>
+              </div>
             </div>
-            <div className="profile-details">
-              <div className="detail-item"><i className="fas fa-envelope"></i><div><label>Email Address</label><p>{localStorage.getItem('userEmail') || 'academic@essa.rw'}</p></div></div>
-              <div className="detail-item"><i className="fas fa-shield-alt"></i><div><label>Role</label><p>Academic Administrator</p></div></div>
-              <div className="detail-item"><i className="fas fa-calendar"></i><div><label>Member Since</label><p>2024</p></div></div>
-            </div>
-            <button className="change-password-btn" onClick={() => {
-              Swal.fire({
-                title: 'Change Password',
-                html: `<input type="password" id="currentPassword" class="swal2-input" placeholder="Current Password"><input type="password" id="newPassword" class="swal2-input" placeholder="New Password"><input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm New Password">`,
-                confirmButtonText: 'Update',
-                showCancelButton: true,
-                preConfirm: () => {
-                  const current = document.getElementById('currentPassword')?.value;
-                  const newPass = document.getElementById('newPassword')?.value;
-                  const confirm = document.getElementById('confirmPassword')?.value;
-                  if (!current || !newPass || !confirm) return false;
-                  if (newPass !== confirm) { Swal.showValidationMessage('New passwords do not match'); return false; }
-                  if (newPass.length < 6) { Swal.showValidationMessage('Password must be at least 6 characters'); return false; }
-                  return { current, newPassword: newPass };
-                }
-              }).then(result => { if (result.isConfirmed) Swal.fire('Success', 'Password updated successfully!', 'success'); });
-            }}><i className="fas fa-key"></i> Change Password</button>
-          </div>
-        )}
+          )}
+        </div>
       </main>
 
-      <style>{`
-        .academic-admin-dashboard { font-family: 'Inter', sans-serif; background: #f0f2f5; min-height: 100vh; }
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a3a5c, #0d2b42); color: white; }
-        .loading-spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #ffc107; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .mobile-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 998; }
-        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #1a3a5c 0%, #0d2b42 100%); color: white; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column; z-index: 999; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
-        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
-        .logo-area { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { width: 45px; height: 45px; background: #ffc107; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-        .logo-icon i { font-size: 1.5rem; color: #1a3a5c; }
-        .logo-text h3 { margin: 0; font-size: 1rem; }
-        .logo-text p { margin: 0; font-size: 0.7rem; opacity: 0.8; }
-        .collapse-btn { position: absolute; bottom: -12px; right: -12px; width: 24px; height: 24px; background: #ffc107; border: none; border-radius: 50%; cursor: pointer; color: #1a3a5c; display: flex; align-items: center; justify-content: center; }
-        .user-profile { padding: 1.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .user-avatar { width: 60px; height: 60px; background: rgba(255,255,255,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem; }
-        .user-avatar i { font-size: 1.8rem; color: #ffc107; }
-        .user-info h4 { margin: 0; font-size: 0.9rem; }
-        .user-role { font-size: 0.7rem; opacity: 0.8; }
-        .sidebar-nav-wrapper { flex: 1; overflow-y: auto; overflow-x: hidden; }
-        .sidebar-nav-wrapper::-webkit-scrollbar { width: 4px; }
-        .sidebar-nav-wrapper::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); }
-        .sidebar-nav-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
-        .sidebar-nav { padding: 0.5rem 0; }
-        .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 20px; background: transparent; border: none; color: rgba(255,255,255,0.8); cursor: pointer; font-size: 0.9rem; transition: all 0.3s; position: relative; }
-        .nav-item i { width: 20px; }
-        .nav-item:hover { background: rgba(255,255,255,0.1); color: #ffc107; }
-        .nav-item.active { background: rgba(255,255,255,0.15); color: #ffc107; border-right: 3px solid #ffc107; }
-        .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
-        .logout-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; background: #e74c3c; border: none; border-radius: 8px; color: white; cursor: pointer; }
-        .logout-btn:hover { opacity: 0.9; transform: translateY(-2px); }
-        .main-content { transition: margin-left 0.3s ease; padding: 20px; min-height: 100vh; }
-        .top-bar { background: white; padding: 12px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .top-bar-left { display: flex; align-items: center; gap: 15px; }
-        .mobile-menu-btn { display: none; background: #1a3a5c; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-        .user-menu { display: flex; align-items: center; gap: 10px; }
-        .user-avatar-small { width: 35px; height: 35px; background: #1a3a5c; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; }
-        .user-details { display: flex; flex-direction: column; }
-        .user-name { font-weight: 600; font-size: 0.85rem; }
-        .user-role-badge { font-size: 0.7rem; color: #ffc107; }
-        .welcome-banner { background: linear-gradient(135deg, #1a3a5c, #2c5f8a); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
-        .welcome-text h1 { font-size: 1.5rem; margin-bottom: 5px; }
-        .welcome-date { background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; }
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 25px; }
-        .stat-card { background: white; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 15px; transition: transform 0.3s, box-shadow 0.3s; }
-        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .stat-icon { width: 55px; height: 55px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-        .stat-icon i { font-size: 1.5rem; }
-        .stat-info h3 { font-size: 1.5rem; margin: 0; color: #1a3a5c; }
-        .stat-info p { margin: 5px 0 0; color: #666; }
-        .quick-actions { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; }
-        .action-btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s; }
-        .action-btn.primary { background: #27ae60; color: white; }
-        .action-btn.secondary { background: #3498db; color: white; }
-        .action-btn.warning { background: #f39c12; color: white; }
-        .action-btn.danger { background: #e74c3c; color: white; }
-        .action-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
-        .data-card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .btn-primary-sm { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
-        .btn-secondary-sm { background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
-        .delete-btn-sm { background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
-        .table-responsive { overflow-x: auto; }
-        .data-table { width: 100%; border-collapse: collapse; min-width: 600px; }
-        .data-table th { text-align: left; padding: 10px; background: #f8f9fa; color: #1a3a5c; font-weight: 600; font-size: 0.8rem; }
-        .data-table td { padding: 10px; border-bottom: 1px solid #e0e0e0; font-size: 0.8rem; }
-        .no-data { text-align: center; padding: 40px; color: #999; }
-        .assigned-badge { color: #27ae60; font-weight: 500; }
-        .unassigned-badge { color: #e74c3c; }
-        .score-badge { background: #27ae60; color: white; padding: 2px 6px; border-radius: 20px; font-size: 0.7rem; }
-        .news-list { display: flex; flex-direction: column; gap: 15px; }
-        .news-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px; background: #f8f9fa; border-radius: 10px; }
-        .news-content { flex: 1; }
-        .news-content h3 { margin: 0 0 5px; font-size: 0.9rem; }
-        .news-content p { margin: 0 0 8px; font-size: 0.8rem; color: #666; }
-        .news-meta { display: flex; gap: 10px; font-size: 0.7rem; color: #999; }
-        .category-badge { padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; }
-        .category-badge.news { background: #e3f2fd; color: #3498db; }
-        .category-badge.event { background: #fff3e0; color: #f39c12; }
-        .category-badge.announcement { background: #e8f5e9; color: #27ae60; }
-        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
-        .gallery-item { position: relative; border-radius: 10px; overflow: hidden; aspect-ratio: 1; cursor: pointer; }
-        .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s; }
-        .gallery-item:hover img { transform: scale(1.05); }
-        .gallery-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); padding: 10px; color: white; transform: translateY(100%); transition: transform 0.3s; }
-        .gallery-item:hover .gallery-overlay { transform: translateY(0); }
-        .gallery-overlay h4 { margin: 0 0 3px; font-size: 0.8rem; }
-        .category-tag { display: inline-block; padding: 2px 5px; background: rgba(255,255,255,0.2); border-radius: 3px; font-size: 0.6rem; margin-bottom: 5px; }
-        .delete-btn { background: #e74c3c; color: white; border: none; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 0.6rem; }
-        .announcements-list { display: flex; flex-direction: column; gap: 12px; }
-        .announcement-item { padding: 12px; border-radius: 10px; background: #f8f9fa; border-left: 3px solid; }
-        .announcement-item.urgent { border-left-color: #e74c3c; background: #fdecea; }
-        .announcement-item.high { border-left-color: #f39c12; background: #fff3e0; }
-        .announcement-header h3 { margin: 0; font-size: 0.9rem; }
-        .priority-badge { font-size: 0.6rem; margin-left: 8px; padding: 2px 6px; border-radius: 4px; }
-        .priority-badge.urgent { background: #e74c3c; color: white; }
-        .priority-badge.high { background: #f39c12; color: white; }
-        .priority-badge.normal { background: #27ae60; color: white; }
-        .announcement-footer { margin-top: 8px; font-size: 0.65rem; color: #999; }
-        .profile-card { background: white; border-radius: 20px; overflow: hidden; max-width: 500px; margin: 0 auto; }
-        .profile-header { background: linear-gradient(135deg, #1a3a5c, #2c5f8a); color: white; padding: 30px; text-align: center; }
-        .profile-avatar { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; }
-        .profile-avatar i { font-size: 2.5rem; color: #ffc107; }
-        .profile-header h2 { margin: 0; font-size: 1.3rem; }
-        .profile-role { opacity: 0.9; margin-top: 5px; font-size: 0.8rem; }
-        .profile-details { padding: 20px; }
-        .detail-item { display: flex; gap: 15px; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .detail-item i { font-size: 1rem; color: #1a3a5c; width: 25px; }
-        .detail-item label { display: block; font-size: 0.65rem; color: #999; }
-        .detail-item p { margin: 0; font-weight: 500; font-size: 0.8rem; }
-        .change-password-btn { width: calc(100% - 40px); margin: 0 20px 20px; padding: 10px; background: #1a3a5c; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        .action-buttons { display: flex; gap: 8px; }
-        .assign-btn { background: #f39c12; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+      {/* ─── MODALS ─── */}
+      <Modal open={teacherModal} onClose={() => setTeacherModal(false)} title="Create Teacher Account">
+        <Field label="Full Name" required><Inp value={teacherForm.fullName} placeholder="Jean Pierre Habimana" onChange={e => setTeacherForm(p => ({ ...p, fullName: e.target.value }))} /></Field>
+        <Field label="Email" required><Inp type="email" value={teacherForm.email} placeholder="teacher@essa.rw" onChange={e => setTeacherForm(p => ({ ...p, email: e.target.value }))} /></Field>
+        <Field label="Password"><Inp type="password" value={teacherForm.password} placeholder="Leave blank for teacher123" onChange={e => setTeacherForm(p => ({ ...p, password: e.target.value }))} /></Field>
+        <Field label="Subject"><Inp value={teacherForm.subject} placeholder="e.g. Mathematics" onChange={e => setTeacherForm(p => ({ ...p, subject: e.target.value }))} /></Field>
+        <Field label="Phone"><Inp value={teacherForm.phone} placeholder="+250 788 000 000" onChange={e => setTeacherForm(p => ({ ...p, phone: e.target.value }))} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setTeacherModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={createTeacher} icon="fas fa-user-plus" color="#1a3a5c" disabled={saving}>{saving ? 'Creating…' : 'Create Teacher'}</Btn>
+        </div>
+      </Modal>
 
-        /* Messages Tab Styles */
-        /* Additional Messages Styles */
-.start-new-chat-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background: #27ae60;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+      <Modal open={classModal} onClose={() => setClassModal(false)} title="Create Class">
+        <Field label="Class Name" required><Inp value={classForm.className} placeholder="e.g. A, B, Science" onChange={e => setClassForm(p => ({ ...p, className: e.target.value }))} /></Field>
+        <Field label="Grade" required>
+          <Sel value={classForm.grade} onChange={e => setClassForm(p => ({ ...p, grade: e.target.value }))}>
+            {['S1', 'S2', 'S3', 'S4', 'S5', 'S6'].map(g => <option key={g} value={g}>{g}</option>)}
+          </Sel>
+        </Field>
+        <Field label="Academic Year" required><Inp value={classForm.academicYear} placeholder="2026" onChange={e => setClassForm(p => ({ ...p, academicYear: e.target.value }))} /></Field>
+        <Field label="Assign Teacher">
+          <Sel value={classForm.teacherId} onChange={e => setClassForm(p => ({ ...p, teacherId: e.target.value }))}>
+            <option value="">— Optional —</option>
+            {teachers.map(t => <option key={t._id} value={t._id}>{t.fullName} ({t.subject || 'General'})</option>)}
+          </Sel>
+        </Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setClassModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={createClass} icon="fas fa-school" color="#1a3a5c" disabled={saving}>{saving ? 'Creating…' : 'Create Class'}</Btn>
+        </div>
+      </Modal>
 
-.user-details-header h3 {
-  margin: 0;
-  font-size: 1rem;
-}
+      <Modal open={studentModal} onClose={() => setStudentModal(false)} title="Add Student">
+        <Field label="Full Name" required><Inp value={studentForm.fullName} placeholder="Student full name" onChange={e => setStudentForm(p => ({ ...p, fullName: e.target.value }))} /></Field>
+        <Field label="Email"><Inp type="email" value={studentForm.email} placeholder="student@essa.rw" onChange={e => setStudentForm(p => ({ ...p, email: e.target.value }))} /></Field>
+        <Field label="Class">
+          <Sel value={studentForm.classId} onChange={e => setStudentForm(p => ({ ...p, classId: e.target.value }))}>
+            <option value="">— Select Class —</option>
+            {classes.map(c => <option key={c._id} value={c._id}>{c.grade} {c.className}</option>)}
+          </Sel>
+        </Field>
+        <Field label="Parent Name"><Inp value={studentForm.parentName} placeholder="Parent/Guardian name" onChange={e => setStudentForm(p => ({ ...p, parentName: e.target.value }))} /></Field>
+        <Field label="Parent Phone"><Inp value={studentForm.parentPhone} placeholder="+250 788 000 000" onChange={e => setStudentForm(p => ({ ...p, parentPhone: e.target.value }))} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setStudentModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={createStudent} icon="fas fa-user-graduate" color="#1a3a5c" disabled={saving}>{saving ? 'Saving…' : 'Add Student'}</Btn>
+        </div>
+      </Modal>
 
-.user-details-header p {
-  margin: 0;
-  font-size: 0.7rem;
-  color: #666;
-}
+      <Modal open={newsModal} onClose={() => setNewsModal(false)} title="Post News / Event" width={560}>
+        <Field label="Title" required><Inp value={newsForm.title} placeholder="News title" onChange={e => setNewsForm(p => ({ ...p, title: e.target.value }))} /></Field>
+        <Field label="Summary" required><Txt value={newsForm.summary} placeholder="Short summary…" rows={3} onChange={e => setNewsForm(p => ({ ...p, summary: e.target.value }))} /></Field>
+        <Field label="Full Content"><Txt value={newsForm.content} placeholder="Full content (optional)" rows={4} onChange={e => setNewsForm(p => ({ ...p, content: e.target.value }))} /></Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Category">
+            <Sel value={newsForm.category} onChange={e => setNewsForm(p => ({ ...p, category: e.target.value }))}>
+              <option value="news">📰 News</option><option value="event">🎉 Event</option><option value="announcement">📢 Announcement</option><option value="achievement">🏆 Achievement</option>
+            </Sel>
+          </Field>
+          <Field label="Tags"><Inp value={newsForm.tags} placeholder="tag1, tag2" onChange={e => setNewsForm(p => ({ ...p, tags: e.target.value }))} /></Field>
+        </div>
+        <Field label="Image (optional)"><input type="file" accept="image/*" onChange={e => setNewsImageFile(e.target.files[0])} style={{ fontSize: 13, padding: '8px 0' }} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setNewsModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={postNews} icon="fas fa-paper-plane" color="#1a3a5c" disabled={saving}>{saving ? 'Publishing…' : 'Publish'}</Btn>
+        </div>
+      </Modal>
 
-.new-msg-btn {
-  margin-left: auto;
-  width: 35px;
-  height: 35px;
-  background: #1a3a5c;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.compose-message-area {
-  padding: 15px;
-  border-bottom: 1px solid #e0e0e0;
-  background: #f8f9fa;
-}
-
-.compose-subject {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  font-size: 0.85rem;
-}
-
-.compose-textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  resize: vertical;
-  font-family: inherit;
-  font-size: 0.85rem;
-}
-
-.compose-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 10px;
-}
-
-.cancel-btn {
-  padding: 8px 16px;
-  background: #e0e0e0;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.send-btn {
-  padding: 8px 16px;
-  background: #27ae60;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.no-messages {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-}
-
-.no-messages i {
-  font-size: 3rem;
-  margin-bottom: 10px;
-  opacity: 0.5;
-}
-
-.message-subject-line {
-  font-size: 0.75rem;
-  margin-bottom: 5px;
-  opacity: 0.8;
-}
-
-.message-text-content {
-  word-wrap: break-word;
-}
-
-.message-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 5px;
-  font-size: 0.6rem;
-  opacity: 0.7;
-}
-
-.delete-msg-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-  color: #e74c3c;
-}
-
-.message-bubble:hover .delete-msg-btn {
-  opacity: 1;
-}
-
-.unread-indicator {
-  color: #e74c3c;
-  font-size: 0.6rem;
-}
-
-.quick-reply-area {
-  display: flex;
-  gap: 10px;
-  padding: 15px;
-  border-top: 1px solid #e0e0e0;
-  background: white;
-}
-
-.quick-reply-area input {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  font-size: 0.85rem;
-}
-
-.quick-reply-area input:focus {
-  outline: none;
-  border-color: #1a3a5c;
-}
-
-.quick-reply-area button {
-  width: 40px;
-  height: 40px;
-  background: #1a3a5c;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.quick-reply-area button:hover {
-  background: #27ae60;
-  transform: scale(1.05);
-}
-
-/* Add to existing mobile styles */
-@media (max-width: 768px) {
-  .conversations-list {
-    max-height: 250px;
-  }
-  
-  .message-bubble {
-    max-width: 90%;
-  }
-  
-  .messages-header-info {
-    flex-wrap: wrap;
-  }
-  
-  .user-details-header {
-    flex: 1;
-  }
-}
-        .messages-container { background: white; border-radius: 16px; overflow: hidden; height: calc(100vh - 180px); min-height: 500px; display: flex; flex-direction: column; }
-        .messages-header { padding: 15px 20px; border-bottom: 1px solid #e0e0e0; background: white; }
-        .messages-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
-        .msg-tab { padding: 8px 20px; background: #f0f2f5; border: none; border-radius: 30px; cursor: pointer; font-weight: 500; transition: all 0.3s; display: flex; align-items: center; gap: 8px; }
-        .msg-tab.active { background: #1a3a5c; color: white; }
-        .msg-tab .unread-count { background: #e74c3c; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; margin-left: 5px; }
-        .inbox-container { display: flex; flex: 1; overflow: hidden; }
-        .conversations-list { width: 320px; border-right: 1px solid #e0e0e0; overflow-y: auto; background: #f8f9fa; flex-shrink: 0; }
-        .search-conversations { padding: 15px; position: relative; border-bottom: 1px solid #e0e0e0; }
-        .search-conversations i { position: absolute; left: 25px; top: 50%; transform: translateY(-50%); color: #999; }
-        .search-conversations input { width: 100%; padding: 8px 8px 8px 35px; border: 1px solid #ddd; border-radius: 20px; font-size: 0.85rem; }
-        .conversation-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #eee; }
-        .conversation-item:hover { background: #e8f0fe; }
-        .conversation-item.active { background: #e3f2fd; border-left: 3px solid #ffc107; }
-        .conv-avatar { width: 40px; height: 40px; background: #1a3a5c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
-        .conv-info { flex: 1; min-width: 0; }
-        .conv-name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .conv-role { font-size: 0.7rem; color: #ffc107; }
-        .no-conversations { text-align: center; padding: 40px; color: #999; }
-        .messages-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .messages-header-info { display: flex; align-items: center; gap: 15px; padding: 15px; border-bottom: 1px solid #e0e0e0; background: white; }
-        .conv-avatar-large { width: 50px; height: 50px; background: #1a3a5c; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
-        .messages-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #f8f9fa; }
-        .message-bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; }
-        .message-bubble.sent { align-self: flex-end; background: #1a3a5c; color: white; border-bottom-right-radius: 4px; }
-        .message-bubble.received { align-self: flex-start; background: white; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        .message-time { font-size: 0.6rem; opacity: 0.7; margin-top: 5px; text-align: right; }
-        .message-input-area { display: flex; gap: 10px; padding: 15px; border-top: 1px solid #e0e0e0; background: white; }
-        .message-input-area textarea { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; resize: none; font-family: inherit; font-size: 0.85rem; }
-        .message-input-area textarea:focus { outline: none; border-color: #1a3a5c; }
-        .message-input-area button { width: 45px; height: 45px; background: #1a3a5c; color: white; border: none; border-radius: 50%; cursor: pointer; transition: all 0.3s; }
-        .message-input-area button:hover { background: #ffc107; color: #1a3a5c; transform: scale(1.05); }
-        .no-conversation-selected { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #999; text-align: center; gap: 15px; }
-        .no-conversation-selected i { font-size: 4rem; opacity: 0.3; }
-
-        @media (min-width: 1025px) {
-          .sidebar { width: 260px; position: fixed; }
-          .main-content { margin-left: 260px; width: calc(100% - 260px); }
-          .stats-grid { grid-template-columns: repeat(4, 1fr); }
-        }
-        @media (max-width: 1024px) and (min-width: 769px) {
-          .stats-grid { grid-template-columns: repeat(2, 1fr); }
-          .gallery-grid { grid-template-columns: repeat(3, 1fr); }
-          .conversations-list { width: 280px; }
-        }
-        @media (max-width: 768px) {
-          .mobile-menu-btn { display: block; }
-          .sidebar { width: ${sidebarWidthMobile}; }
-          .main-content { margin-left: 0; width: 100%; }
-          .stats-grid { grid-template-columns: 1fr; }
-          .quick-actions { flex-direction: column; }
-          .action-btn { justify-content: center; }
-          .gallery-grid { grid-template-columns: repeat(2, 1fr); }
-          .welcome-text h1 { font-size: 1.2rem; }
-          .card-header { flex-direction: column; align-items: flex-start; }
-          .news-item { flex-direction: column; }
-          .news-meta { flex-wrap: wrap; }
-          .inbox-container { flex-direction: column; }
-          .conversations-list { width: 100%; max-height: 200px; border-right: none; border-bottom: 1px solid #e0e0e0; }
-          .message-bubble { max-width: 85%; }
-        }
-      `}</style>
+      <Modal open={galleryModal} onClose={() => setGalleryModal(false)} title="Add Gallery Image">
+        <Field label="Title" required><Inp value={galleryForm.title} placeholder="Image title" onChange={e => setGalleryForm(p => ({ ...p, title: e.target.value }))} /></Field>
+        <Field label="Category">
+          <Sel value={galleryForm.category} onChange={e => setGalleryForm(p => ({ ...p, category: e.target.value }))}>
+            <option value="events">🎪 Events</option><option value="academic">📚 Academic</option><option value="sports">⚽ Sports</option><option value="cultural">🎭 Cultural</option>
+          </Sel>
+        </Field>
+        <Field label="Description"><Txt value={galleryForm.description} placeholder="Optional description" rows={3} onChange={e => setGalleryForm(p => ({ ...p, description: e.target.value }))} /></Field>
+        <Field label="Image" required><input type="file" accept="image/*" onChange={e => setGalleryImageFile(e.target.files[0])} style={{ fontSize: 13, padding: '8px 0' }} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setGalleryModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={addGalleryImage} icon="fas fa-image" color="#1a3a5c" disabled={saving}>{saving ? 'Uploading…' : 'Add Image'}</Btn>
+        </div>
+      </Modal>
     </div>
   );
 };
