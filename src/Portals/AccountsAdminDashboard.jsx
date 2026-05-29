@@ -1,836 +1,701 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
-import ChatModal from '../components/ChatModal';
 
-// API Base URL
 const API_URL = 'http://localhost:5000/api';
+const SOCKET_URL = 'http://localhost:5000';
+const getToken = () => localStorage.getItem('portalToken');
+const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
+const fmt = (d) => d ? new Date(d).toLocaleDateString('en-RW', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtAmt = (n) => typeof n === 'number' ? n.toLocaleString() + ' RWF' : '— RWF';
+
+const Badge = ({ text, color, bg, size = 11 }) => (
+  <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 20, fontSize: size, fontWeight: 700, color, background: bg, whiteSpace: 'nowrap' }}>
+    {typeof text === 'string' ? text.replace(/_/g, ' ').toUpperCase() : text}
+  </span>
+);
+
+const Avatar = ({ name = '?', size = 36, bg = '#1a3a5c', color = '#ffc107' }) => {
+  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  return <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{initials}</div>;
+};
+
+const Modal = ({ open, onClose, title, children, width = 520 }) => {
+  if (!open) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: width, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,.25)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 1, borderRadius: '16px 16px 0 0' }}>
+          <h3 style={{ margin: 0, fontSize: 16, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#999', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '20px 22px' }}>{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const Field = ({ label, children, required }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#666', marginBottom: 5, letterSpacing: .5 }}>
+      {label?.toUpperCase()}{required && <span style={{ color: '#e74c3c' }}> *</span>}
+    </label>
+    {children}
+  </div>
+);
+
+const ist = { width: '100%', padding: '9px 12px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', transition: 'border-color .2s' };
+const Inp = (props) => <input {...props} style={{ ...ist, ...props.style }} onFocus={e => e.target.style.borderColor = '#1a3a5c'} onBlur={e => e.target.style.borderColor = '#e0e0e0'} />;
+const Sel = ({ children, ...props }) => <select {...props} style={{ ...ist, background: 'white', ...props.style }}>{children}</select>;
+const Txt = (props) => <textarea {...props} style={{ ...ist, resize: 'vertical', minHeight: 80, ...props.style }} onFocus={e => e.target.style.borderColor = '#1a3a5c'} onBlur={e => e.target.style.borderColor = '#e0e0e0'} />;
+
+const Btn = ({ children, onClick, icon, color = '#1a3a5c', textColor = 'white', small, danger, disabled, style: s }) => {
+  const bg = danger ? '#e74c3c' : disabled ? '#ccc' : color;
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ background: bg, color: textColor, border: 'none', borderRadius: 8, padding: small ? '6px 13px' : '9px 18px', fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'filter .2s, transform .2s', whiteSpace: 'nowrap', ...s }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.filter = 'brightness(1.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+      onMouseLeave={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = ''; }}>
+      {icon && <i className={icon} style={{ fontSize: 13 }} />}{children}
+    </button>
+  );
+};
+
+const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
+  <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+      <thead><tr style={{ background: '#f7f9fb' }}>
+        {cols.map((c, i) => <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#888', letterSpacing: .8, borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>{c.toUpperCase()}</th>)}
+      </tr></thead>
+      <tbody>
+        {rows.length === 0
+          ? <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 36, color: '#bbb', fontSize: 13 }}>{emptyMsg}</td></tr>
+          : rows.map((row, i) => <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }} onMouseEnter={e => e.currentTarget.style.background = '#fafbff'} onMouseLeave={e => e.currentTarget.style.background = ''}>{row}</tr>)}
+      </tbody>
+    </table>
+  </div>
+);
+const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</td>;
+
+// ═══════════════════════════════════════════════════════════════════
 const AccountsAdminDashboard = () => {
-  const [userName, setUserName] = useState('');
-  const [activeTab  , setActiveTab] = useState('overview');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  
-  // Data states
-  const [budget, setBudget] = useState({ total: 0, spent: 0, remaining: 0, transactions: [] });
+  const [saving, setSaving] = useState(false);
+
+  // data
+  const [budget, setBudget] = useState({ total: 0 });
   const [income, setIncome] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [feeStructures, setFeeStructures] = useState([]);
   const [feePayments, setFeePayments] = useState([]);
-  const [teacherSalaries, setTeacherSalaries] = useState([]);
+  const [salaries, setSalaries] = useState([]);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
-  const [debtors, setDebtors] = useState([]);
-  
-  // Filter states
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // Chat states
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [selectedChatUser, setSelectedChatUser] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [summary, setSummary] = useState({});
+
+  // modals
+  const [incomeModal, setIncomeModal] = useState(false);
+  const [expenseModal, setExpenseModal] = useState(false);
+  const [feeModal, setFeeModal] = useState(false);
+  const [paymentModal, setPaymentModal] = useState(false);
+  const [salaryModal, setSalaryModal] = useState(false);
+  const [budgetModal, setBudgetModal] = useState(false);
+
+  const [incomeForm, setIncomeForm] = useState({ source: '', amount: '', date: new Date().toISOString().split('T')[0], description: '', reference: '' });
+  const [expenseForm, setExpenseForm] = useState({ category: '', amount: '', date: new Date().toISOString().split('T')[0], description: '', reference: '' });
+  const [feeForm, setFeeForm] = useState({ classId: '', feeType: '', amount: '', dueDate: '', description: '' });
+  const [paymentForm, setPaymentForm] = useState({ studentId: '', feeType: '', amount: '', paymentDate: new Date().toISOString().split('T')[0] });
+  const [salaryForm, setSalaryForm] = useState({ teacherName: '', subject: '', amount: '', month: '', year: new Date().getFullYear(), status: 'pending' });
+  const [newBudget, setNewBudget] = useState('');
+
+  // filters
+  const [recordSearch, setRecordSearch] = useState('');
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
+  // messaging
+  const [unread, setUnread] = useState(0);
   const [socket, setSocket] = useState(null);
-  
-  const navigate = useNavigate();
-  const getToken = () => localStorage.getItem('portalToken');
 
-  const apiRequest = async (endpoint, options = {}) => {
-    const token = getToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, { ...options, headers });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'Something went wrong');
-    return data;
-  };
+  const userName = localStorage.getItem('userName') || 'Accounts Admin';
+  const userId = localStorage.getItem('userId');
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-      if (window.innerWidth > 768) setMobileMenuOpen(false);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    const check = () => { setIsMobile(window.innerWidth <= 1024); if (window.innerWidth > 1024) setMobileOpen(false); };
+    check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check);
   }, []);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
-    setSocket(newSocket);
-    const userId = localStorage.getItem('userId');
-    if (userId) newSocket.emit('join', userId);
-    newSocket.on('newMessage', () => fetchUnreadCount());
-    return () => newSocket.disconnect();
-  }, []);
+    const token = getToken(); if (!token) return;
+    const sock = io(SOCKET_URL, { auth: { token } });
+    setSocket(sock);
+    if (userId) sock.emit('join', userId);
+    sock.on('new_message', () => fetchUnread());
+    return () => sock.disconnect();
+  }, [userId]);
 
   useEffect(() => {
-    const token = getToken();
-    const role = localStorage.getItem('userRole');
-    const name = localStorage.getItem('userName');
-    
-    if (!token || role !== 'accounts_admin') {
-      navigate('/portal/login');
-    } else {
-      setUserName(name || 'Accounts Admin');
-      fetchAllData();
-      fetchUnreadCount();
-    }
+    const token = getToken(); const role = localStorage.getItem('userRole');
+    if (!token || role !== 'accounts_admin') { navigate('/portal/login'); return; }
+    loadAll();
   }, [navigate]);
 
-  const fetchAllData = async () => {
+  const api = useCallback(async (path, opts = {}) => {
+    const res = await fetch(`${API_URL}${path}`, { headers: authHeaders(), ...opts });
+    if (!res.ok) return Promise.reject(await res.json());
+    return res.json();
+  }, []);
+
+  const loadAll = () => Promise.all([
+    fetchBudget(), fetchIncome(), fetchExpenses(), fetchFees(),
+    fetchPayments(), fetchSalaries(), fetchClasses(), fetchStudents(),
+    fetchSummary(), fetchUnread(),
+  ]).finally(() => setLoading(false));
+
+  const fetchBudget = () => api('/accounts/budget').then(d => setBudget(d || { total: 0 })).catch(() => {});
+  const fetchIncome = () => api('/accounts/income').then(d => setIncome(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchExpenses = () => api('/accounts/expenses').then(d => setExpenses(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchFees = () => api('/accounts/fee-structures').then(d => setFeeStructures(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchPayments = () => api('/accounts/payments').then(d => setFeePayments(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchSalaries = () => api('/accounts/salaries').then(d => setSalaries(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchClasses = () => api('/academic-admin/classes').then(d => setClasses(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchStudents = () => api('/academic-admin/students').then(d => setStudents(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchSummary = () => api('/accounts/financial-summary').then(d => setSummary(d || {})).catch(() => {});
+  const fetchUnread = () => api('/messages/unread-count').then(d => setUnread(d.count || 0)).catch(() => {});
+
+  // ─── actions ──────────────────────────────────────────────────────
+  const addIncome = async () => {
+    if (!incomeForm.source || !incomeForm.amount) { Swal.fire('Missing Fields', 'Source and amount required', 'warning'); return; }
+    setSaving(true);
     try {
-      const [budgetData, incomeData, expensesData, feeData, salaryData, classesData, studentsData, debtorsData] = await Promise.all([
-        apiRequest('/accounts/budget').catch(() => ({ total: 0, spent: 0, remaining: 0, transactions: [] })),
-        apiRequest('/accounts/income').catch(() => []),
-        apiRequest('/accounts/expenses').catch(() => []),
-        apiRequest('/accounts/fees').catch(() => []),
-        apiRequest('/accounts/salaries').catch(() => []),
-        apiRequest('/academic-admin/classes').catch(() => []),
-        apiRequest('/accounts/students').catch(() => []),
-        apiRequest('/accounts/debtors').catch(() => [])
-      ]);
-      
-      setBudget(budgetData);
-      setIncome(Array.isArray(incomeData) ? incomeData : []);
-      setExpenses(Array.isArray(expensesData) ? expensesData : []);
-      setFeeStructures(Array.isArray(feeData) ? feeData : []);
-      setTeacherSalaries(Array.isArray(salaryData) ? salaryData : []);
-      setClasses(Array.isArray(classesData) ? classesData : []);
-      setStudents(Array.isArray(studentsData) ? studentsData : []);
-      setDebtors(Array.isArray(debtorsData) ? debtorsData : []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
+      await api('/accounts/income', { method: 'POST', body: JSON.stringify({ ...incomeForm, amount: parseFloat(incomeForm.amount) }) });
+      Swal.fire('✅ Income Recorded!', '', 'success');
+      setIncomeModal(false); setIncomeForm({ source: '', amount: '', date: new Date().toISOString().split('T')[0], description: '', reference: '' });
+      fetchIncome(); fetchSummary();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
 
-  const fetchUnreadCount = async () => {
+  const addExpense = async () => {
+    if (!expenseForm.category || !expenseForm.amount) { Swal.fire('Missing Fields', 'Category and amount required', 'warning'); return; }
+    setSaving(true);
     try {
-      const data = await apiRequest('/messages/unread/count');
-      setUnreadCount(data.count || 0);
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-    }
+      await api('/accounts/expenses', { method: 'POST', body: JSON.stringify({ ...expenseForm, amount: parseFloat(expenseForm.amount) }) });
+      Swal.fire('✅ Expense Recorded!', '', 'success');
+      setExpenseModal(false); setExpenseForm({ category: '', amount: '', date: new Date().toISOString().split('T')[0], description: '', reference: '' });
+      fetchExpenses(); fetchSummary();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleOpenChat = (user = null) => {
-    if (user) setSelectedChatUser(user);
-    setIsChatModalOpen(true);
+  const createFee = async () => {
+    if (!feeForm.feeType || !feeForm.amount) { Swal.fire('Missing Fields', 'Fee type and amount required', 'warning'); return; }
+    setSaving(true);
+    try {
+      await api('/accounts/fee-structures', { method: 'POST', body: JSON.stringify({ ...feeForm, amount: parseFloat(feeForm.amount) }) });
+      Swal.fire('✅ Fee Structure Created!', '', 'success');
+      setFeeModal(false); setFeeForm({ classId: '', feeType: '', amount: '', dueDate: '', description: '' });
+      fetchFees();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleCloseChat = () => {
-    setIsChatModalOpen(false);
-    setSelectedChatUser(null);
-    fetchUnreadCount();
+  const deleteFee = async (id) => {
+    const ok = await Swal.fire({ title: 'Delete fee structure?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/accounts/fee-structures/${id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchFees();
   };
 
-  // ==================== BUDGET MANAGEMENT ====================
-  const handleAddIncome = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Add Income',
-      html: `
-        <div class="admin-form">
-          <div class="form-group"><i class="fas fa-tag"></i><input type="text" id="source" placeholder="Source (e.g., School Fees, Donation)" required></div>
-          <div class="form-group"><i class="fas fa-dollar-sign"></i><input type="number" id="amount" placeholder="Amount (RWF)" required></div>
-          <div class="form-group"><i class="fas fa-calendar"></i><input type="date" id="date" value="${new Date().toISOString().split('T')[0]}" required></div>
-          <div class="form-group"><i class="fas fa-align-left"></i><textarea id="description" placeholder="Description (optional)" rows="2"></textarea></div>
-        </div>
-      `,
-      confirmButtonText: 'Add Income',
-      confirmButtonColor: '#27ae60',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const source = document.getElementById('source').value;
-        const amount = document.getElementById('amount').value;
-        if (!source || !amount) {
-          Swal.showValidationMessage('Please fill required fields');
-          return false;
-        }
-        return { source, amount: parseFloat(amount), date: document.getElementById('date').value, description: document.getElementById('description').value };
-      }
-    });
-
-    if (formValues) {
-      try {
-        await apiRequest('/accounts/income', { method: 'POST', body: JSON.stringify(formValues) });
-        Swal.fire('Added!', 'Income recorded successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to add income', 'error');
-      }
-    }
+  const recordPayment = async () => {
+    if (!paymentForm.studentId || !paymentForm.amount) { Swal.fire('Missing Fields', 'Student and amount required', 'warning'); return; }
+    setSaving(true);
+    try {
+      await api('/accounts/payments', { method: 'POST', body: JSON.stringify({ ...paymentForm, amount: parseFloat(paymentForm.amount) }) });
+      Swal.fire('✅ Payment Recorded!', '', 'success');
+      setPaymentModal(false); setPaymentForm({ studentId: '', feeType: '', amount: '', paymentDate: new Date().toISOString().split('T')[0] });
+      fetchPayments(); fetchSummary();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
 
-  const handleAddExpense = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Add Expense',
-      html: `
-        <div class="admin-form">
-          <div class="form-group"><i class="fas fa-tag"></i><input type="text" id="category" placeholder="Category (e.g., Salaries, Utilities)" required></div>
-          <div class="form-group"><i class="fas fa-dollar-sign"></i><input type="number" id="amount" placeholder="Amount (RWF)" required></div>
-          <div class="form-group"><i class="fas fa-calendar"></i><input type="date" id="date" value="${new Date().toISOString().split('T')[0]}" required></div>
-          <div class="form-group"><i class="fas fa-align-left"></i><textarea id="description" placeholder="Description" rows="2" required></textarea></div>
-        </div>
-      `,
-      confirmButtonText: 'Add Expense',
-      confirmButtonColor: '#e74c3c',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const category = document.getElementById('category').value;
-        const amount = document.getElementById('amount').value;
-        if (!category || !amount) {
-          Swal.showValidationMessage('Please fill required fields');
-          return false;
-        }
-        return { category, amount: parseFloat(amount), date: document.getElementById('date').value, description: document.getElementById('description').value };
-      }
-    });
-
-    if (formValues) {
-      try {
-        await apiRequest('/accounts/expenses', { method: 'POST', body: JSON.stringify(formValues) });
-        Swal.fire('Added!', 'Expense recorded successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to add expense', 'error');
-      }
-    }
+  const addSalary = async () => {
+    if (!salaryForm.teacherName || !salaryForm.amount) { Swal.fire('Missing Fields', 'Teacher name and amount required', 'warning'); return; }
+    setSaving(true);
+    try {
+      await api('/accounts/salaries', { method: 'POST', body: JSON.stringify({ ...salaryForm, amount: parseFloat(salaryForm.amount) }) });
+      Swal.fire('✅ Salary Record Added!', '', 'success');
+      setSalaryModal(false); setSalaryForm({ teacherName: '', subject: '', amount: '', month: '', year: new Date().getFullYear(), status: 'pending' });
+      fetchSalaries();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
 
-  // ==================== FEE MANAGEMENT ====================
-  const handleCreateFeeStructure = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Create Fee Structure',
-      html: `
-        <div class="admin-form">
-          <div class="form-group"><i class="fas fa-layer-group"></i><select id="classId"><option value="">Select Class</option>${classes.map(c => `<option value="${c._id}">${c.grade} ${c.className}</option>`).join('')}</select></div>
-          <div class="form-group"><i class="fas fa-tag"></i><input type="text" id="feeType" placeholder="Fee Type (e.g., Tuition, Lab Fee)" required></div>
-          <div class="form-group"><i class="fas fa-dollar-sign"></i><input type="number" id="amount" placeholder="Amount (RWF)" required></div>
-          <div class="form-group"><i class="fas fa-calendar"></i><input type="date" id="dueDate" placeholder="Due Date" required></div>
-          <div class="form-group"><i class="fas fa-align-left"></i><textarea id="description" placeholder="Description" rows="2"></textarea></div>
-        </div>
-      `,
-      confirmButtonText: 'Create Fee Structure',
-      confirmButtonColor: '#3498db',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const classId = document.getElementById('classId').value;
-        const feeType = document.getElementById('feeType').value;
-        const amount = document.getElementById('amount').value;
-        if (!classId || !feeType || !amount) {
-          Swal.showValidationMessage('Please fill required fields');
-          return false;
-        }
-        return { classId, feeType, amount: parseFloat(amount), dueDate: document.getElementById('dueDate').value, description: document.getElementById('description').value };
-      }
-    });
-
-    if (formValues) {
-      try {
-        await apiRequest('/accounts/fees', { method: 'POST', body: JSON.stringify(formValues) });
-        Swal.fire('Created!', 'Fee structure created and students notified', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to create fee structure', 'error');
-      }
-    }
+  const approveSalary = async (s) => {
+    const ok = await Swal.fire({ title: `Approve salary for ${s.teacherName}?`, text: fmtAmt(s.amount), icon: 'question', showCancelButton: true, confirmButtonColor: '#27ae60', confirmButtonText: 'Approve' });
+    if (!ok.isConfirmed) return;
+    await api(`/accounts/salaries/${s._id}/approve`, { method: 'PUT' });
+    Swal.fire('✅ Approved!', '', 'success'); fetchSalaries();
   };
 
-  const handleNotifyFees = async (fee) => {
-    const result = await Swal.fire({
-      title: 'Send Fee Reminder',
-      text: `Send payment reminder for ${fee.feeType} to all affected students?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Send Now',
-      confirmButtonColor: '#3498db'
-    });
-    
-    if (result.isConfirmed) {
-      try {
-        await apiRequest(`/accounts/fees/${fee._id}/notify`, { method: 'POST' });
-        Swal.fire('Sent!', 'Fee reminder sent to students and parents', 'success');
-      } catch (error) {
-        Swal.fire('Error', 'Failed to send notifications', 'error');
-      }
-    }
+  const updateBudget = async () => {
+    if (!newBudget) return;
+    await api('/accounts/budget', { method: 'PUT', body: JSON.stringify({ total: parseFloat(newBudget) }) });
+    Swal.fire('✅ Budget Updated!', '', 'success'); setBudgetModal(false); fetchBudget(); fetchSummary();
   };
 
-  // ==================== SALARY MANAGEMENT ====================
-  const handleSalaryAction = async (salary, action) => {
-    const actionText = action === 'approved' ? 'Approve' : action === 'pending' ? 'Mark as Pending' : 'Reject';
-    const result = await Swal.fire({
-      title: `${actionText} Salary`,
-      text: `${salary.teacherName} - Amount: ${salary.amount.toLocaleString()} RWF`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: actionText,
-      confirmButtonColor: action === 'approved' ? '#27ae60' : action === 'rejected' ? '#e74c3c' : '#f39c12'
-    });
-    
-    if (result.isConfirmed) {
-      try {
-        await apiRequest(`/accounts/salaries/${salary._id}/status`, {
-          method: 'PUT',
-          body: JSON.stringify({ status: action })
-        });
-        Swal.fire('Updated!', `Salary ${action}`, 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to update salary', 'error');
-      }
-    }
-  };
+  const totalIncome = income.reduce((s, i) => s + (i.amount || 0), 0);
+  const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const pendingSalaries = salaries.filter(s => s.status === 'pending').length;
 
-  // ==================== DEBTOR MANAGEMENT ====================
-  const handleDebtorAction = async (debtor, action) => {
-    if (action === 'suspend') {
-      const result = await Swal.fire({
-        title: 'Suspend Student',
-        text: `Suspend ${debtor.studentName} for fee default? They owe ${debtor.amountDue.toLocaleString()} RWF.`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Suspend',
-        confirmButtonColor: '#e74c3c'
-      });
-      
-      if (result.isConfirmed) {
-        try {
-          await apiRequest(`/accounts/debtors/${debtor._id}/suspend`, { method: 'POST' });
-          Swal.fire('Suspended!', 'Student has been suspended and parents notified', 'warning');
-          fetchAllData();
-        } catch (error) {
-          Swal.fire('Error', 'Failed to suspend student', 'error');
-        }
-      }
-    } else if (action === 'waive') {
-      const { value: waivedAmount } = await Swal.fire({
-        title: 'Waive Fee',
-        input: 'number',
-        inputLabel: 'Amount to waive (RWF)',
-        inputValue: debtor.amountDue,
-        showCancelButton: true,
-        confirmButtonText: 'Waive',
-        confirmButtonColor: '#27ae60'
-      });
-      
-      if (waivedAmount) {
-        try {
-          await apiRequest(`/accounts/debtors/${debtor._id}/waive`, {
-            method: 'POST',
-            body: JSON.stringify({ amount: parseFloat(waivedAmount) })
-          });
-          Swal.fire('Waived!', `${waivedAmount.toLocaleString()} RWF waived`, 'success');
-          fetchAllData();
-        } catch (error) {
-          Swal.fire('Error', 'Failed to waive fee', 'error');
-        }
-      }
-    }
-  };
-
-  const handleRecordPayment = async () => {
-    const { value: formValues } = await Swal.fire({
-      title: 'Record Payment',
-      html: `
-        <div class="admin-form">
-          <div class="form-group"><i class="fas fa-user"></i><select id="studentId"><option value="">Select Student</option>${students.map(s => `<option value="${s._id}">${s.fullName} - ${s.className || 'N/A'}</option>`).join('')}</select></div>
-          <div class="form-group"><i class="fas fa-tag"></i><select id="feeType"><option value="">Select Fee Type</option>${feeStructures.map(f => `<option value="${f.feeType}">${f.feeType} - ${f.amount.toLocaleString()} RWF</option>`).join('')}</select></div>
-          <div class="form-group"><i class="fas fa-dollar-sign"></i><input type="number" id="amount" placeholder="Amount Paid (RWF)" required></div>
-          <div class="form-group"><i class="fas fa-calendar"></i><input type="date" id="paymentDate" value="${new Date().toISOString().split('T')[0]}" required></div>
-        </div>
-      `,
-      confirmButtonText: 'Record Payment',
-      confirmButtonColor: '#27ae60',
-      showCancelButton: true,
-      width: '500px',
-      preConfirm: () => {
-        const studentId = document.getElementById('studentId').value;
-        const feeType = document.getElementById('feeType').value;
-        const amount = document.getElementById('amount').value;
-        if (!studentId || !feeType || !amount) {
-          Swal.showValidationMessage('Please fill required fields');
-          return false;
-        }
-        return { studentId, feeType, amount: parseFloat(amount), paymentDate: document.getElementById('paymentDate').value };
-      }
-    });
-
-    if (formValues) {
-      try {
-        await apiRequest('/accounts/payments', { method: 'POST', body: JSON.stringify(formValues) });
-        Swal.fire('Recorded!', 'Payment recorded successfully', 'success');
-        fetchAllData();
-      } catch (error) {
-        Swal.fire('Error', 'Failed to record payment', 'error');
-      }
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/portal/login');
-  };
+  const filteredRecords = [...income.map(i => ({ ...i, _type: 'income' })), ...expenses.map(e => ({ ...e, _type: 'expense' }))]
+    .filter(t => !recordSearch || (t.source || t.category || '').toLowerCase().includes(recordSearch.toLowerCase()))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const menuItems = [
-    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line', color: '#3498db' },
-    { id: 'budget', label: 'Budget', icon: 'fas fa-chart-pie', color: '#27ae60' },
-    { id: 'fees', label: 'Fee Management', icon: 'fas fa-money-bill-wave', color: '#f39c12' },
-    { id: 'salaries', label: 'Salaries', icon: 'fas fa-wallet', color: '#9b59b6' },
-    { id: 'debtors', label: 'Debtors', icon: 'fas fa-exclamation-triangle', color: '#e74c3c' },
-    { id: 'records', label: 'Financial Records', icon: 'fas fa-book', color: '#1abc9c' },
-    { id: 'profile', label: 'Profile', icon: 'fas fa-user-circle', color: '#34495e' }
+    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
+    { id: 'budget', label: 'Budget', icon: 'fas fa-chart-pie' },
+    { id: 'fees', label: 'Fee Management', icon: 'fas fa-money-bill-wave' },
+    { id: 'salaries', label: 'Salaries', icon: 'fas fa-wallet', badge: pendingSalaries },
+    { id: 'records', label: 'Financial Records', icon: 'fas fa-book' },
+    { id: 'profile', label: 'Profile', icon: 'fas fa-user-shield' },
   ];
 
-  const sidebarWidth = sidebarCollapsed ? '80px' : '280px';
-  const sidebarWidthMobile = mobileMenuOpen ? sidebarWidth : '0px';
+  const sideW = isMobile ? 0 : sidebarOpen ? 260 : 72;
 
-  const totalIncome = income.reduce((sum, i) => sum + i.amount, 0);
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalFeesCollected = feePayments.reduce((sum, p) => sum + p.amount, 0);
-  const totalDebt = debtors.reduce((sum, d) => sum + d.amountDue, 0);
-  const pendingSalaries = teacherSalaries.filter(s => s.status === 'pending').length;
-
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading Dashboard...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'linear-gradient(135deg,#0d2b42,#1a3a5c)', color: 'white', gap: 20 }}>
+      <div style={{ width: 44, height: 44, border: '3px solid rgba(255,255,255,.15)', borderTopColor: '#ffc107', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
+      <p style={{ margin: 0, fontSize: 16 }}>Loading…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
   return (
-    <div className="accounts-admin-dashboard">
-      {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f0f3f8', fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        .tab-anim{animation:fadeIn .22s ease}
+        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:10px}
+        @media(max-width:768px){.hide-m{display:none!important}}
+      `}</style>
 
-      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} style={{ width: isMobile ? sidebarWidthMobile : sidebarWidth }}>
-        <div className="sidebar-header">
-          {!sidebarCollapsed && (
-            <div className="logo-area">
-              <div className="logo-icon"><i className="fas fa-coins"></i></div>
-              <div className="logo-text"><h3>ESSA Portal</h3><p>Accounts Admin</p></div>
-            </div>
-          )}
-          <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            <i className={`fas fa-chevron-${sidebarCollapsed ? 'right' : 'left'}`}></i>
-          </button>
+      {isMobile && mobileOpen && <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 998 }} />}
+
+      {/* ─── SIDEBAR ─── */}
+      <aside style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 999, width: isMobile ? (mobileOpen ? 260 : 0) : sideW, background: 'linear-gradient(180deg,#0d1f33 0%,#1a3a5c 100%)', color: 'white', display: 'flex', flexDirection: 'column', transition: 'width .3s', overflow: 'hidden', boxShadow: '3px 0 20px rgba(0,0,0,.18)' }}>
+        <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0 }}>
+          <div style={{ width: 38, height: 38, background: '#ffc107', borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className="fas fa-coins" style={{ fontSize: 16, color: '#1a3a5c' }} />
+          </div>
+          {(sidebarOpen || isMobile) && <div><div style={{ fontFamily: 'Georgia, serif', fontSize: 15, fontWeight: 600 }}>ESSA Portal</div><div style={{ fontSize: 10, opacity: .6, letterSpacing: 1 }}>ACCOUNTS ADMIN</div></div>}
+          {!isMobile && <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,.4)', cursor: 'pointer', fontSize: 13, flexShrink: 0 }}><i className={`fas fa-chevron-${sidebarOpen ? 'left' : 'right'}`} /></button>}
         </div>
-
-        <div className="user-profile">
-          <div className="user-avatar"><i className="fas fa-coins"></i></div>
-          {!sidebarCollapsed && (
-            <div className="user-info">
-              <h4>{userName}</h4>
-              <span className="user-role">Accounts Administrator</span>
-            </div>
-          )}
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <Avatar name={userName} size={36} bg='rgba(255,193,7,.2)' color='#ffc107' />
+          {(sidebarOpen || isMobile) && <div><div style={{ fontSize: 13, fontWeight: 600 }}>{userName}</div><div style={{ fontSize: 10, color: '#ffc107' }}>Accounts Admin</div></div>}
         </div>
-
-        <nav className="sidebar-nav">
-          {menuItems.map((item) => (
-            <button key={item.id} className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => { setActiveTab(item.id); if (isMobile) setMobileMenuOpen(false); }}>
-              <i className={item.icon} style={{ color: item.color }}></i>
-              {!sidebarCollapsed && <span>{item.label}</span>}
-              {item.id === 'debtors' && debtors.length > 0 && !sidebarCollapsed && (
-                <span className="nav-badge urgent">{debtors.length}</span>
-              )}
-              {item.id === 'salaries' && pendingSalaries > 0 && !sidebarCollapsed && (
-                <span className="nav-badge">{pendingSalaries}</span>
-              )}
-            </button>
-          ))}
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+          {menuItems.map(item => {
+            const active = activeTab === item.id;
+            return (
+              <button key={item.id} onClick={() => { setActiveTab(item.id); if (isMobile) setMobileOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '10px 16px', background: active ? 'rgba(255,193,7,.15)' : 'transparent', border: 'none', borderRight: active ? '3px solid #ffc107' : '3px solid transparent', color: active ? '#ffc107' : 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 400, transition: 'all .2s', textAlign: 'left' }}>
+                <i className={item.icon} style={{ fontSize: 15, width: 18, flexShrink: 0 }} />
+                {(sidebarOpen || isMobile) && <span style={{ flex: 1 }}>{item.label}</span>}
+                {item.badge > 0 && (sidebarOpen || isMobile) && <span style={{ background: '#e74c3c', color: 'white', borderRadius: 20, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>{item.badge}</span>}
+              </button>
+            );
+          })}
         </nav>
-
-        <div className="sidebar-footer">
-          <button className="chat-btn" onClick={() => handleOpenChat()}>
-            <i className="fas fa-comments"></i>
-            {!sidebarCollapsed && <span>Messages</span>}
-            {unreadCount > 0 && <span className="chat-badge">{unreadCount}</span>}
-          </button>
-          <button className="logout-btn" onClick={handleLogout}>
-            <i className="fas fa-sign-out-alt"></i>
-            {!sidebarCollapsed && <span>Logout</span>}
+        <div style={{ padding: 12, borderTop: '1px solid rgba(255,255,255,.08)', flexShrink: 0 }}>
+          <button onClick={() => { localStorage.clear(); navigate('/portal/login'); }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', background: 'rgba(231,76,60,.2)', border: '1px solid rgba(231,76,60,.3)', borderRadius: 9, color: '#ff8a80', cursor: 'pointer', fontSize: 13 }}>
+            <i className="fas fa-sign-out-alt" style={{ fontSize: 13 }} />{(sidebarOpen || isMobile) && 'Logout'}
           </button>
         </div>
       </aside>
 
-      <main className="main-content" style={{ marginLeft: isMobile ? '0' : sidebarWidth }}>
-        <div className="top-bar">
-          <div className="top-bar-left">
-            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-              <i className="fas fa-bars"></i>
-            </button>
-            <h2>Accounts Admin Dashboard</h2>
+      {/* ─── MAIN ─── */}
+      <main style={{ flex: 1, marginLeft: isMobile ? 0 : sideW, transition: 'margin-left .3s', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: 'white', padding: '11px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 8px rgba(0,0,0,.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {isMobile && <button onClick={() => setMobileOpen(!mobileOpen)} style={{ background: '#1a3a5c', color: 'white', border: 'none', padding: '7px 10px', borderRadius: 8, cursor: 'pointer' }}><i className="fas fa-bars" /></button>}
+            <div>
+              <div style={{ fontSize: 10, color: '#aaa', letterSpacing: .5 }}>ESSA NYARUGUNGA</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>{menuItems.find(m => m.id === activeTab)?.label || 'Dashboard'}</div>
+            </div>
           </div>
-          <div className="top-bar-right">
-            <div className="notification-bell" onClick={() => handleOpenChat()}>
-              <i className="fas fa-envelope"></i>
-              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-            </div>
-            <div className="user-menu">
-              <div className="user-avatar-small"><i className="fas fa-coins"></i></div>
-              <div className="user-details">
-                <span className="user-name">{userName}</span>
-                <span className="user-role-badge">Accounts Admin</span>
-              </div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {unread > 0 && <div style={{ background: '#fdecea', color: '#e74c3c', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '4px 10px' }}>{unread} new msg</div>}
+            <Avatar name={userName} size={32} />
+            <div className="hide-m"><div style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>{userName}</div><div style={{ fontSize: 10, color: '#ffc107' }}>ACCOUNTS ADMIN</div></div>
           </div>
         </div>
 
-        <div className="welcome-banner">
-          <div className="welcome-text">
-            <h1>Welcome, {userName.split(' ')[0]}! 💰</h1>
-            <p>Manage school finances, fees, salaries, and financial records.</p>
-          </div>
-          <div className="welcome-date">
-            <i className="fas fa-calendar-alt"></i>
-            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-          </div>
-        </div>
+        <div style={{ flex: 1, padding: 20, overflowY: 'auto' }} className="tab-anim">
 
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="dashboard-content">
-            <div className="stats-grid">
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#e8f5e9' }}><i className="fas fa-chart-line" style={{ color: '#27ae60' }}></i></div>
-                <div className="stat-info"><h3>{budget.total.toLocaleString()} RWF</h3><p>Total Budget</p></div></div>
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#e3f2fd' }}><i className="fas fa-arrow-down" style={{ color: '#3498db' }}></i></div>
-                <div className="stat-info"><h3>{totalIncome.toLocaleString()} RWF</h3><p>Total Income</p></div></div>
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#fdecea' }}><i className="fas fa-arrow-up" style={{ color: '#e74c3c' }}></i></div>
-                <div className="stat-info"><h3>{totalExpenses.toLocaleString()} RWF</h3><p>Total Expenses</p></div></div>
-              <div className="stat-card"><div className="stat-icon" style={{ background: '#fff3e0' }}><i className="fas fa-wallet" style={{ color: '#f39c12' }}></i></div>
-                <div className="stat-info"><h3>{(totalIncome - totalExpenses).toLocaleString()} RWF</h3><p>Net Balance</p></div></div>
-            </div>
-
-            <div className="quick-actions">
-              <button onClick={handleAddIncome} className="action-btn success"><i className="fas fa-plus-circle"></i> Add Income</button>
-              <button onClick={handleAddExpense} className="action-btn danger"><i className="fas fa-minus-circle"></i> Add Expense</button>
-              <button onClick={handleCreateFeeStructure} className="action-btn primary"><i className="fas fa-tag"></i> Create Fee</button>
-              <button onClick={handleRecordPayment} className="action-btn info"><i className="fas fa-credit-card"></i> Record Payment</button>
-            </div>
-
-            <div className="stats-cards">
-              <div className="stats-card"><h3><i className="fas fa-chart-pie"></i> Budget Overview</h3>
-                <div className="budget-overview"><div className="budget-item"><span>Total Budget</span><strong>{budget.total.toLocaleString()} RWF</strong></div>
-                <div className="budget-item"><span>Spent</span><strong className="danger">{totalExpenses.toLocaleString()} RWF</strong><div className="progress-bar"><div className="progress-fill" style={{ width: `${(totalExpenses / budget.total) * 100}%`, background: '#e74c3c' }}></div></div></div>
-                <div className="budget-item"><span>Remaining</span><strong className="success">{(budget.total - totalExpenses).toLocaleString()} RWF</strong></div></div>
-              </div>
-              <div className="stats-card"><h3><i className="fas fa-chart-bar"></i> Monthly Summary</h3>
-                <div className="monthly-summary"><div className="month-item"><span>Fees Collected</span><strong>{totalFeesCollected.toLocaleString()} RWF</strong></div>
-                <div className="month-item"><span>Salaries Paid</span><strong>{teacherSalaries.filter(s => s.status === 'approved').reduce((sum, s) => sum + s.amount, 0).toLocaleString()} RWF</strong></div>
-                <div className="month-item"><span>Outstanding Debt</span><strong className="danger">{totalDebt.toLocaleString()} RWF</strong></div></div>
-              </div>
-            </div>
-
-            <div className="recent-transactions">
-              <h3><i className="fas fa-history"></i> Recent Transactions</h3>
-              {[...income, ...expenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).map(t => (
-                <div key={t._id} className="transaction-item">
-                  <i className={`fas ${t.source ? 'fa-arrow-down' : 'fa-arrow-up'}`} style={{ color: t.source ? '#27ae60' : '#e74c3c' }}></i>
-                  <div><strong>{t.source || t.category}</strong><br/><small>{new Date(t.date).toLocaleDateString()}</small></div>
-                  <span className={`amount ${t.source ? 'positive' : 'negative'}`}>{t.source ? '+' : '-'}{t.amount.toLocaleString()} RWF</span>
+          {/* ══ OVERVIEW ══ */}
+          {activeTab === 'overview' && (
+            <div>
+              <div style={{ background: 'linear-gradient(135deg,#0d1f33,#1a3a5c)', borderRadius: 18, padding: '22px 26px', marginBottom: 20, color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, boxShadow: '0 6px 24px rgba(26,58,92,.35)' }}>
+                <div>
+                  <div style={{ fontSize: 19, fontWeight: 600, fontFamily: 'Georgia, serif', marginBottom: 4 }}>Welcome, {userName.split(' ')[0]}! 💰</div>
+                  <div style={{ fontSize: 12, opacity: .75 }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
-              ))}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <Btn onClick={() => setIncomeModal(true)} icon="fas fa-plus-circle" color="#27ae60">Add Income</Btn>
+                  <Btn onClick={() => setExpenseModal(true)} icon="fas fa-minus-circle" color="#e74c3c">Add Expense</Btn>
+                </div>
+              </div>
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginBottom: 20 }}>
+                {[
+                  { icon: 'fas fa-chart-pie', label: 'Total Budget', value: fmtAmt(budget.total), accent: '#1a3a5c', bg: '#e8f0fb', action: () => setBudgetModal(true) },
+                  { icon: 'fas fa-arrow-down', label: 'Total Income', value: fmtAmt(totalIncome), accent: '#27ae60', bg: '#e8f5e9', action: () => setIncomeModal(true) },
+                  { icon: 'fas fa-arrow-up', label: 'Total Expenses', value: fmtAmt(totalExpenses), accent: '#e74c3c', bg: '#fdecea', action: () => setExpenseModal(true) },
+                  { icon: 'fas fa-balance-scale', label: 'Net Balance', value: fmtAmt(totalIncome - totalExpenses), accent: totalIncome - totalExpenses >= 0 ? '#27ae60' : '#e74c3c', bg: '#f8f9fa' },
+                  { icon: 'fas fa-wallet', label: 'Pending Salaries', value: pendingSalaries, accent: '#f39c12', bg: '#fff3e0', action: () => setActiveTab('salaries') },
+                  { icon: 'fas fa-credit-card', label: 'Fee Payments', value: feePayments.length, accent: '#3498db', bg: '#e3f2fd', action: () => setActiveTab('fees') },
+                ].map((s, i) => (
+                  <div key={i} onClick={s.action} style={{ background: 'white', borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 2px 10px rgba(0,0,0,.05)', cursor: s.action ? 'pointer' : 'default', transition: 'transform .2s', border: '1px solid #f0f0f0' }}
+                    onMouseEnter={e => { if (s.action) { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,.1)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,.05)'; }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <i className={s.icon} style={{ fontSize: 18, color: s.accent }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#1a3a5c', lineHeight: 1, fontFamily: 'Georgia, serif' }}>{s.value}</div>
+                      <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{s.label}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Quick actions */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+                <Btn onClick={() => setIncomeModal(true)} icon="fas fa-plus-circle" color="#27ae60">Add Income</Btn>
+                <Btn onClick={() => setExpenseModal(true)} icon="fas fa-minus-circle" color="#e74c3c">Add Expense</Btn>
+                <Btn onClick={() => setFeeModal(true)} icon="fas fa-tag" color="#3498db">Create Fee</Btn>
+                <Btn onClick={() => setPaymentModal(true)} icon="fas fa-credit-card" color="#1abc9c">Record Payment</Btn>
+                <Btn onClick={() => setSalaryModal(true)} icon="fas fa-wallet" color="#9b59b6">Add Salary</Btn>
+                <Btn onClick={() => setBudgetModal(true)} icon="fas fa-cog" color="#f39c12">Set Budget</Btn>
+              </div>
+
+              {/* Recent transactions */}
+              <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}><i className="fas fa-history" style={{ marginRight: 7, color: '#3498db' }} />Recent Transactions</h3>
+                {[...income.map(i => ({ ...i, _type: 'income' })), ...expenses.map(e => ({ ...e, _type: 'expense' }))]
+                  .sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8).map(t => (
+                    <div key={t._id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid #f5f5f5' }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 10, background: t._type === 'income' ? '#e8f5e9' : '#fdecea', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <i className={`fas fa-arrow-${t._type === 'income' ? 'down' : 'up'}`} style={{ fontSize: 13, color: t._type === 'income' ? '#27ae60' : '#e74c3c' }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{t.source || t.category}</div>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>{fmt(t.date)} {t.description ? '· ' + t.description : ''}</div>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: t._type === 'income' ? '#27ae60' : '#e74c3c' }}>
+                        {t._type === 'income' ? '+' : '-'}{fmtAmt(t.amount)}
+                      </div>
+                    </div>
+                  ))}
+                {income.length === 0 && expenses.length === 0 && <p style={{ textAlign: 'center', color: '#bbb', fontSize: 13, padding: 20 }}>No transactions yet</p>}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Budget Tab */}
-        {activeTab === 'budget' && (
-          <div>
-            <div className="budget-summary">
-              <div className="budget-card"><h4>Total Budget</h4><div className="amount">{budget.total.toLocaleString()} RWF</div><button onClick={async () => { const { value } = await Swal.fire({ title: 'Set Budget', input: 'number', inputValue: budget.total, confirmButtonColor: '#27ae60' }); if (value) { await apiRequest('/accounts/budget', { method: 'PUT', body: JSON.stringify({ total: parseFloat(value) }) }); fetchAllData(); } }} className="edit-btn">Edit Budget</button></div>
-              <div className="budget-card"><h4>Total Income</h4><div className="amount success">{totalIncome.toLocaleString()} RWF</div><button onClick={handleAddIncome} className="add-btn">+ Add</button></div>
-              <div className="budget-card"><h4>Total Expenses</h4><div className="amount danger">{totalExpenses.toLocaleString()} RWF</div><button onClick={handleAddExpense} className="add-btn">+ Add</button></div>
+          {/* ══ BUDGET ══ */}
+          {activeTab === 'budget' && (
+            <div>
+              <div style={{ marginBottom: 18 }}><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Budget & Financial Overview</h2></div>
+              {/* Summary cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14, marginBottom: 20 }}>
+                {[
+                  { label: 'Total Budget', value: fmtAmt(budget.total), color: '#1a3a5c', action: () => setBudgetModal(true), actionLabel: 'Edit' },
+                  { label: 'Total Income', value: fmtAmt(totalIncome), color: '#27ae60', action: () => setIncomeModal(true), actionLabel: '+ Add' },
+                  { label: 'Total Expenses', value: fmtAmt(totalExpenses), color: '#e74c3c', action: () => setExpenseModal(true), actionLabel: '+ Add' },
+                ].map((c, i) => (
+                  <div key={i} style={{ background: 'white', borderRadius: 14, padding: '18px 20px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                    <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{c.label}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: c.color, fontFamily: 'Georgia, serif', marginBottom: 10 }}>{c.value}</div>
+                    <Btn small onClick={c.action} color={c.color}>{c.actionLabel}</Btn>
+                  </div>
+                ))}
+              </div>
+              {/* Budget progress */}
+              <div style={{ background: 'white', borderRadius: 14, padding: 20, marginBottom: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}>Budget Utilisation</h3>
+                {[
+                  { label: 'Spent', value: totalExpenses, total: budget.total || 1, color: '#e74c3c' },
+                  { label: 'Remaining', value: Math.max(0, (budget.total || 0) - totalExpenses), total: budget.total || 1, color: '#27ae60' },
+                ].map(b => (
+                  <div key={b.label} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                      <span>{b.label}</span><span style={{ fontWeight: 700, color: b.color }}>{fmtAmt(b.value)}</span>
+                    </div>
+                    <div style={{ height: 10, background: '#f0f0f0', borderRadius: 5, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(100, (b.value / b.total) * 100)}%`, background: b.color, borderRadius: 5 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Income list */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))', gap: 18 }}>
+                <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <h3 style={{ margin: 0, fontSize: 14, color: '#27ae60', fontWeight: 600 }}><i className="fas fa-arrow-down" style={{ marginRight: 7 }} />Income</h3>
+                    <Btn small onClick={() => setIncomeModal(true)} icon="fas fa-plus" color="#27ae60">Add</Btn>
+                  </div>
+                  <Table cols={['Date', 'Source', 'Amount']} emptyMsg="No income recorded"
+                    rows={income.slice(0, 10).map(i => (
+                      <><TD style={{ fontSize: 12, color: '#aaa' }}>{fmt(i.date)}</TD>
+                        <TD><div style={{ fontWeight: 600, fontSize: 13 }}>{i.source}</div><div style={{ fontSize: 11, color: '#aaa' }}>{i.description}</div></TD>
+                        <TD><span style={{ fontWeight: 700, color: '#27ae60' }}>+{fmtAmt(i.amount)}</span></TD></>
+                    ))}
+                  />
+                </div>
+                <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <h3 style={{ margin: 0, fontSize: 14, color: '#e74c3c', fontWeight: 600 }}><i className="fas fa-arrow-up" style={{ marginRight: 7 }} />Expenses</h3>
+                    <Btn small onClick={() => setExpenseModal(true)} icon="fas fa-plus" color="#e74c3c">Add</Btn>
+                  </div>
+                  <Table cols={['Date', 'Category', 'Amount']} emptyMsg="No expenses recorded"
+                    rows={expenses.slice(0, 10).map(e => (
+                      <><TD style={{ fontSize: 12, color: '#aaa' }}>{fmt(e.date)}</TD>
+                        <TD><div style={{ fontWeight: 600, fontSize: 13 }}>{e.category}</div><div style={{ fontSize: 11, color: '#aaa' }}>{e.description}</div></TD>
+                        <TD><span style={{ fontWeight: 700, color: '#e74c3c' }}>-{fmtAmt(e.amount)}</span></TD></>
+                    ))}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="data-card"><div className="card-header"><h2><i className="fas fa-list"></i> Income & Expenses</h2><div><select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))}>{Array.from({ length: 12 }, (_, i) => <option key={i+1} value={i+1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>)}</select><select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}><option value={2024}>2024</option><option value={2025}>2025</option><option value={2026}>2026</option></select></div></div>
-              <div className="table-responsive"><table className="data-table"><thead><tr><th>Date</th><th>Type</th><th>Category/Source</th><th>Description</th><th>Amount</th></tr></thead><tbody>
-                {[...income.filter(i => new Date(i.date).getMonth() + 1 === selectedMonth && new Date(i.date).getFullYear() === selectedYear).map(i => ({ ...i, type: 'income' })),
-                  ...expenses.filter(e => new Date(e.date).getMonth() + 1 === selectedMonth && new Date(e.date).getFullYear() === selectedYear).map(e => ({ ...e, type: 'expense' }))]
-                  .sort((a, b) => new Date(b.date) - new Date(a.date)).map(t => (<tr key={t._id}><td>{new Date(t.date).toLocaleDateString()}</td><td><span className={`type-badge ${t.type}`}>{t.type}</span></td><td>{t.source || t.category}</td><td>{t.description || '-'}</td><td className={t.type === 'income' ? 'text-success' : 'text-danger'}>{t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()} RWF</td></tr>))}
-              </tbody></table></div>
+          )}
+
+          {/* ══ FEES ══ */}
+          {activeTab === 'fees' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Fee Management</h2></div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Btn onClick={() => setFeeModal(true)} icon="fas fa-plus" color="#3498db">Create Fee Structure</Btn>
+                  <Btn onClick={() => setPaymentModal(true)} icon="fas fa-credit-card" color="#27ae60">Record Payment</Btn>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 14, marginBottom: 20 }}>
+                {feeStructures.map(fee => (
+                  <div key={fee._id} style={{ background: 'white', borderRadius: 12, padding: '16px 18px', borderLeft: '4px solid #f39c12', boxShadow: '0 2px 8px rgba(0,0,0,.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c' }}>{fee.feeType}</h3>
+                      <button onClick={() => deleteFee(fee._id)} style={{ background: '#fdecea', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#e74c3c', fontSize: 11 }}><i className="fas fa-trash" /></button>
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#27ae60', marginBottom: 8, fontFamily: 'Georgia, serif' }}>{fmtAmt(fee.amount)}</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{fee.classId ? `Class: ${fee.classId.grade || ''} ${fee.classId.className || ''}` : 'All classes'}</div>
+                    {fee.dueDate && <div style={{ fontSize: 11, color: '#e74c3c', marginTop: 4 }}>Due: {fmt(fee.dueDate)}</div>}
+                    {fee.description && <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{fee.description}</div>}
+                  </div>
+                ))}
+                {feeStructures.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#bbb', background: 'white', borderRadius: 12, fontSize: 13, gridColumn: '1/-1' }}>No fee structures created yet</div>}
+              </div>
+
+              <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}><i className="fas fa-credit-card" style={{ marginRight: 7, color: '#27ae60' }} />Recent Payments</h3>
+                  <Btn small onClick={() => setPaymentModal(true)} icon="fas fa-plus" color="#27ae60">Record Payment</Btn>
+                </div>
+                <Table cols={['Date', 'Student', 'Fee Type', 'Amount', 'Receipt']} emptyMsg="No payments recorded yet"
+                  rows={feePayments.slice(0, 15).map(p => (
+                    <><TD style={{ fontSize: 12, color: '#aaa' }}>{fmt(p.paymentDate)}</TD>
+                      <TD><div style={{ fontWeight: 600, fontSize: 13 }}>{p.studentName || p.studentId?.fullName || '—'}</div></TD>
+                      <TD style={{ fontSize: 12 }}>{p.feeType}</TD>
+                      <TD><span style={{ fontWeight: 700, color: '#27ae60' }}>{fmtAmt(p.amount)}</span></TD>
+                      <TD style={{ fontSize: 12, color: '#3498db' }}>{p.receiptNo || '—'}</TD></>
+                  ))}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Fee Management Tab */}
-        {activeTab === 'fees' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-money-bill-wave"></i> Fee Structures</h2><button onClick={handleCreateFeeStructure} className="btn-primary-sm"><i className="fas fa-plus"></i> Create Fee</button></div>
-            <div className="fee-grid">{feeStructures.map(fee => (<div key={fee._id} className="fee-card"><div className="fee-header"><h3>{fee.feeType}</h3><span className="class-badge">{fee.className || 'All Classes'}</span></div><div className="fee-amount">{fee.amount.toLocaleString()} RWF</div><p>{fee.description}</p><div className="fee-footer"><span>Due: {new Date(fee.dueDate).toLocaleDateString()}</span><button onClick={() => handleNotifyFees(fee)} className="notify-btn"><i className="fas fa-bell"></i> Notify</button></div></div>))}</div>
-            <div className="card-header" style={{ marginTop: '30px' }}><h2><i className="fas fa-credit-card"></i> Recent Payments</h2><button onClick={handleRecordPayment} className="btn-primary-sm"><i className="fas fa-plus"></i> Record Payment</button></div>
-            <div className="table-responsive"><table className="data-table"><thead><tr><th>Date</th><th>Student</th><th>Fee Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>{feePayments.slice(0, 10).map(p => (<tr key={p._id}><td>{new Date(p.paymentDate).toLocaleDateString()}</td><td>{p.studentName}</td><td>{p.feeType}</td><td>{p.amount.toLocaleString()} RWF</td><td><span className="status-badge approved">Paid</span></td></tr>))}</tbody></table></div>
-          </div>
-        )}
+          {/* ══ SALARIES ══ */}
+          {activeTab === 'salaries' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Teacher Salaries</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{pendingSalaries} pending approval</p></div>
+                <Btn onClick={() => setSalaryModal(true)} icon="fas fa-plus" color="#1a3a5c">Add Salary Record</Btn>
+              </div>
+              {/* summary chips */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+                {[
+                  ['Total Records', salaries.length, '#1a3a5c', '#e8f0fb'],
+                  ['Pending', pendingSalaries, '#f39c12', '#fff3e0'],
+                  ['Approved', salaries.filter(s => s.status === 'approved').length, '#27ae60', '#e8f5e9'],
+                  ['Total Approved', fmtAmt(salaries.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.amount || 0), 0)), '#9b59b6', '#f3e5f5'],
+                ].map(([l, v, c, bg]) => (
+                  <div key={l} style={{ background: bg, borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: c, fontFamily: 'Georgia, serif' }}>{v}</div>
+                    <div style={{ fontSize: 11, color: c, opacity: .8, fontWeight: 600 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <Table cols={['Teacher', 'Subject', 'Month / Year', 'Amount', 'Status', 'Actions']} emptyMsg="No salary records yet"
+                  rows={salaries.map(s => (
+                    <><TD><div style={{ fontWeight: 600, fontSize: 13 }}>{s.teacherName}</div></TD>
+                      <TD style={{ fontSize: 12 }}>{s.subject || '—'}</TD>
+                      <TD style={{ fontSize: 12 }}>{s.month} {s.year}</TD>
+                      <TD><span style={{ fontWeight: 700 }}>{fmtAmt(s.amount)}</span></TD>
+                      <TD><Badge text={s.status} color={s.status === 'approved' ? '#27ae60' : '#f39c12'} bg={s.status === 'approved' ? '#e8f5e9' : '#fff3e0'} /></TD>
+                      <TD>{s.status === 'pending' && <Btn small onClick={() => approveSalary(s)} color="#27ae60" icon="fas fa-check">Approve</Btn>}</TD></>
+                  ))}
+                />
+              </div>
+            </div>
+          )}
 
-        {/* Salaries Tab */}
-        {activeTab === 'salaries' && (
-          <div className="data-card">
-            <div className="card-header"><h2><i className="fas fa-wallet"></i> Teacher Salaries</h2><div className="stats-badge">Pending: {pendingSalaries}</div></div>
-            <div className="table-responsive"><table className="data-table"><thead><tr><th>Teacher</th><th>Subject</th><th>Month</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-              {teacherSalaries.map(s => (<tr key={s._id}><td><strong>{s.teacherName}</strong></td><td>{s.subject}</td><td>{s.month}</td><td>{s.amount.toLocaleString()} RWF</td><td><span className={`status-badge ${s.status}`}>{s.status}</span></td>
-              <td><div className="action-buttons">{s.status === 'pending' ? (<><button onClick={() => handleSalaryAction(s, 'approved')} className="approve-btn">Approve</button><button onClick={() => handleSalaryAction(s, 'rejected')} className="reject-btn">Reject</button></>) : s.status === 'approved' ? <button onClick={() => handleSalaryAction(s, 'pending')} className="pending-btn">Mark Pending</button> : <button onClick={() => handleSalaryAction(s, 'pending')} className="retry-btn">Retry</button>}</div></td></tr>))}
-            </tbody></table></div>
-          </div>
-        )}
+          {/* ══ RECORDS ══ */}
+          {activeTab === 'records' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Financial Records</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{filteredRecords.length} transactions</p></div>
+                <input value={recordSearch} onChange={e => setRecordSearch(e.target.value)} placeholder="Search records…" style={{ padding: '8px 12px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 13, outline: 'none', width: 220 }} />
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <Table cols={['Date', 'Type', 'Source / Category', 'Description', 'Reference', 'Amount']} emptyMsg="No records found"
+                  rows={filteredRecords.map(t => (
+                    <><TD style={{ fontSize: 12, color: '#aaa' }}>{fmt(t.date)}</TD>
+                      <TD><Badge text={t._type} color={t._type === 'income' ? '#27ae60' : '#e74c3c'} bg={t._type === 'income' ? '#e8f5e9' : '#fdecea'} /></TD>
+                      <TD><span style={{ fontWeight: 600, fontSize: 13 }}>{t.source || t.category}</span></TD>
+                      <TD style={{ fontSize: 12, color: '#666' }}>{t.description || '—'}</TD>
+                      <TD style={{ fontSize: 12, color: '#3498db' }}>{t.reference || '—'}</TD>
+                      <TD><span style={{ fontWeight: 700, color: t._type === 'income' ? '#27ae60' : '#e74c3c' }}>{t._type === 'income' ? '+' : '-'}{fmtAmt(t.amount)}</span></TD></>
+                  ))}
+                />
+              </div>
+            </div>
+          )}
 
-        {/* Debtors Tab */}
-{activeTab === 'debtors' && (
-  <div className="data-card">
-    <div className="card-header">
-      <h2><i className="fas fa-exclamation-triangle"></i> Students with Fee Issues</h2>
-      <div className="stats-badge urgent">Total Debt: {totalDebt.toLocaleString()} RWF</div>
-    </div>
-    <div className="table-responsive">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>Class</th>
-            <th>Parent Contact</th>
-            <th>Amount Due</th>
-            <th>Days Overdue</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {debtors.map(d => (
-            <tr key={d._id}>
-              <td><strong>{d.studentName}</strong></td>
-              <td>{d.className}</td>
-              <td>{d.parentPhone}</td>
-              <td className="text-danger">{d.amountDue.toLocaleString()} RWF</td>
-              <td><span className="overdue-badge">{d.daysOverdue} days</span></td>
-              <td>
-                <div className="action-buttons">
-                  <button onClick={() => handleDebtorAction(d, 'suspend')} className="suspend-btn">
-                    <i className="fas fa-ban"></i> Suspend
-                  </button>
-                  <button onClick={() => handleDebtorAction(d, 'waive')} className="waive-btn">
-                    <i className="fas fa-gift"></i> Waive
-                  </button>
-                  <button onClick={() => handleOpenChat({ name: d.parentName, role: 'parent', id: d.parentId })} className="chat-btn-small">
-                    <i className="fas fa-comment"></i> Contact
-                  </button>
-                </div>{/* ✅ was missing */}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-
-{/* Financial Records Tab */}
-{activeTab === 'records' && (
-  <div className="data-card">
-    <div className="card-header">
-      <h2><i className="fas fa-book"></i> Financial Records</h2>
-      <div>
-        <input
-          type="text"
-          placeholder="Search records..."
-          className="search-input"
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-    </div>
-    <div className="table-responsive">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Category/Source</th>
-            <th>Description</th>
-            <th>Amount</th>
-            <th>Reference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...income, ...expenses]
-            .filter(t =>
-              t.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              t.source?.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .map(t => (
-              <tr key={t._id}>
-                <td>{new Date(t.date).toLocaleDateString()}</td>{/* ✅ removed stray } */}
-                <td className={t.source ? 'text-success' : 'text-danger'}>
-                  {t.source ? 'Income' : 'Expense'}
-                </td>
-                <td>{t.source || t.category}</td>
-                <td>{t.description || '-'}</td>
-                <td className={t.source ? 'text-success' : 'text-danger'}>
-                  {t.source ? '+' : '-'}{t.amount.toLocaleString()} RWF
-                </td>
-                <td>{t.reference || '-'}</td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-
-        {/* Profile Tab */}
-        {activeTab === 'profile' && (
-          <div className="profile-card"><div className="profile-header"><div className="profile-avatar"><i className="fas fa-coins"></i></div><h2>{userName}</h2><p className="profile-role">Accounts Administrator</p></div>
-            <div className="profile-details"><div className="detail-item"><i className="fas fa-envelope"></i><div><label>Email</label><p>{localStorage.getItem('userEmail') || 'accounts@essa.rw'}</p></div></div>
-            <div className="detail-item"><i className="fas fa-shield-alt"></i><div><label>Role</label><p>Accounts Administrator</p></div></div>
-            <div className="detail-item"><i className="fas fa-coins"></i><div><label>Permissions</label><p>Manage budget, fees, salaries, financial records</p></div></div></div>
-            <button className="change-password-btn" onClick={() => Swal.fire({ title: 'Change Password', html: `<input type="password" id="current" class="swal2-input" placeholder="Current"><input type="password" id="new" class="swal2-input" placeholder="New"><input type="password" id="confirm" class="swal2-input" placeholder="Confirm">`, confirmButtonText: 'Update', preConfirm: () => { const newPass = document.getElementById('new').value; const confirm = document.getElementById('confirm').value; if (newPass !== confirm) { Swal.showValidationMessage('Passwords do not match'); return false; } return { newPassword: newPass }; } }).then(result => { if (result.isConfirmed) Swal.fire('Success', 'Password updated', 'success'); })}>Change Password</button>
-          </div>
-        )}
+          {/* ══ PROFILE ══ */}
+          {activeTab === 'profile' && (
+            <div style={{ maxWidth: 580, margin: '0 auto' }}>
+              <div style={{ background: 'linear-gradient(135deg,#0d1f33,#1a3a5c)', borderRadius: 18, padding: 28, textAlign: 'center', marginBottom: 16, color: 'white' }}>
+                <Avatar name={userName} size={68} bg='rgba(255,193,7,.2)' color='#ffc107' />
+                <h2 style={{ margin: '12px 0 3px', fontFamily: 'Georgia, serif', fontSize: 20 }}>{userName}</h2>
+                <div style={{ fontSize: 11, opacity: .7, letterSpacing: 1 }}>ACCOUNTS ADMINISTRATOR</div>
+                <div style={{ fontSize: 12, opacity: .6, marginTop: 4 }}>{localStorage.getItem('userEmail') || 'accounts@essa.rw'}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, padding: 22, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}><i className="fas fa-lock" style={{ color: '#ffc107', marginRight: 8 }} />Change Password</h3>
+                {[['currentPw', 'Current Password'], ['newPw', 'New Password'], ['confirmPw', 'Confirm Password']].map(([id, label]) => (
+                  <Field key={id} label={label} required><Inp type="password" id={id} placeholder={`Enter ${label.toLowerCase()}`} /></Field>
+                ))}
+                <Btn icon="fas fa-key" color="#1a3a5c" onClick={async () => {
+                  const cur = document.getElementById('currentPw')?.value;
+                  const nw = document.getElementById('newPw')?.value;
+                  const cf = document.getElementById('confirmPw')?.value;
+                  if (!cur || !nw || !cf) { Swal.fire('Error', 'All fields required', 'warning'); return; }
+                  if (nw !== cf) { Swal.fire('Error', 'Passwords do not match', 'error'); return; }
+                  try {
+                    await api('/user/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
+                    Swal.fire('✅ Password Updated!', '', 'success');
+                  } catch (e) { Swal.fire('Error', e.message || 'Current password incorrect', 'error'); }
+                }}>Update Password</Btn>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
-      <ChatModal isOpen={isChatModalOpen} onClose={handleCloseChat} recipient={selectedChatUser} onMessageSent={fetchUnreadCount} />
+      {/* ─── MODALS ─── */}
+      <Modal open={budgetModal} onClose={() => setBudgetModal(false)} title="Set Total Budget">
+        <Field label="Total Budget (RWF)" required><Inp type="number" value={newBudget} placeholder={`Current: ${budget.total?.toLocaleString()} RWF`} onChange={e => setNewBudget(e.target.value)} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn onClick={() => setBudgetModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={updateBudget} icon="fas fa-save" color="#1a3a5c">Save Budget</Btn>
+        </div>
+      </Modal>
 
-      <style>{`
-        .accounts-admin-dashboard { font-family: 'Inter', sans-serif; background: #f0f2f5; min-height: 100vh; }
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a3a5c, #0d2b42); color: white; }
-        .loading-spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #ffc107; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .mobile-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 998; }
-        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #1a3a5c 0%, #0d2b42 100%); color: white; transition: width 0.3s ease; overflow: hidden; display: flex; flex-direction: column; z-index: 999; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
-        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
-        .logo-area { display: flex; align-items: center; gap: 10px; }
-        .logo-icon { width: 45px; height: 45px; background: #ffc107; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-        .logo-icon i { font-size: 1.5rem; color: #1a3a5c; }
-        .logo-text h3 { margin: 0; font-size: 1rem; }
-        .logo-text p { margin: 0; font-size: 0.7rem; opacity: 0.8; }
-        .collapse-btn { position: absolute; bottom: -12px; right: -12px; width: 24px; height: 24px; background: #ffc107; border: none; border-radius: 50%; cursor: pointer; color: #1a3a5c; }
-        .user-profile { padding: 1.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .user-avatar { width: 60px; height: 60px; background: rgba(255,255,255,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.5rem; }
-        .user-avatar i { font-size: 1.8rem; color: #ffc107; }
-        .user-info h4 { margin: 0; font-size: 0.9rem; }
-        .user-role { font-size: 0.7rem; opacity: 0.8; }
-        .sidebar-nav { flex: 1; padding: 1rem 0; }
-        .nav-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 20px; background: transparent; border: none; color: rgba(255,255,255,0.8); cursor: pointer; font-size: 0.9rem; transition: all 0.3s; position: relative; }
-        .nav-item i { width: 20px; }
-        .nav-item:hover { background: rgba(255,255,255,0.1); color: #ffc107; }
-        .nav-item.active { background: rgba(255,255,255,0.15); color: #ffc107; border-right: 3px solid #ffc107; }
-        .nav-badge { position: absolute; right: 20px; background: #27ae60; color: white; border-radius: 10px; padding: 2px 6px; font-size: 0.7rem; }
-        .nav-badge.urgent { background: #e74c3c; }
-        .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 8px; }
-        .chat-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; background: #3498db; border: none; border-radius: 8px; color: white; cursor: pointer; position: relative; }
-        .chat-badge { position: absolute; right: 10px; background: #e74c3c; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; }
-        .logout-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; background: #e74c3c; border: none; border-radius: 8px; color: white; cursor: pointer; }
-        .main-content { transition: margin-left 0.3s ease; padding: 20px; min-height: 100vh; }
-        .top-bar { background: white; padding: 12px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .top-bar-left { display: flex; align-items: center; gap: 15px; }
-        .mobile-menu-btn { display: none; background: #1a3a5c; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-        .top-bar-right { display: flex; align-items: center; gap: 20px; }
-        .notification-bell { position: relative; cursor: pointer; font-size: 1.2rem; color: #666; }
-        .notification-badge { position: absolute; top: -8px; right: -8px; background: #e74c3c; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 50%; }
-        .user-menu { display: flex; align-items: center; gap: 10px; }
-        .user-avatar-small { width: 35px; height: 35px; background: #1a3a5c; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; }
-        .user-details { display: flex; flex-direction: column; }
-        .user-name { font-weight: 600; font-size: 0.85rem; }
-        .user-role-badge { font-size: 0.7rem; color: #ffc107; }
-        .welcome-banner { background: linear-gradient(135deg, #1a3a5c, #2c5f8a); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
-        .welcome-text h1 { font-size: 1.5rem; margin-bottom: 5px; }
-        .welcome-date { background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .stat-card { background: white; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 15px; transition: transform 0.3s; }
-        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .stat-icon { width: 55px; height: 55px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-        .stat-icon i { font-size: 1.5rem; }
-        .stat-info h3 { font-size: 1.3rem; margin: 0; color: #1a3a5c; }
-        .stat-info p { margin: 5px 0 0; color: #666; }
-        .quick-actions { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; }
-        .action-btn { padding: 12px 24px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s; }
-        .action-btn.success { background: #27ae60; color: white; }
-        .action-btn.danger { background: #e74c3c; color: white; }
-        .action-btn.primary { background: #3498db; color: white; }
-        .action-btn.info { background: #1abc9c; color: white; }
-        .action-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
-        .stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .stats-card { background: white; border-radius: 16px; padding: 20px; }
-        .stats-card h3 { margin-bottom: 15px; color: #1a3a5c; }
-        .budget-overview .budget-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 5px; }
-        .progress-bar { flex: 1; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; margin-left: 10px; }
-        .progress-fill { height: 100%; border-radius: 3px; }
-        .text-success { color: #27ae60; }
-        .text-danger { color: #e74c3c; }
-        .monthly-summary .month-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .recent-transactions { background: white; border-radius: 16px; padding: 20px; }
-        .recent-transactions h3 { margin-bottom: 15px; color: #1a3a5c; }
-        .transaction-item { display: flex; align-items: center; gap: 15px; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .transaction-item .amount { margin-left: auto; font-weight: bold; }
-        .transaction-item .amount.positive { color: #27ae60; }
-        .transaction-item .amount.negative { color: #e74c3c; }
-        .data-card { background: white; border-radius: 16px; padding: 20px; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .btn-primary-sm { background: #27ae60; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        .budget-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 25px; }
-        .budget-card { background: white; border-radius: 16px; padding: 20px; text-align: center; }
-        .budget-card h4 { margin-bottom: 10px; color: #666; }
-        .budget-card .amount { font-size: 1.5rem; font-weight: bold; color: #1a3a5c; margin-bottom: 15px; }
-        .budget-card .amount.success { color: #27ae60; }
-        .budget-card .amount.danger { color: #e74c3c; }
-        .edit-btn, .add-btn { background: #f0f2f5; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-        .fee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .fee-card { background: #f8f9fa; border-radius: 12px; padding: 15px; border-left: 4px solid #f39c12; }
-        .fee-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .fee-header h3 { margin: 0; color: #1a3a5c; }
-        .class-badge { background: #e3f2fd; color: #3498db; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
-        .fee-amount { font-size: 1.3rem; font-weight: bold; color: #27ae60; margin: 10px 0; }
-        .fee-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.75rem; color: #666; }
-        .notify-btn { background: #f39c12; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
-        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
-        .status-badge.pending { background: #fff3e0; color: #f39c12; }
-        .status-badge.approved { background: #e8f5e9; color: #27ae60; }
-        .status-badge.rejected { background: #fdecea; color: #e74c3c; }
-        .status-badge.paid { background: #e8f5e9; color: #27ae60; }
-        .type-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; }
-        .type-badge.income { background: #e8f5e9; color: #27ae60; }
-        .type-badge.expense { background: #fdecea; color: #e74c3c; }
-        .overdue-badge { background: #fdecea; color: #e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
-        .approve-btn { background: #27ae60; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; }
-        .reject-btn { background: #e74c3c; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; }
-        .pending-btn { background: #f39c12; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; }
-        .retry-btn { background: #3498db; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; }
-        .suspend-btn { background: #e74c3c; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; }
-        .waive-btn { background: #f39c12; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; }
-        .chat-btn-small { background: #3498db; color: white; border: none; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 0.7rem; }
-        .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-        .search-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; width: 250px; }
-        .profile-card { background: white; border-radius: 20px; overflow: hidden; max-width: 600px; margin: 0 auto; }
-        .profile-header { background: linear-gradient(135deg, #1a3a5c, #2c5f8a); color: white; padding: 40px; text-align: center; }
-        .profile-avatar { width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; }
-        .profile-avatar i { font-size: 3rem; color: #ffc107; }
-        .profile-details { padding: 30px; }
-        .detail-item { display: flex; gap: 15px; padding: 15px 0; border-bottom: 1px solid #eee; }
-        .detail-item i { font-size: 1.2rem; color: #1a3a5c; width: 30px; }
-        .change-password-btn { width: calc(100% - 60px); margin: 0 30px 30px; padding: 12px; background: #1a3a5c; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        .table-responsive { overflow-x: auto; }
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { text-align: left; padding: 12px; background: #f8f9fa; color: #1a3a5c; font-weight: 600; }
-        .data-table td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
-        .no-data { text-align: center; padding: 40px; color: #999; }
-        .stats-badge { background: #e8f5e9; color: #27ae60; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
-        .stats-badge.urgent { background: #fdecea; color: #e74c3c; }
-        @media (max-width: 768px) { .mobile-menu-btn { display: block; } .welcome-text h1 { font-size: 1.2rem; } .stats-grid { grid-template-columns: 1fr; } .quick-actions { flex-direction: column; } .budget-summary { grid-template-columns: 1fr; } .fee-grid { grid-template-columns: 1fr; } }
-      `}</style>
+      <Modal open={incomeModal} onClose={() => setIncomeModal(false)} title="Record Income">
+        <Field label="Source" required><Inp value={incomeForm.source} placeholder="e.g. School Fees, Donation" onChange={e => setIncomeForm(p => ({ ...p, source: e.target.value }))} /></Field>
+        <Field label="Amount (RWF)" required><Inp type="number" value={incomeForm.amount} placeholder="0" onChange={e => setIncomeForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+        <Field label="Date"><Inp type="date" value={incomeForm.date} onChange={e => setIncomeForm(p => ({ ...p, date: e.target.value }))} /></Field>
+        <Field label="Description"><Txt value={incomeForm.description} rows={2} placeholder="Optional notes" onChange={e => setIncomeForm(p => ({ ...p, description: e.target.value }))} /></Field>
+        <Field label="Reference"><Inp value={incomeForm.reference} placeholder="Receipt / ref number" onChange={e => setIncomeForm(p => ({ ...p, reference: e.target.value }))} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn onClick={() => setIncomeModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={addIncome} icon="fas fa-plus" color="#27ae60" disabled={saving}>{saving ? 'Saving…' : 'Add Income'}</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={expenseModal} onClose={() => setExpenseModal(false)} title="Record Expense">
+        <Field label="Category" required><Inp value={expenseForm.category} placeholder="e.g. Salaries, Utilities" onChange={e => setExpenseForm(p => ({ ...p, category: e.target.value }))} /></Field>
+        <Field label="Amount (RWF)" required><Inp type="number" value={expenseForm.amount} placeholder="0" onChange={e => setExpenseForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+        <Field label="Date"><Inp type="date" value={expenseForm.date} onChange={e => setExpenseForm(p => ({ ...p, date: e.target.value }))} /></Field>
+        <Field label="Description"><Txt value={expenseForm.description} rows={2} placeholder="Optional notes" onChange={e => setExpenseForm(p => ({ ...p, description: e.target.value }))} /></Field>
+        <Field label="Reference"><Inp value={expenseForm.reference} placeholder="Receipt / ref number" onChange={e => setExpenseForm(p => ({ ...p, reference: e.target.value }))} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn onClick={() => setExpenseModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={addExpense} icon="fas fa-minus" color="#e74c3c" disabled={saving}>{saving ? 'Saving…' : 'Add Expense'}</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={feeModal} onClose={() => setFeeModal(false)} title="Create Fee Structure">
+        <Field label="Fee Type" required><Inp value={feeForm.feeType} placeholder="e.g. Tuition, Lab Fee" onChange={e => setFeeForm(p => ({ ...p, feeType: e.target.value }))} /></Field>
+        <Field label="Amount (RWF)" required><Inp type="number" value={feeForm.amount} placeholder="0" onChange={e => setFeeForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+        <Field label="Class">
+          <Sel value={feeForm.classId} onChange={e => setFeeForm(p => ({ ...p, classId: e.target.value }))}>
+            <option value="">All Classes</option>
+            {classes.map(c => <option key={c._id} value={c._id}>{c.grade} {c.className}</option>)}
+          </Sel>
+        </Field>
+        <Field label="Due Date"><Inp type="date" value={feeForm.dueDate} onChange={e => setFeeForm(p => ({ ...p, dueDate: e.target.value }))} /></Field>
+        <Field label="Description"><Txt value={feeForm.description} rows={2} placeholder="Optional" onChange={e => setFeeForm(p => ({ ...p, description: e.target.value }))} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn onClick={() => setFeeModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={createFee} icon="fas fa-tag" color="#3498db" disabled={saving}>{saving ? 'Saving…' : 'Create Fee'}</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={paymentModal} onClose={() => setPaymentModal(false)} title="Record Fee Payment">
+        <Field label="Student" required>
+          <Sel value={paymentForm.studentId} onChange={e => setPaymentForm(p => ({ ...p, studentId: e.target.value }))}>
+            <option value="">Select student…</option>
+            {students.map(s => <option key={s._id} value={s._id}>{s.fullName} ({s.studentId || ''})</option>)}
+          </Sel>
+        </Field>
+        <Field label="Fee Type">
+          <Sel value={paymentForm.feeType} onChange={e => setPaymentForm(p => ({ ...p, feeType: e.target.value }))}>
+            <option value="">Select fee type…</option>
+            {feeStructures.map(f => <option key={f._id} value={f.feeType}>{f.feeType} — {fmtAmt(f.amount)}</option>)}
+          </Sel>
+        </Field>
+        <Field label="Amount (RWF)" required><Inp type="number" value={paymentForm.amount} placeholder="0" onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+        <Field label="Payment Date"><Inp type="date" value={paymentForm.paymentDate} onChange={e => setPaymentForm(p => ({ ...p, paymentDate: e.target.value }))} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn onClick={() => setPaymentModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={recordPayment} icon="fas fa-credit-card" color="#27ae60" disabled={saving}>{saving ? 'Saving…' : 'Record Payment'}</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={salaryModal} onClose={() => setSalaryModal(false)} title="Add Salary Record">
+        <Field label="Teacher Name" required><Inp value={salaryForm.teacherName} placeholder="Full name" onChange={e => setSalaryForm(p => ({ ...p, teacherName: e.target.value }))} /></Field>
+        <Field label="Subject"><Inp value={salaryForm.subject} placeholder="e.g. Mathematics" onChange={e => setSalaryForm(p => ({ ...p, subject: e.target.value }))} /></Field>
+        <Field label="Amount (RWF)" required><Inp type="number" value={salaryForm.amount} placeholder="0" onChange={e => setSalaryForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Month"><Inp value={salaryForm.month} placeholder="e.g. January" onChange={e => setSalaryForm(p => ({ ...p, month: e.target.value }))} /></Field>
+          <Field label="Year"><Inp type="number" value={salaryForm.year} onChange={e => setSalaryForm(p => ({ ...p, year: parseInt(e.target.value) }))} /></Field>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Btn onClick={() => setSalaryModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={addSalary} icon="fas fa-wallet" color="#9b59b6" disabled={saving}>{saving ? 'Saving…' : 'Add Salary'}</Btn>
+        </div>
+      </Modal>
     </div>
   );
 };
