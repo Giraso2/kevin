@@ -805,7 +805,7 @@ const SuperAdminDashboard = () => {
         const pBg = { urgent:'#fdecea', high:'#fff3e0' }[priority] ?? '#e8f5e9';
         
         return (
-          <div key={ann._id} style={{
+          <div key={ann?._id || Math.random()} style={{
             background:'white', borderRadius:14, padding:'18px 20px',
             borderLeft:`4px solid ${pColor}`, boxShadow:'0 2px 10px rgba(0,0,0,.05)',
           }}>
