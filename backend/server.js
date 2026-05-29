@@ -34,7 +34,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==================== FILE UPLOAD CONFIGURATION ====================
-const uploadDirs = ['./uploads', './uploads/news', './uploads/gallery', './uploads/profile'];
+const uploadDirs = ['./uploads', './uploads/news', './uploads/gallery', './uploads/profile', './uploads/assignments', './uploads/lessons'];
 uploadDirs.forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
