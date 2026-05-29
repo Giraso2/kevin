@@ -3,8 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css';
 import MessagingSystem from './components/MessagingSystem';
 
-
-
 // Pages
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
@@ -17,7 +15,6 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import NotFoundPage from './pages/NotFoundPage';
 
-
 // Portals
 import PortalLogin from './portals/PortalLogin';
 import SuperAdminDashboard from './portals/SuperAdminDashboard';
@@ -25,7 +22,7 @@ import AcademicAdminDashboard from './portals/AcademicAdminDashboard';
 import TeacherDashboard from './portals/TeacherDashboard';
 import StudentDashboard from './portals/StudentDashboard';
 import ParentDashboard from './portals/ParentDashboard';
-import AccountsAdminDashboard from './Portals/AccountsAdminDashboard';
+import AccountsAdminDashboard from './portals/AccountsAdminDashboard'; // ← Fixed: lowercase 'p' in 'portals'
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -59,8 +56,10 @@ function App() {
             <AcademicAdminDashboard />
           </ProtectedRoute>
         } />
-          <Route path="/portal/accounts-admin" element={
-          <ProtectedRoute allowedRoles={['academic_admin']}>
+        
+        {/* ← FIXED: Changed role from 'academic_admin' to 'accounts_admin' */}
+        <Route path="/portal/accounts-admin" element={
+          <ProtectedRoute allowedRoles={['accounts_admin']}>
             <AccountsAdminDashboard />
           </ProtectedRoute>
         } />
