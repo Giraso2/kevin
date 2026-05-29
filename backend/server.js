@@ -867,8 +867,22 @@ app.post('/api/super-admin/announcements', authMiddleware, requireRole('super_ad
 });
 
 app.get('/api/super-admin/announcements', authMiddleware, requireRole('super_admin'), async (req, res) => {
-  const announcements = await Announcement.find().sort({ createdAt: -1 });
-  res.json(announcements);
+  try {
+    const announcements = await Announcement.find().sort({ createdAt: -1 });
+    // Ensure each announcement has audience as array or convert it
+    const formattedAnnouncements = announcements.map(ann => {
+      const annObj = ann.toObject();
+      // Convert audience to array if it's a string
+      if (typeof annObj.audience === 'string') {
+        annObj.audience = [annObj.audience];
+      }
+      return annObj;
+    });
+    res.json(formattedAnnouncements);
+  } catch (error) {
+    console.error('Get announcements error:', error);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 app.put('/api/super-admin/announcements/:id', authMiddleware, requireRole('super_admin'), async (req, res) => {
