@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
@@ -9,6 +9,7 @@ const getToken = () => localStorage.getItem('portalToken');
 const authHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-RW', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtTime = (d) => d ? new Date(d).toLocaleTimeString('en-RW', { hour: '2-digit', minute: '2-digit' }) : '';
 const fmtAmt = (n) => typeof n === 'number' ? n.toLocaleString() + ' RWF' : '— RWF';
 
 const Badge = ({ text, color, bg, size = 11 }) => (
@@ -17,9 +18,11 @@ const Badge = ({ text, color, bg, size = 11 }) => (
   </span>
 );
 
-const Avatar = ({ name = '?', size = 36, bg = '#1a3a5c', color = '#ffc107' }) => {
+const Avatar = ({ name = '?', size = 36, bg = '#1a3a5c', color = '#ffc107', img }) => {
   const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  return <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{initials}</div>;
+  return img
+    ? <img src={img} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />
+    : <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{initials}</div>;
 };
 
 const Modal = ({ open, onClose, title, children, width = 520 }) => {
@@ -68,7 +71,7 @@ const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
       <thead><tr style={{ background: '#f7f9fb' }}>
         {cols.map((c, i) => <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#888', letterSpacing: .8, borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>{c.toUpperCase()}</th>)}
-      </tr></thead>
+       </tr></thead>
       <tbody>
         {rows.length === 0
           ? <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 36, color: '#bbb', fontSize: 13 }}>{emptyMsg}</td></tr>
@@ -79,9 +82,25 @@ const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
 );
 const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</td>;
 
+// Role badge helper
+const roleBadge = (role) => {
+  const map = {
+    super_admin:      { label: 'Super Admin', color: '#ffc107', bg: '#fff8e1' },
+    academic_admin:   { label: 'Academic Admin', color: '#27ae60', bg: '#e8f5e9' },
+    discipline_admin: { label: 'Discipline Admin', color: '#e74c3c', bg: '#fdecea' },
+    accounts_admin:   { label: 'Accounts Admin', color: '#3498db', bg: '#e3f2fd' },
+    teacher:          { label: 'Teacher', color: '#9b59b6', bg: '#f3e5f5' },
+    student:          { label: 'Student', color: '#1abc9c', bg: '#e0f7fa' },
+    parent:           { label: 'Parent', color: '#e67e22', bg: '#fff3e0' },
+  };
+  return map[role] || { label: role || '—', color: '#666', bg: '#f0f0f0' };
+};
+
 // ═══════════════════════════════════════════════════════════════════
 const AccountsAdminDashboard = () => {
   const navigate = useNavigate();
+  const messagesEndRef = useRef(null);
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -117,14 +136,19 @@ const AccountsAdminDashboard = () => {
 
   // filters
   const [recordSearch, setRecordSearch] = useState('');
-  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
   // messaging
+  const [msgUsers, setMsgUsers] = useState([]);
+  const [msgTab, setMsgTab] = useState('inbox');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [msgText, setMsgText] = useState('');
   const [unread, setUnread] = useState(0);
   const [socket, setSocket] = useState(null);
+  const [msgSearch, setMsgSearch] = useState('');
 
   const userName = localStorage.getItem('userName') || 'Accounts Admin';
+  const userEmail = localStorage.getItem('userEmail') || 'accounts@essa.rw';
   const userId = localStorage.getItem('userId');
 
   useEffect(() => {
@@ -132,20 +156,26 @@ const AccountsAdminDashboard = () => {
     check(); window.addEventListener('resize', check); return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Socket connection
   useEffect(() => {
     const token = getToken(); if (!token) return;
     const sock = io(SOCKET_URL, { auth: { token } });
     setSocket(sock);
     if (userId) sock.emit('join', userId);
-    sock.on('new_message', () => fetchUnread());
+    sock.on('new_message', () => { fetchUnread(); fetchMsgUsers(); });
+    sock.on('newMessage', () => { fetchUnread(); fetchMsgUsers(); });
     return () => sock.disconnect();
   }, [userId]);
 
+  // Auth check
   useEffect(() => {
     const token = getToken(); const role = localStorage.getItem('userRole');
     if (!token || role !== 'accounts_admin') { navigate('/portal/login'); return; }
     loadAll();
   }, [navigate]);
+
+  // Scroll messages to bottom
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const api = useCallback(async (path, opts = {}) => {
     const res = await fetch(`${API_URL}${path}`, { headers: authHeaders(), ...opts });
@@ -156,7 +186,7 @@ const AccountsAdminDashboard = () => {
   const loadAll = () => Promise.all([
     fetchBudget(), fetchIncome(), fetchExpenses(), fetchFees(),
     fetchPayments(), fetchSalaries(), fetchClasses(), fetchStudents(),
-    fetchSummary(), fetchUnread(),
+    fetchSummary(), fetchUnread(), fetchMsgUsers(),
   ]).finally(() => setLoading(false));
 
   const fetchBudget = () => api('/accounts/budget').then(d => setBudget(d || { total: 0 })).catch(() => {});
@@ -169,8 +199,41 @@ const AccountsAdminDashboard = () => {
   const fetchStudents = () => api('/academic-admin/students').then(d => setStudents(Array.isArray(d) ? d : [])).catch(() => {});
   const fetchSummary = () => api('/accounts/financial-summary').then(d => setSummary(d || {})).catch(() => {});
   const fetchUnread = () => api('/messages/unread-count').then(d => setUnread(d.count || 0)).catch(() => {});
+  
+  const fetchMsgUsers = () => {
+    api('/messages/users').then(d => {
+      const all = Object.values(d.users || d || {});
+      setMsgUsers(Array.isArray(all) ? all.flat() : []);
+    }).catch(() => setMsgUsers([]));
+  };
+  
+  const fetchConversation = (uid) => {
+    if (!uid) return;
+    api(`/messages/conversation/${uid}`).then(d => setMessages(Array.isArray(d.messages) ? d.messages : [])).catch(() => setMessages([]));
+  };
+  
+  const sendMessage = async () => {
+    if (!msgText.trim() || !selectedUser) return;
+    try {
+      const res = await api('/messages/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipientId: selectedUser._id,
+          subject: 'Direct Message',
+          content: msgText.trim(),
+        })
+      });
+      setMessages(prev => [...prev, res.message]);
+      setMsgText('');
+      if (socket) socket.emit('sendMessage', { receiverId: selectedUser._id, ...res.message });
+      fetchUnread();
+      fetchMsgUsers();
+    } catch (e) {
+      console.error('Send message error:', e);
+    }
+  };
 
-  // ─── actions ──────────────────────────────────────────────────────
+  // ─── financial actions ───────────────────────────────────────────
   const addIncome = async () => {
     if (!incomeForm.source || !incomeForm.amount) { Swal.fire('Missing Fields', 'Source and amount required', 'warning'); return; }
     setSaving(true);
@@ -259,12 +322,18 @@ const AccountsAdminDashboard = () => {
     .filter(t => !recordSearch || (t.source || t.category || '').toLowerCase().includes(recordSearch.toLowerCase()))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  const filteredUsers = msgUsers.filter(u =>
+    u.fullName?.toLowerCase().includes(msgSearch.toLowerCase()) ||
+    u.role?.toLowerCase().includes(msgSearch.toLowerCase())
+  );
+
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
     { id: 'budget', label: 'Budget', icon: 'fas fa-chart-pie' },
     { id: 'fees', label: 'Fee Management', icon: 'fas fa-money-bill-wave' },
     { id: 'salaries', label: 'Salaries', icon: 'fas fa-wallet', badge: pendingSalaries },
     { id: 'records', label: 'Financial Records', icon: 'fas fa-book' },
+    { id: 'messages', label: 'Messages', icon: 'fas fa-comments', badge: unread },
     { id: 'profile', label: 'Profile', icon: 'fas fa-user-shield' },
   ];
 
@@ -286,6 +355,8 @@ const AccountsAdminDashboard = () => {
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
         .tab-anim{animation:fadeIn .22s ease}
         ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:10px}
+        .msg-bubble-sent{background:#1a3a5c;color:white;border-radius:18px 18px 4px 18px;padding:10px 15px;max-width:70%;align-self:flex-end;font-size:13px;line-height:1.5}
+        .msg-bubble-received{background:white;color:#333;border-radius:18px 18px 18px 4px;padding:10px 15px;max-width:70%;align-self:flex-start;font-size:13px;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.08)}
         @media(max-width:768px){.hide-m{display:none!important}}
       `}</style>
 
@@ -355,7 +426,7 @@ const AccountsAdminDashboard = () => {
                   <Btn onClick={() => setExpenseModal(true)} icon="fas fa-minus-circle" color="#e74c3c">Add Expense</Btn>
                 </div>
               </div>
-              {/* Stats */}
+              {/* Stats cards - keep your existing ones */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginBottom: 20 }}>
                 {[
                   { icon: 'fas fa-chart-pie', label: 'Total Budget', value: fmtAmt(budget.total), accent: '#1a3a5c', bg: '#e8f0fb', action: () => setBudgetModal(true) },
@@ -416,7 +487,6 @@ const AccountsAdminDashboard = () => {
           {activeTab === 'budget' && (
             <div>
               <div style={{ marginBottom: 18 }}><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Budget & Financial Overview</h2></div>
-              {/* Summary cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14, marginBottom: 20 }}>
                 {[
                   { label: 'Total Budget', value: fmtAmt(budget.total), color: '#1a3a5c', action: () => setBudgetModal(true), actionLabel: 'Edit' },
@@ -430,7 +500,6 @@ const AccountsAdminDashboard = () => {
                   </div>
                 ))}
               </div>
-              {/* Budget progress */}
               <div style={{ background: 'white', borderRadius: 14, padding: 20, marginBottom: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: 14, color: '#1a3a5c', fontWeight: 600 }}>Budget Utilisation</h3>
                 {[
@@ -447,7 +516,6 @@ const AccountsAdminDashboard = () => {
                   </div>
                 ))}
               </div>
-              {/* Income list */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))', gap: 18 }}>
                 <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -530,7 +598,6 @@ const AccountsAdminDashboard = () => {
                 <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Teacher Salaries</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{pendingSalaries} pending approval</p></div>
                 <Btn onClick={() => setSalaryModal(true)} icon="fas fa-plus" color="#1a3a5c">Add Salary Record</Btn>
               </div>
-              {/* summary chips */}
               <div style={{ display: 'flex', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
                 {[
                   ['Total Records', salaries.length, '#1a3a5c', '#e8f0fb'],
@@ -581,6 +648,133 @@ const AccountsAdminDashboard = () => {
             </div>
           )}
 
+          {/* ══ MESSAGES ══ - NEWLY ADDED */}
+          {activeTab === 'messages' && (
+            <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,.06)',
+              overflow: 'hidden', height: 'calc(100vh - 150px)', display: 'flex', flexDirection: 'column' }}>
+              {/* tabs */}
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid #eee', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                {['inbox', 'compose'].map(t => (
+                  <button key={t} onClick={() => { setMsgTab(t); if (t === 'compose') { setSelectedUser(null); setMessages([]); } }}
+                    style={{
+                      padding: '7px 18px', borderRadius: 30, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                      background: msgTab === t ? '#1a3a5c' : '#f0f3f8', color: msgTab === t ? 'white' : '#666',
+                      transition: 'all .2s',
+                    }}>
+                    {t === 'inbox' ? <><i className="fas fa-inbox" style={{ marginRight: 6 }} />Inbox{unread > 0 && <span style={{ marginLeft: 6, background: '#e74c3c', color: 'white', borderRadius: 20, fontSize: 10, padding: '1px 7px' }}>{unread}</span>}</> : <><i className="fas fa-pen" style={{ marginRight: 6 }} />New Message</>}
+                  </button>
+                ))}
+              </div>
+
+              {msgTab === 'inbox' ? (
+                <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                  {/* user list */}
+                  <div style={{ width: 280, borderRight: '1px solid #eee', display: 'flex', flexDirection: 'column', background: '#fafbff', flexShrink: 0, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 14px', borderBottom: '1px solid #eee' }}>
+                      <div style={{ position: 'relative' }}>
+                        <i className="fas fa-search" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#ccc', fontSize: 12 }} />
+                        <input value={msgSearch} onChange={e => setMsgSearch(e.target.value)}
+                          placeholder="Search users…" style={{ width: '100%', padding: '7px 10px 7px 30px',
+                          border: '1px solid #eee', borderRadius: 20, fontSize: 12, boxSizing: 'border-box',
+                          background: 'white', outline: 'none' }} />
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                      {filteredUsers.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: '#ccc', fontSize: 13 }}>No users found</div>}
+                      {filteredUsers.map(u => (
+                        <div key={u._id} onClick={() => { setSelectedUser(u); fetchConversation(u._id); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', cursor: 'pointer',
+                            background: selectedUser?._id === u._id ? '#e8f0fe' : 'transparent',
+                            borderLeft: selectedUser?._id === u._id ? '3px solid #ffc107' : '3px solid transparent',
+                            transition: 'background .15s',
+                          }}>
+                          <Avatar name={u.fullName} size={36} img={u.profileImage} />
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.fullName}</div>
+                            <div style={{ fontSize: 10, color: '#ffc107', fontWeight: 700, letterSpacing: .3 }}>{roleBadge(u.role).label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* conversation */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {selectedUser ? (
+                      <>
+                        <div style={{ padding: '14px 18px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: 12, background: 'white' }}>
+                          <Avatar name={selectedUser.fullName} size={40} img={selectedUser.profileImage} />
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: '#1a3a5c' }}>{selectedUser.fullName}</div>
+                            <div style={{ fontSize: 11, color: '#ffc107', fontWeight: 700 }}>{roleBadge(selectedUser.role).label}</div>
+                          </div>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: '#f8f9ff' }}>
+                          {messages.length === 0 && (
+                            <div style={{ textAlign: 'center', color: '#ccc', paddingTop: 40 }}>
+                              <i className="fas fa-comments" style={{ fontSize: 32, marginBottom: 8, display: 'block' }} />
+                              <div style={{ fontSize: 13 }}>Start a conversation with {selectedUser.fullName}</div>
+                            </div>
+                          )}
+                          {messages.map(m => (
+                            <div key={m._id} className={m.senderId === userId ? 'msg-bubble-sent' : 'msg-bubble-received'}>
+                              <div>{m.content}</div>
+                              <div style={{ fontSize: 10, opacity: .6, marginTop: 4, textAlign: 'right' }}>{fmtTime(m.createdAt)}</div>
+                            </div>
+                          ))}
+                          <div ref={messagesEndRef} />
+                        </div>
+                        <div style={{ padding: '12px 16px', borderTop: '1px solid #eee', display: 'flex', gap: 10, background: 'white', alignItems: 'flex-end' }}>
+                          <textarea value={msgText} onChange={e => setMsgText(e.target.value)}
+                            placeholder={`Message ${selectedUser.fullName}…`}
+                            rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                            style={{ flex: 1, padding: '10px 14px', border: '1.5px solid #e0e0e0', borderRadius: 12,
+                              resize: 'none', fontFamily: 'inherit', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                          <button onClick={sendMessage} disabled={!msgText.trim()}
+                            style={{ width: 42, height: 42, background: msgText.trim() ? '#1a3a5c' : '#ddd',
+                              border: 'none', borderRadius: '50%', cursor: msgText.trim() ? 'pointer' : 'default',
+                              color: 'white', fontSize: 16, transition: 'all .2s', flexShrink: 0 }}>
+                            <i className="fas fa-paper-plane" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ccc', gap: 12 }}>
+                        <i className="fas fa-comments" style={{ fontSize: 48, opacity: .3 }} />
+                        <div style={{ fontSize: 14 }}>Select a user to start messaging</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* compose */
+                <div style={{ flex: 1, padding: 28, maxWidth: 600, margin: '0 auto', width: '100%', overflowY: 'auto' }}>
+                  <h3 style={{ margin: '0 0 20px', color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>New Message</h3>
+                  <Field label="Recipient" required>
+                    <Sel value={selectedUser?._id || ''} onChange={e => {
+                      const u = msgUsers.find(x => x._id === e.target.value);
+                      setSelectedUser(u || null);
+                    }}>
+                      <option value="">Select a user…</option>
+                      {msgUsers.map(u => <option key={u._id} value={u._id}>{u.fullName} — {roleBadge(u.role).label}</option>)}
+                    </Sel>
+                  </Field>
+                  <Field label="Message" required>
+                    <Txt value={msgText} onChange={e => setMsgText(e.target.value)} rows={8} placeholder="Type your message…" />
+                  </Field>
+                  <Btn icon="fas fa-paper-plane" color="#1a3a5c" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                    onClick={async () => {
+                      if (!selectedUser || !msgText.trim()) { Swal.fire('Error', 'Select recipient and enter message', 'warning'); return; }
+                      await sendMessage();
+                      Swal.fire('✅ Sent!', '', 'success');
+                      setMsgTab('inbox');
+                    }}>Send Message</Btn>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ══ PROFILE ══ */}
           {activeTab === 'profile' && (
             <div style={{ maxWidth: 580, margin: '0 auto' }}>
@@ -604,6 +798,9 @@ const AccountsAdminDashboard = () => {
                   try {
                     await api('/user/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
                     Swal.fire('✅ Password Updated!', '', 'success');
+                    document.getElementById('currentPw').value = '';
+                    document.getElementById('newPw').value = '';
+                    document.getElementById('confirmPw').value = '';
                   } catch (e) { Swal.fire('Error', e.message || 'Current password incorrect', 'error'); }
                 }}>Update Password</Btn>
               </div>
@@ -612,7 +809,7 @@ const AccountsAdminDashboard = () => {
         </div>
       </main>
 
-      {/* ─── MODALS ─── */}
+      {/* ─── MODALS (keep your existing modals) ─── */}
       <Modal open={budgetModal} onClose={() => setBudgetModal(false)} title="Set Total Budget">
         <Field label="Total Budget (RWF)" required><Inp type="number" value={newBudget} placeholder={`Current: ${budget.total?.toLocaleString()} RWF`} onChange={e => setNewBudget(e.target.value)} /></Field>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
