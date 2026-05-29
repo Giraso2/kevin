@@ -25,6 +25,7 @@ import AcademicAdminDashboard from './portals/AcademicAdminDashboard';
 import TeacherDashboard from './portals/TeacherDashboard';
 import StudentDashboard from './portals/StudentDashboard';
 import ParentDashboard from './portals/ParentDashboard';
+import AccountsAdminDashboard from './Portals/AccountsAdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
