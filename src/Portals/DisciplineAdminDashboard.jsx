@@ -442,27 +442,25 @@ const DisciplineAdminDashboard = () => {
     
     // If approved, ask if user wants to print permission slip
     if (!isReject) {
-      const printResult = await Swal.fire({
-        title: 'Print Permission Slip?',
-        text: 'Would you like to generate and print the permission slip?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '🖨️ Yes, Print',
-        cancelButtonText: 'Later',
-        confirmButtonColor: '#1a3a5c'
-      });
-      
-      if (printResult.isConfirmed) {
-        // Open permission slip in new window
-        const slipWindow = window.open(`${API_URL}/permissions/${permission._id}/slip`, '_blank');
-        if (slipWindow) {
-          slipWindow.focus();
-        } else {
-          Swal.fire('Info', 'Please allow pop-ups to view the permission slip.', 'info');
-        }
-      }
+  const printResult = await Swal.fire({
+    title: 'Print Permission Slip?',
+    text: 'Would you like to generate and print the permission slip now?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: '🖨️ Yes, Print Slip',
+    cancelButtonText: 'Later',
+    confirmButtonColor: '#3498db'
+  });
+  
+  if (printResult.isConfirmed) {
+    const token = getToken();
+    const slipUrl = `${API_URL}/permissions/${permission._id}/slip?token=${encodeURIComponent(token)}`;
+    const slipWindow = window.open(slipUrl, '_blank');
+    if (!slipWindow) {
+      Swal.fire('Popup Blocked', 'Please allow pop-ups to print permission slips.', 'warning');
     }
-    
+  }
+}
     fetchPermissions();
   } catch (e) { 
     Swal.fire('Error', e.message, 'error'); 
