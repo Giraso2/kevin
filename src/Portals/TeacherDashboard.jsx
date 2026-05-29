@@ -119,7 +119,7 @@ const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
       </thead>
       <tbody>
         {rows.length === 0
-          ? <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 36, color: '#bbb', fontSize: 13 }}>{emptyMsg}</tr></tr>
+          ? <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 36, color: '#bbb', fontSize: 13 }}>{emptyMsg}</td></tr>
           : rows.map((row, i) => <tr key={i} style={{ borderBottom: '1px solid #f5f5f5', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafbff'} onMouseLeave={e => e.currentTarget.style.background = ''}>{row}</tr>)}
       </tbody>
     </table>
