@@ -59,6 +59,11 @@ function App() {
             <AcademicAdminDashboard />
           </ProtectedRoute>
         } />
+          <Route path="/portal/accounts-admin" element={
+          <ProtectedRoute allowedRoles={['academic_admin']}>
+            <AccountsAdminDashboard />
+          </ProtectedRoute>
+        } />
         
         <Route path="/portal/teacher" element={
           <ProtectedRoute allowedRoles={['teacher']}>
