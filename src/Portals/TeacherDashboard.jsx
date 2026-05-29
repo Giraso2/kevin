@@ -113,7 +113,7 @@ const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
     </table>
   </div>
 );
-const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</table>;
+const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</td>;
 
 // Offense categories
 const offenseCategories = {
