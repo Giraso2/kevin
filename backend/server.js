@@ -1283,38 +1283,49 @@ app.get('/api/teacher/attendance/:classId', authMiddleware, async (req, res) => 
 });
 
 // ==================== ASSIGNMENTS ====================
-app.get('/api/teacher/assignments', authMiddleware, requireRole('teacher'), async (req, res) => {
+// GET assignments for teacher
+app.get('/api/teacher/assignments', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
   try {
-    const assignments = await Assignment.find({ teacherId: req.userId }).sort({ createdAt: -1 });
+    let query = {};
+    if (req.userRole === 'teacher') {
+      query.teacherId = req.userId;
+    }
+    const assignments = await Assignment.find(query).sort({ createdAt: -1 });
     res.json(assignments);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-app.post('/api/teacher/assignments', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
+// CREATE assignment (with file upload)
+const uploadAssignment = multer({ 
+  storage: makeStorage('assignments', 'assignment'), 
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: imageFileFilter
+});
+
+app.post('/api/teacher/assignments', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), uploadAssignment.single('file'), async (req, res) => {
   try {
-    const assignment = await Assignment.create({ ...req.body, teacherId: req.userId });
+    const fileUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/assignments/${req.file.filename}` : null;
+    
+    const assignment = await Assignment.create({
+      title: req.body.title,
+      description: req.body.description || '',
+      classId: req.body.classId,
+      type: req.body.type || 'homework',
+      dueDate: new Date(req.body.dueDate),
+      totalPoints: parseInt(req.body.totalPoints) || 100,
+      fileUrl,
+      teacherId: req.userId,
+      status: 'published'
+    });
+    
     res.json({ success: true, assignment });
   } catch (error) {
+    console.error('Create assignment error:', error);
     res.status(500).json({ message: error.message });
   }
 });
-
-app.put('/api/teacher/assignments/:id', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
-  try {
-    const assignment = await Assignment.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ success: true, assignment });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.delete('/api/teacher/assignments/:id', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
-  await Assignment.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
-
 // ==================== DISCIPLINE ====================
 app.get('/api/discipline-admin/cases', authMiddleware, requireRole('discipline_admin', 'super_admin'), async (req, res) => {
   try {
@@ -2057,12 +2068,45 @@ app.post('/api/teacher/assignments', authMiddleware, requireRole('teacher'), asy
 });
 
 // Get teacher's lesson plans
-app.get('/api/teacher/lesson-plans', authMiddleware, requireRole('teacher'), async (req, res) => {
+// GET lesson plans for teacher
+app.get('/api/teacher/lesson-plans', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), async (req, res) => {
   try {
-    // You'll need to create a LessonPlan model
-    res.json([]);
+    let query = {};
+    if (req.userRole === 'teacher') {
+      query.teacherId = req.userId;
+    }
+    const lessonPlans = await LessonPlan.find(query).sort({ createdAt: -1 });
+    res.json(lessonPlans);
   } catch (error) {
     res.json([]);
+  }
+});
+
+// CREATE lesson plan (with file upload)
+const uploadLesson = multer({ 
+  storage: makeStorage('lessons', 'lesson'), 
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: imageFileFilter
+});
+
+app.post('/api/teacher/lesson-plans', authMiddleware, requireRole('teacher', 'academic_admin', 'super_admin'), uploadLesson.single('file'), async (req, res) => {
+  try {
+    const fileUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/lessons/${req.file.filename}` : null;
+    
+    const lessonPlan = await LessonPlan.create({
+      title: req.body.title,
+      topic: req.body.topic,
+      objectives: req.body.objectives || '',
+      materials: req.body.materials || '',
+      fileUrl,
+      shareWithStudents: req.body.shareWithStudents === 'true',
+      teacherId: req.userId
+    });
+    
+    res.json({ success: true, lessonPlan });
+  } catch (error) {
+    console.error('Create lesson plan error:', error);
+    res.status(500).json({ message: error.message });
   }
 });
 
