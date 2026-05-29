@@ -365,8 +365,12 @@ const TeacherDashboard = () => {
   
   const pendingAssignments = assignments.filter(a => new Date(a.dueDate) > new Date()).length;
   const totalStudents = students.length;
-  const today = new Date().toLocaleDateString('en-RW', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  
+ const today = new Date().toLocaleDateString('en-RW', { 
+  weekday: 'long', 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric' 
+});
   // Sample timetable data
   const timetable = [
     { time: '8:00 - 8:45', monday: 'Mathematics - S3A', tuesday: 'Physics - S4B', wednesday: 'Mathematics - S3A', thursday: 'Staff Meeting', friday: 'Mathematics - S3A' },
@@ -379,7 +383,7 @@ const TeacherDashboard = () => {
     { time: '13:15 - 14:00', monday: 'Planning Time', tuesday: 'Grading', wednesday: 'Planning Time', thursday: 'Grading', friday: 'Early Dismissal' }
   ];
   
-  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'lowercase' });
+ const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(); 
   
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
