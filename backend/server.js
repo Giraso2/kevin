@@ -2009,9 +2009,109 @@ app.get('/api/teacher/dashboard', authMiddleware, requireRole('teacher'), async 
   }
 });
 
-// ==================== 404 HANDLER ====================
-app.use((req, res) => {
-  res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
+// ==================== TEACHER ENDPOINTS ====================
+
+// Get teacher's dashboard data
+app.get('/api/teacher/dashboard', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const teacherProfile = await TeacherProfile.findOne({ userId: req.userId });
+    const classes = await Class.find({ teacherId: req.userId });
+    const classIds = classes.map(c => c._id);
+    const [totalStudents, pendingAssignments] = await Promise.all([
+      Student.countDocuments({ classId: { $in: classIds } }),
+      Assignment.countDocuments({ teacherId: req.userId, dueDate: { $gte: new Date() } })
+    ]);
+    res.json({ success: true, teacherProfile, classes, totalStudents, pendingAssignments });
+  } catch (error) {
+    res.json({ success: true, teacherProfile: null, classes: [], totalStudents: 0, pendingAssignments: 0 });
+  }
+});
+
+// Get teacher's assignments
+app.get('/api/teacher/assignments', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const assignments = await Assignment.find({ teacherId: req.userId }).sort({ createdAt: -1 });
+    res.json(assignments);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Create assignment
+app.post('/api/teacher/assignments', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const assignment = await Assignment.create({ ...req.body, teacherId: req.userId });
+    res.json({ success: true, assignment });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get teacher's lesson plans
+app.get('/api/teacher/lesson-plans', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    // You'll need to create a LessonPlan model
+    res.json([]);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Create lesson plan
+app.post('/api/teacher/lesson-plans', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    // You'll need to create a LessonPlan model
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get teacher's leave requests
+app.get('/api/teacher/leaves', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    // You'll need to create a Leave model
+    res.json([]);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Apply for leave
+app.post('/api/teacher/leaves', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    // You'll need to create a Leave model
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get teacher's attendance records
+app.get('/api/teacher/attendance', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const attendance = await Attendance.find({ teacherId: req.userId }).sort({ date: -1 });
+    res.json(attendance);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Mark attendance
+app.post('/api/teacher/attendance', authMiddleware, requireRole('teacher'), async (req, res) => {
+  try {
+    const { classId, date, records, period } = req.body;
+    for (const record of records) {
+      await Attendance.findOneAndUpdate(
+        { studentId: record.studentId, classId, date: new Date(date), period },
+        { status: record.status, teacherId: req.userId },
+        { upsert: true }
+      );
+    }
+    res.json({ success: true, message: 'Attendance saved' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // ==================== ERROR HANDLER ====================
@@ -2036,9 +2136,7 @@ mongoose.connect(MONGODB_URI, {
   }
   server.listen(PORT, () => {
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📍 Health: http://localhost:${PORT}/api/health`);
-    console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
-    console.log(`\n🔑 Super Admin: admin@essa.rw / admin123`);
+    
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   });
 })

@@ -113,9 +113,9 @@ const Table = ({ cols, rows, emptyMsg = 'No data found' }) => (
     </table>
   </div>
 );
-const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</td>;
+const TD = ({ children, style }) => <td style={{ padding: '10px 14px', fontSize: 13, color: '#333', ...style }}>{children}</table>;
 
-// Offense categories for reporting
+// Offense categories
 const offenseCategories = {
   minor: [
     { value: 'tardiness', label: '⏰ Tardiness/Lateness' },
@@ -140,23 +140,11 @@ const offenseCategories = {
   ]
 };
 
-// Assignment types
 const assignmentTypes = [
   { value: 'homework', label: '📚 Homework' },
   { value: 'classwork', label: '📝 Classwork' },
   { value: 'project', label: '🎯 Project' },
-  { value: 'quiz', label: '📋 Quiz' },
-  { value: 'take_home_test', label: '📄 Take-home Test' },
-  { value: 'group_assignment', label: '👥 Group Assignment' }
-];
-
-// Leave types
-const leaveTypes = [
-  { value: 'sick', label: '🤒 Sick Leave' },
-  { value: 'annual', label: '🏖️ Annual Leave' },
-  { value: 'emergency', label: '🚨 Emergency Leave' },
-  { value: 'casual', label: '📅 Casual Leave' },
-  { value: 'unpaid', label: '💰 Unpaid Leave' }
+  { value: 'quiz', label: '📋 Quiz' }
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -177,44 +165,27 @@ const TeacherDashboard = () => {
   const [students, setStudents] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
-  const [salarySlips, setSalarySlips] = useState([]);
-  const [leaveRequests, setLeaveRequests] = useState([]);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [disciplineReports, setDisciplineReports] = useState([]);
-  const [teacherProfile, setTeacherProfile] = useState(null);
   const [lessonPlans, setLessonPlans] = useState([]);
+  const [disciplineReports, setDisciplineReports] = useState([]);
   
   // modals
   const [assignmentModal, setAssignmentModal] = useState(false);
   const [attendanceModal, setAttendanceModal] = useState(false);
   const [disciplineModal, setDisciplineModal] = useState(false);
-  const [leaveModal, setLeaveModal] = useState(false);
-  const [studentModal, setStudentModal] = useState(false);
   const [lessonModal, setLessonModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
   
   // forms
   const [assignmentForm, setAssignmentForm] = useState({
-    title: '', description: '', subject: '', classId: '', type: 'homework', 
-    dueDate: '', totalPoints: 100, allowLate: true, fileUrl: ''
+    title: '', description: '', classId: '', type: 'homework', dueDate: '', totalPoints: 100
   });
-  const [attendanceForm, setAttendanceForm] = useState({ date: new Date().toISOString().split('T')[0], classId: '', period: 'morning', records: [] });
+  const [attendanceForm, setAttendanceForm] = useState({ date: new Date().toISOString().split('T')[0], classId: '', records: [] });
   const [disciplineForm, setDisciplineForm] = useState({
-    studentId: '', category: '', description: '', incidentDate: new Date().toISOString().split('T')[0], 
-    evidence: '', recommendedAction: ''
-  });
-  const [leaveForm, setLeaveForm] = useState({
-    type: 'sick', startDate: '', endDate: '', reason: '', substituteTeacher: ''
-  });
-  const [studentForm, setStudentForm] = useState({
-    fullName: '', email: '', parentName: '', parentPhone: '', password: ''
+    studentId: '', category: '', description: '', incidentDate: new Date().toISOString().split('T')[0]
   });
   const [lessonForm, setLessonForm] = useState({
-    title: '', topic: '', objectives: '', materials: '', methodology: '', fileUrl: '', shareWithStudents: true
+    title: '', topic: '', objectives: '', materials: '', shareWithStudents: true
   });
-  const [assignmentFile, setAssignmentFile] = useState(null);
-  const [lessonFile, setLessonFile] = useState(null);
   
   // messaging
   const [msgUsers, setMsgUsers] = useState([]);
@@ -227,7 +198,6 @@ const TeacherDashboard = () => {
   const [msgSearch, setMsgSearch] = useState('');
 
   const userName = localStorage.getItem('userName') || 'Teacher';
-  const userEmail = localStorage.getItem('userEmail') || 'teacher@essa.rw';
   const userId = localStorage.getItem('userId');
 
   // responsive
@@ -249,8 +219,14 @@ const TeacherDashboard = () => {
 
   // auth + load
   useEffect(() => {
-    const token = getToken(); const role = localStorage.getItem('userRole');
-    if (!token || role !== 'teacher') { navigate('/portal/login'); return; }
+    const token = getToken(); 
+    const role = localStorage.getItem('userRole');
+    console.log('TeacherDashboard - token:', !!token, 'role:', role);
+    
+    if (!token || role !== 'teacher') { 
+      navigate('/portal/login'); 
+      return; 
+    }
     loadAll();
   }, [navigate]);
 
@@ -265,25 +241,18 @@ const TeacherDashboard = () => {
 
   const loadAll = () => Promise.all([
     fetchClasses(), fetchStudents(), fetchAssignments(), fetchAnnouncements(),
-    fetchSalarySlips(), fetchLeaveRequests(), fetchAttendance(), 
-    fetchDisciplineReports(), fetchTeacherProfile(), fetchLessonPlans(),
-    fetchMsgUsers(), fetchUnread()
+    fetchLessonPlans(), fetchMsgUsers(), fetchUnread()
   ]).finally(() => setLoading(false));
 
   const fetchClasses = () => api('/academic-admin/classes').then(d => setClasses(Array.isArray(d) ? d : [])).catch(() => setClasses([]));
   const fetchStudents = () => api('/academic-admin/students').then(d => setStudents(Array.isArray(d) ? d : [])).catch(() => setStudents([]));
   const fetchAssignments = () => api('/teacher/assignments').then(d => setAssignments(Array.isArray(d) ? d : [])).catch(() => setAssignments([]));
   const fetchAnnouncements = () => api('/announcements').then(d => setAnnouncements(Array.isArray(d) ? d : [])).catch(() => setAnnouncements([]));
-  const fetchSalarySlips = () => api('/accounts/salaries?teacherId=' + userId).then(d => setSalarySlips(Array.isArray(d) ? d : [])).catch(() => setSalarySlips([]));
-  const fetchLeaveRequests = () => api('/teacher/leaves').then(d => setLeaveRequests(Array.isArray(d) ? d : [])).catch(() => setLeaveRequests([]));
-  const fetchAttendance = () => api('/teacher/attendance').then(d => setAttendanceRecords(Array.isArray(d) ? d : [])).catch(() => setAttendanceRecords([]));
-  const fetchDisciplineReports = () => api('/discipline-admin/cases?teacherId=' + userId).then(d => setDisciplineReports(Array.isArray(d) ? d : [])).catch(() => setDisciplineReports([]));
-  const fetchTeacherProfile = () => api('/user/profile').then(d => setTeacherProfile(d.user)).catch(() => {});
   const fetchLessonPlans = () => api('/teacher/lesson-plans').then(d => setLessonPlans(Array.isArray(d) ? d : [])).catch(() => setLessonPlans([]));
   
   const fetchMsgUsers = () => api('/messages/users').then(d => {
-    const all = Object.values(d.users || d || {}).flat();
-    setMsgUsers(all);
+    const all = Object.values(d.users || d || {});
+    setMsgUsers(Array.isArray(all) ? all.flat() : []);
   }).catch(() => setMsgUsers([]));
   
   const fetchUnread = () => api('/messages/unread-count').then(d => setUnread(d.count || 0)).catch(() => {});
@@ -310,35 +279,11 @@ const TeacherDashboard = () => {
     }
     setSaving(true);
     try {
-      const formData = new FormData();
-      Object.entries(assignmentForm).forEach(([k, v]) => formData.append(k, v));
-      if (assignmentFile) formData.append('file', assignmentFile);
-      
-      await api('/teacher/assignments', { method: 'POST', body: formData });
+      await api('/teacher/assignments', { method: 'POST', body: JSON.stringify(assignmentForm) });
       Swal.fire('✅ Assignment Created!', 'Assignment published successfully', 'success');
       setAssignmentModal(false);
-      setAssignmentForm({ title: '', description: '', subject: '', classId: '', type: 'homework', dueDate: '', totalPoints: 100, allowLate: true, fileUrl: '' });
-      setAssignmentFile(null);
+      setAssignmentForm({ title: '', description: '', classId: '', type: 'homework', dueDate: '', totalPoints: 100 });
       fetchAssignments();
-    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
-    finally { setSaving(false); }
-  };
-  
-  const takeAttendance = async () => {
-    if (!attendanceForm.classId || !attendanceForm.records.length) {
-      Swal.fire('Missing Fields', 'Please mark attendance for students', 'warning');
-      return;
-    }
-    setSaving(true);
-    try {
-      await api('/teacher/attendance', {
-        method: 'POST',
-        body: JSON.stringify(attendanceForm)
-      });
-      Swal.fire('✅ Attendance Saved!', 'Attendance recorded successfully', 'success');
-      setAttendanceModal(false);
-      setAttendanceForm({ date: new Date().toISOString().split('T')[0], classId: '', period: 'morning', records: [] });
-      fetchAttendance();
     } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
     finally { setSaving(false); }
   };
@@ -359,49 +304,12 @@ const TeacherDashboard = () => {
           className: student?.classId?.className || '',
           category: disciplineForm.category,
           description: disciplineForm.description,
-          incidentDate: disciplineForm.incidentDate,
-          evidence: disciplineForm.evidence,
-          recommendedAction: disciplineForm.recommendedAction,
           status: 'pending'
         })
       });
       Swal.fire('✅ Incident Reported!', 'Report sent to Discipline Admin', 'success');
       setDisciplineModal(false);
-      setDisciplineForm({ studentId: '', category: '', description: '', incidentDate: new Date().toISOString().split('T')[0], evidence: '', recommendedAction: '' });
-      fetchDisciplineReports();
-    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
-    finally { setSaving(false); }
-  };
-  
-  const applyLeave = async () => {
-    if (!leaveForm.type || !leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason) {
-      Swal.fire('Missing Fields', 'Please fill all required fields', 'warning');
-      return;
-    }
-    setSaving(true);
-    try {
-      await api('/teacher/leaves', { method: 'POST', body: JSON.stringify(leaveForm) });
-      Swal.fire('✅ Leave Request Submitted!', 'Your request has been sent for approval', 'success');
-      setLeaveModal(false);
-      setLeaveForm({ type: 'sick', startDate: '', endDate: '', reason: '', substituteTeacher: '' });
-      fetchLeaveRequests();
-    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
-    finally { setSaving(false); }
-  };
-  
-  const addStudent = async () => {
-    if (!studentForm.fullName || !studentForm.parentPhone) {
-      Swal.fire('Missing Fields', 'Student name and parent phone required', 'warning');
-      return;
-    }
-    setSaving(true);
-    try {
-      const studentData = { ...studentForm, classId: selectedClass?._id };
-      await api('/academic-admin/students', { method: 'POST', body: JSON.stringify(studentData) });
-      Swal.fire('✅ Student Added!', `Student ${studentForm.fullName} added successfully`, 'success');
-      setStudentModal(false);
-      setStudentForm({ fullName: '', email: '', parentName: '', parentPhone: '', password: '' });
-      fetchStudents();
+      setDisciplineForm({ studentId: '', category: '', description: '', incidentDate: new Date().toISOString().split('T')[0] });
     } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
     finally { setSaving(false); }
   };
@@ -413,15 +321,10 @@ const TeacherDashboard = () => {
     }
     setSaving(true);
     try {
-      const formData = new FormData();
-      Object.entries(lessonForm).forEach(([k, v]) => formData.append(k, v));
-      if (lessonFile) formData.append('file', lessonFile);
-      
-      await api('/teacher/lesson-plans', { method: 'POST', body: formData });
+      await api('/teacher/lesson-plans', { method: 'POST', body: JSON.stringify(lessonForm) });
       Swal.fire('✅ Lesson Plan Uploaded!', 'Materials shared with students', 'success');
       setLessonModal(false);
-      setLessonForm({ title: '', topic: '', objectives: '', materials: '', methodology: '', fileUrl: '', shareWithStudents: true });
-      setLessonFile(null);
+      setLessonForm({ title: '', topic: '', objectives: '', materials: '', shareWithStudents: true });
       fetchLessonPlans();
     } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
     finally { setSaving(false); }
@@ -430,7 +333,7 @@ const TeacherDashboard = () => {
   const openAttendanceModal = (cls) => {
     const classStudents = students.filter(s => s.classId?._id === cls._id);
     const records = classStudents.map(s => ({ studentId: s._id, studentName: s.fullName, status: 'present' }));
-    setAttendanceForm({ date: new Date().toISOString().split('T')[0], classId: cls._id, period: 'morning', records });
+    setAttendanceForm({ date: new Date().toISOString().split('T')[0], classId: cls._id, records });
     setAttendanceModal(true);
   };
   
@@ -439,6 +342,20 @@ const TeacherDashboard = () => {
       ...prev,
       records: prev.records.map(r => r.studentId === studentId ? { ...r, status } : r)
     }));
+  };
+  
+  const saveAttendance = async () => {
+    if (!attendanceForm.classId || !attendanceForm.records.length) {
+      Swal.fire('Missing Fields', 'Please mark attendance', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api('/teacher/attendance', { method: 'POST', body: JSON.stringify(attendanceForm) });
+      Swal.fire('✅ Attendance Saved!', 'Attendance recorded successfully', 'success');
+      setAttendanceModal(false);
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
   };
   
   const filteredUsers = msgUsers.filter(u =>
@@ -450,7 +367,7 @@ const TeacherDashboard = () => {
   const totalStudents = students.length;
   const today = new Date().toLocaleDateString('en-RW', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   
-  // Sample timetable data (would come from backend in production)
+  // Sample timetable data
   const timetable = [
     { time: '8:00 - 8:45', monday: 'Mathematics - S3A', tuesday: 'Physics - S4B', wednesday: 'Mathematics - S3A', thursday: 'Staff Meeting', friday: 'Mathematics - S3A' },
     { time: '8:45 - 9:30', monday: 'Mathematics - S3A', tuesday: 'Physics - S4B', wednesday: 'Mathematics - S3A', thursday: 'Physics - S4B', friday: 'Mathematics - S3A' },
@@ -458,24 +375,22 @@ const TeacherDashboard = () => {
     { time: '10:00 - 10:45', monday: 'Physics - S4B', tuesday: 'Mathematics - S3A', wednesday: 'Physics - S4B', thursday: 'Mathematics - S3A', friday: 'Free Period' },
     { time: '10:45 - 11:30', monday: 'Physics - S4B', tuesday: 'Mathematics - S3A', wednesday: 'Physics - S4B', thursday: 'Mathematics - S3A', friday: 'Free Period' },
     { time: '11:30 - 12:30', monday: '🍽️ Lunch', tuesday: '🍽️ Lunch', wednesday: '🍽️ Lunch', thursday: '🍽️ Lunch', friday: '🍽️ Lunch' },
-    { time: '12:30 - 13:15', monday: 'Math Help Session', tuesday: 'Physics Lab', wednesday: 'Department Meeting', thursday: 'Extra Class', friday: 'Free Period' },
+    { time: '12:30 - 13:15', monday: 'Planning Time', tuesday: 'Physics Lab', wednesday: 'Department Meeting', thursday: 'Extra Class', friday: 'Free Period' },
     { time: '13:15 - 14:00', monday: 'Planning Time', tuesday: 'Grading', wednesday: 'Planning Time', thursday: 'Grading', friday: 'Early Dismissal' }
   ];
   
-  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'lowercase' });
   
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
     { id: 'classes', label: 'My Classes', icon: 'fas fa-school' },
     { id: 'assignments', label: 'Assignments', icon: 'fas fa-tasks', badge: pendingAssignments },
-    { id: 'attendance', label: 'Attendance', icon: 'fas fa-calendar-check' },
     { id: 'students', label: 'Students', icon: 'fas fa-user-graduate' },
     { id: 'discipline', label: 'Report Issue', icon: 'fas fa-exclamation-triangle' },
     { id: 'materials', label: 'Study Materials', icon: 'fas fa-book' },
     { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn' },
     { id: 'messages', label: 'Messages', icon: 'fas fa-comments', badge: unread },
-    { id: 'profile', label: 'My Profile', icon: 'fas fa-user-shield' },
+    { id: 'profile', label: 'Profile', icon: 'fas fa-user-shield' },
   ];
 
   const sideW = isMobile ? 0 : sidebarOpen ? 260 : 72;
@@ -498,9 +413,7 @@ const TeacherDashboard = () => {
         ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:10px}
         .sent-bubble{background:#1a3a5c;color:white;border-radius:18px 18px 4px 18px;padding:10px 15px;max-width:70%;align-self:flex-end;font-size:13px}
         .recv-bubble{background:white;color:#333;border-radius:18px 18px 18px 4px;padding:10px 15px;max-width:70%;align-self:flex-start;font-size:13px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-        .timetable-cell{padding:10px;border:1px solid #eee;font-size:12px}
-        .timetable-header{background:#f7f9fb;padding:10px;font-weight:600;font-size:12px;color:#1a3a5c;border:1px solid #eee}
-        @media(max-width:768px){.hide-mobile{display:none!important}.timetable{overflow-x:auto}}
+        @media(max-width:768px){.hide-mobile{display:none!important}}
       `}</style>
 
       {isMobile && mobileOpen && <div onClick={() => setMobileOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 998 }} />}
@@ -549,9 +462,6 @@ const TeacherDashboard = () => {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => setLeaveModal(true)} style={{ background: '#fdecea', border: 'none', padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#e74c3c', cursor: 'pointer' }}>
-              <i className="fas fa-calendar-alt" style={{ marginRight: 5 }} /> Apply Leave
-            </button>
             {unread > 0 && <button onClick={() => setActiveTab('messages')} style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 17 }}>
               <i className="fas fa-bell" />
               <span style={{ position: 'absolute', top: -4, right: -4, background: '#e74c3c', color: 'white', borderRadius: '50%', fontSize: 9, width: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{unread}</span>
@@ -586,13 +496,11 @@ const TeacherDashboard = () => {
                 <StatCard icon="fas fa-school" label="My Classes" value={classes.length} sub="Assigned classes" accent="#9b59b6" bg="#f3e5f5" onClick={() => setActiveTab('classes')} />
                 <StatCard icon="fas fa-user-graduate" label="Students" value={totalStudents} sub="Under my care" accent="#1abc9c" bg="#e0f7fa" onClick={() => setActiveTab('students')} />
                 <StatCard icon="fas fa-tasks" label="Pending Assignments" value={pendingAssignments} sub="Need grading" accent="#f39c12" bg="#fff3e0" onClick={() => setActiveTab('assignments')} />
-                <StatCard icon="fas fa-calendar-check" label="Attendance Today" value={attendanceRecords.filter(a => a.date === new Date().toISOString().split('T')[0]).length || 0} sub="Recorded" accent="#27ae60" bg="#e8f5e9" />
                 <StatCard icon="fas fa-book" label="Lesson Plans" value={lessonPlans.length} sub="Uploaded" accent="#3498db" bg="#e3f2fd" onClick={() => setActiveTab('materials')} />
               </div>
               
               {/* Quick Actions */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-                <Btn onClick={() => setAttendanceModal(true)} icon="fas fa-calendar-check" color="#27ae60">Take Attendance</Btn>
                 <Btn onClick={() => setAssignmentModal(true)} icon="fas fa-tasks" color="#9b59b6">Create Assignment</Btn>
                 <Btn onClick={() => setDisciplineModal(true)} icon="fas fa-exclamation-triangle" color="#e74c3c">Report Issue</Btn>
                 <Btn onClick={() => setLessonModal(true)} icon="fas fa-book" color="#3498db">Upload Lesson</Btn>
@@ -605,16 +513,13 @@ const TeacherDashboard = () => {
                 </h3>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr>
-                      <th className="timetable-header" style={{ textAlign: 'left' }}>Time</th>
-                      <th className="timetable-header" style={{ textAlign: 'left' }}>Activity</th>
-                    </tr>
+                    <tr><th style={{ padding: '8px', textAlign: 'left', background: '#f7f9fb' }}>Time</th><th style={{ padding: '8px', textAlign: 'left', background: '#f7f9fb' }}>Activity</th></tr>
                   </thead>
                   <tbody>
                     {timetable.map((row, idx) => (
                       <tr key={idx}>
-                        <td className="timetable-cell">{row.time}</td>
-                        <td className="timetable-cell" style={{ fontWeight: row[todayName]?.includes('Break') || row[todayName]?.includes('Lunch') ? 'normal' : 500 }}>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #eee', fontSize: 12 }}>{row.time}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #eee', fontSize: 12, fontWeight: row[todayName]?.includes('Break') || row[todayName]?.includes('Lunch') ? 'normal' : 500 }}>
                           {row[todayName]}
                         </td>
                       </tr>
@@ -657,8 +562,7 @@ const TeacherDashboard = () => {
                         <Badge text={`${classStudents.length} students`} color="#3498db" bg="#e3f2fd" />
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                        <Btn small onClick={() => { setSelectedClass(cls); setStudentModal(true); }} icon="fas fa-user-plus" color="#27ae60">Add Student</Btn>
-                        <Btn small onClick={() => openAttendanceModal(cls)} icon="fas fa-calendar-check" color="#f39c12">Take Attendance</Btn>
+                        <Btn small onClick={() => openAttendanceModal(cls)} icon="fas fa-calendar-check" color="#27ae60">Take Attendance</Btn>
                         <Btn small onClick={() => { setAssignmentForm(prev => ({ ...prev, classId: cls._id })); setAssignmentModal(true); }} icon="fas fa-tasks" color="#9b59b6">Create Assignment</Btn>
                       </div>
                     </div>
@@ -697,21 +601,6 @@ const TeacherDashboard = () => {
                     </div>
                   );
                 })}
-              </div>
-            </div>
-          )}
-
-          {/* ══ ATTENDANCE ══ */}
-          {activeTab === 'attendance' && (
-            <div>
-              <div style={{ marginBottom: 18 }}><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Attendance Records</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>Track student attendance</p></div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
-                {classes.map(cls => (
-                  <div key={cls._id} style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
-                    <h3 style={{ margin: '0 0 10px', fontSize: 14, color: '#1a3a5c' }}>{cls.grade} {cls.className}</h3>
-                    <Btn small onClick={() => openAttendanceModal(cls)} icon="fas fa-calendar-check" color="#27ae60" style={{ width: '100%' }}>Take Attendance</Btn>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -757,24 +646,7 @@ const TeacherDashboard = () => {
                   <Txt value={disciplineForm.description} rows={4} placeholder="Describe the incident in detail..." onChange={e => setDisciplineForm(p => ({ ...p, description: e.target.value }))} />
                 </Field>
                 <Field label="Incident Date"><Inp type="date" value={disciplineForm.incidentDate} onChange={e => setDisciplineForm(p => ({ ...p, incidentDate: e.target.value }))} /></Field>
-                <Field label="Recommended Action">
-                  <Txt value={disciplineForm.recommendedAction} rows={2} placeholder="e.g., Warning, Parent meeting, Detention..." onChange={e => setDisciplineForm(p => ({ ...p, recommendedAction: e.target.value }))} />
-                </Field>
                 <Btn onClick={reportIncident} icon="fas fa-paper-plane" color="#e74c3c" disabled={saving} style={{ width: '100%', justifyContent: 'center' }}>{saving ? 'Reporting…' : 'Report Incident'}</Btn>
-              </div>
-              
-              {/* My Reports */}
-              <div style={{ marginTop: 24 }}>
-                <h3 style={{ fontSize: 14, color: '#1a3a5c', marginBottom: 12 }}>My Previous Reports</h3>
-                {disciplineReports.slice(0, 5).map(r => (
-                  <div key={r._id} style={{ background: 'white', borderRadius: 10, padding: 12, marginBottom: 10, borderLeft: `4px solid ${r.status === 'pending' ? '#f39c12' : '#27ae60'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{r.studentName} - {r.category}</span>
-                      <Badge text={r.status} color={r.status === 'pending' ? '#f39c12' : '#27ae60'} bg={r.status === 'pending' ? '#fff3e0' : '#e8f5e9'} />
-                    </div>
-                    <p style={{ fontSize: 11, color: '#888', marginTop: 5 }}>{fmt(r.createdAt)}</p>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -794,7 +666,6 @@ const TeacherDashboard = () => {
                     <p style={{ margin: '5px 0 0', fontSize: 12, color: '#666' }}>{lp.topic}</p>
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       <Badge text={lp.shareWithStudents ? 'Shared with Students' : 'Draft'} color={lp.shareWithStudents ? '#27ae60' : '#f39c12'} bg={lp.shareWithStudents ? '#e8f5e9' : '#fff3e0'} />
-                      {lp.fileUrl && <Btn small icon="fas fa-download" color="#3498db" onClick={() => window.open(lp.fileUrl)}>Download</Btn>}
                     </div>
                   </div>
                 ))}
@@ -914,7 +785,7 @@ const TeacherDashboard = () => {
                 <Avatar name={userName} size={72} bg='rgba(255,193,7,.2)' color='#ffc107' />
                 <h2 style={{ margin: '14px 0 3px', fontFamily: 'Georgia, serif', fontSize: 22 }}>{userName}</h2>
                 <div style={{ fontSize: 11, opacity: .7, letterSpacing: 1 }}>TEACHER</div>
-                <div style={{ fontSize: 12, opacity: .6, marginTop: 4 }}>{userEmail}</div>
+                <div style={{ fontSize: 12, opacity: .6, marginTop: 4 }}>{localStorage.getItem('userEmail') || 'teacher@essa.rw'}</div>
               </div>
               <div style={{ background: 'white', borderRadius: 14, padding: 22, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
                 <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#1a3a5c', fontFamily: 'Georgia, serif', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -958,10 +829,7 @@ const TeacherDashboard = () => {
         </Field>
         <Field label="Description"><Txt value={assignmentForm.description} rows={4} placeholder="Instructions for students..." onChange={e => setAssignmentForm(p => ({ ...p, description: e.target.value }))} /></Field>
         <Field label="Due Date" required><Inp type="datetime-local" value={assignmentForm.dueDate} onChange={e => setAssignmentForm(p => ({ ...p, dueDate: e.target.value }))} /></Field>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Total Points"><Inp type="number" value={assignmentForm.totalPoints} onChange={e => setAssignmentForm(p => ({ ...p, totalPoints: parseInt(e.target.value) }))} /></Field>
-          <Field label="Attachment"><input type="file" onChange={e => setAssignmentFile(e.target.files[0])} style={{ fontSize: 13 }} /></Field>
-        </div>
+        <Field label="Total Points"><Inp type="number" value={assignmentForm.totalPoints} onChange={e => setAssignmentForm(p => ({ ...p, totalPoints: parseInt(e.target.value) }))} /></Field>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
           <Btn onClick={() => setAssignmentModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
           <Btn onClick={createAssignment} icon="fas fa-paper-plane" color="#9b59b6" disabled={saving}>{saving ? 'Creating…' : 'Create Assignment'}</Btn>
@@ -990,35 +858,38 @@ const TeacherDashboard = () => {
         </div>
       </Modal>
 
-      {/* Apply Leave Modal */}
-      <Modal open={leaveModal} onClose={() => setLeaveModal(false)} title="Apply for Leave" width={500}>
-        <Field label="Leave Type" required>
-          <Sel value={leaveForm.type} onChange={e => setLeaveForm(p => ({ ...p, type: e.target.value }))}>
-            {leaveTypes.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-          </Sel>
-        </Field>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Start Date" required><Inp type="date" value={leaveForm.startDate} onChange={e => setLeaveForm(p => ({ ...p, startDate: e.target.value }))} /></Field>
-          <Field label="End Date" required><Inp type="date" value={leaveForm.endDate} onChange={e => setLeaveForm(p => ({ ...p, endDate: e.target.value }))} /></Field>
+      {/* Take Attendance Modal */}
+      <Modal open={attendanceModal} onClose={() => setAttendanceModal(false)} title="Take Attendance" width={600}>
+        <Field label="Date"><Inp type="date" value={attendanceForm.date} onChange={e => setAttendanceForm(p => ({ ...p, date: e.target.value }))} /></Field>
+        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          {attendanceForm.records.map(record => (
+            <div key={record.studentId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eee' }}>
+              <span style={{ fontSize: 13 }}>{record.studentName}</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {['present', 'absent', 'late', 'excused'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => updateAttendanceStatus(record.studentId, status)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 20,
+                      border: '1px solid #ddd',
+                      background: record.status === status ? (status === 'present' ? '#27ae60' : status === 'absent' ? '#e74c3c' : status === 'late' ? '#f39c12' : '#3498db') : 'white',
+                      color: record.status === status ? 'white' : '#666',
+                      cursor: 'pointer',
+                      fontSize: 11
+                    }}
+                  >
+                    {status.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        <Field label="Reason" required><Txt value={leaveForm.reason} rows={3} placeholder="Reason for leave..." onChange={e => setLeaveForm(p => ({ ...p, reason: e.target.value }))} /></Field>
-        <Field label="Substitute Teacher (Optional)"><Inp value={leaveForm.substituteTeacher} placeholder="Name of substitute teacher" onChange={e => setLeaveForm(p => ({ ...p, substituteTeacher: e.target.value }))} /></Field>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-          <Btn onClick={() => setLeaveModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
-          <Btn onClick={applyLeave} icon="fas fa-paper-plane" color="#3498db" disabled={saving}>{saving ? 'Submitting…' : 'Submit Request'}</Btn>
-        </div>
-      </Modal>
-
-      {/* Add Student Modal */}
-      <Modal open={studentModal} onClose={() => setStudentModal(false)} title={`Add Student to ${selectedClass?.grade || ''} ${selectedClass?.className || ''}`} width={500}>
-        <Field label="Full Name" required><Inp value={studentForm.fullName} placeholder="Student full name" onChange={e => setStudentForm(p => ({ ...p, fullName: e.target.value }))} /></Field>
-        <Field label="Email"><Inp type="email" value={studentForm.email} placeholder="student@essa.rw" onChange={e => setStudentForm(p => ({ ...p, email: e.target.value }))} /></Field>
-        <Field label="Parent/Guardian Name"><Inp value={studentForm.parentName} placeholder="Parent/Guardian name" onChange={e => setStudentForm(p => ({ ...p, parentName: e.target.value }))} /></Field>
-        <Field label="Parent Phone" required><Inp value={studentForm.parentPhone} placeholder="+250 788 000 000" onChange={e => setStudentForm(p => ({ ...p, parentPhone: e.target.value }))} /></Field>
-        <Field label="Password"><Inp type="password" value={studentForm.password} placeholder="Leave blank for auto-generate" onChange={e => setStudentForm(p => ({ ...p, password: e.target.value }))} /></Field>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-          <Btn onClick={() => setStudentModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
-          <Btn onClick={addStudent} icon="fas fa-user-plus" color="#27ae60" disabled={saving}>{saving ? 'Adding…' : 'Add Student'}</Btn>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <Btn onClick={() => setAttendanceModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={saveAttendance} icon="fas fa-save" color="#27ae60" disabled={saving}>{saving ? 'Saving…' : 'Save Attendance'}</Btn>
         </div>
       </Modal>
 
@@ -1028,7 +899,6 @@ const TeacherDashboard = () => {
         <Field label="Topic/Chapter" required><Inp value={lessonForm.topic} placeholder="Topic or chapter name" onChange={e => setLessonForm(p => ({ ...p, topic: e.target.value }))} /></Field>
         <Field label="Learning Objectives"><Txt value={lessonForm.objectives} rows={2} placeholder="What students will learn..." onChange={e => setLessonForm(p => ({ ...p, objectives: e.target.value }))} /></Field>
         <Field label="Materials Needed"><Inp value={lessonForm.materials} placeholder="Required materials/resources" onChange={e => setLessonForm(p => ({ ...p, materials: e.target.value }))} /></Field>
-        <Field label="File Attachment"><input type="file" onChange={e => setLessonFile(e.target.files[0])} style={{ fontSize: 13 }} /></Field>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <input type="checkbox" checked={lessonForm.shareWithStudents} onChange={e => setLessonForm(p => ({ ...p, shareWithStudents: e.target.checked }))} style={{ width: 18, height: 18 }} />
           <span style={{ fontSize: 12, color: '#666' }}>Share with students immediately</span>
