@@ -180,7 +180,7 @@ const Footer = () => {
 
       <style jsx>{`
         .footer {
-          background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+          background: #1a3a5c;
           color: #ffffff;
           position: relative;
           margin-top: 4rem;
