@@ -34,7 +34,7 @@ const AboutPage = () => {
       experience: '10+ years experience'
     },
     { 
-      name: 'Lenah', 
+      name: 'Linah', 
       title: 'Assistant Administrator', 
       image: studentsImage,
       education: 'Experience in Educational and Social Affairs Management',
