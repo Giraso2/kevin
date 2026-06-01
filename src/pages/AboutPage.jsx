@@ -369,18 +369,7 @@ const AboutPage = () => {
       {/* Styles for alignment */}
       <style>{`
       /*=======about-hero-overlay======*/
-        position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-    background: linear-gradient(
-  135deg,
-  hsla(220, 60%, 18%, 0.80) 0%,
-  hsla(45, 90%, 70%, 0.45) 100%
-);
-          z-index: 2;
-        }
+      
        /* ========== HERO SLIDER STYLES ========== */
         .hero {
           position: relative;
