@@ -206,7 +206,7 @@ const NewsPage = () => {
             <i className="fas fa-newspaper"></i> STAY INFORMED
           </div>
           <h1>News & <span className="highlight">Events</span></h1>
-          <p>Stay updated with the latest happenings, achievements, and announcements from ESSA Nyarugunga</p>
+          <p>Stay updated with the latest happenings, achievements, and announcements from LYMAR</p>
           <div className="hero-stats">
             <div className="hero-stat">
               <span className="stat-number">{newsItems.length}</span>
@@ -311,7 +311,7 @@ const NewsPage = () => {
                 <i className="fas fa-newspaper"></i>
               </div>
               <h3>No News Published Yet</h3>
-              <p>There are currently no news articles or announcements. Please check back later for updates from ESSA Nyarugunga.</p>
+              <p>There are currently no news articles or announcements. Please check back later for updates from LYMAR.</p>
               <div className="no-news-illustration">
                 <i className="fas fa-clock"></i>
                 <span>Stay tuned for upcoming events and achievements!</span>
@@ -346,7 +346,7 @@ const NewsPage = () => {
                 <h2>{featuredNews.title}</h2>
                 <div className="news-meta">
                   <span><i className="fas fa-calendar-alt"></i> {formatDate(featuredNews.date || featuredNews.createdAt)}</span>
-                  <span><i className="fas fa-user"></i> {featuredNews.author || 'ESSA Admin'}</span>
+                  <span><i className="fas fa-user"></i> {featuredNews.author || 'lymar Admin'}</span>
                   <span><i className="fas fa-eye"></i> {featuredNews.views || 0} views</span>
                   <span><i className="fas fa-heart"></i> {featuredNews.likes || 0} likes</span>
                 </div>
@@ -546,7 +546,7 @@ const NewsPage = () => {
               <h2>{selectedNews.title}</h2>
               <div className="modal-meta">
                 <span><i className="fas fa-calendar-alt"></i> {formatDate(selectedNews.date || selectedNews.createdAt)}</span>
-                <span><i className="fas fa-user"></i> {selectedNews.author || 'ESSA Admin'}</span>
+                <span><i className="fas fa-user"></i> {selectedNews.author || 'Lymar Admin'}</span>
                 <span><i className="fas fa-eye"></i> {selectedNews.views || 0} views</span>
               </div>
               <div className="modal-content-text">
