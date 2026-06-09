@@ -635,7 +635,8 @@ const SuperAdminDashboard = () => {
           </div>
           {(sidebarOpen || isMobile) && (
             <div>
-              <div style={{ fontFamily:"'Crimson Text', Georgia, serif", fontSize:16, fontWeight:600, lineHeight:1.2 }}>ESSA Portal</div>
+              <div style={{ fontFamily:"'Crimson Text', Georgia, serif", fontSize:16, fontWeight:600, lineHeight:1.2 }}> LYMAR Portal
+                 </div>
               <div style={{ fontSize:10, opacity:.6, letterSpacing:1 }}>SUPER ADMIN</div>
             </div>
           )}
@@ -717,7 +718,7 @@ const SuperAdminDashboard = () => {
               </button>
             )}
             <div>
-              <div style={{ fontSize:11, color:'#aaa', letterSpacing:.5 }}>ESSA NYARUGUNGA</div>
+              <div style={{ fontSize:11, color:'#aaa', letterSpacing:.5 }}>Lycee St Marcel De Rukara</div>
               <div style={{ fontSize:16, fontWeight:600, color:'#1a3a5c', fontFamily:"'Crimson Text', Georgia, serif" }}>
                 {menuItems.find(m => m.id === activeTab)?.label || 'Dashboard'}
               </div>

@@ -214,7 +214,7 @@ const PortalLogin = () => {
               Secure Portal Access
             </p>
             <p className="copyright">
-              &copy; {new Date().getFullYear()} ESSA Nyarugunga School
+              &copy; {new Date().getFullYear()} Lycee St Marcel De Rukara. All rights reserved.
             </p>
           </div>
         </div>
