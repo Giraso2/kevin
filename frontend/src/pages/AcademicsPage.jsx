@@ -82,8 +82,8 @@ const AcademicsPage = () => {
 
   const departments = [
     { name: 'Arts and Humanities Departments', icon: 'fas fa-landmark', hod: 'coming Soon.....', teachers: 6, description: 'History, Literature and PSychology' },
-    { name: 'Science Stream 2 Department', icon: 'fas fa-chart-line', hod: 'Coming Soon....', teachers: 5, description: 'Economics, entrepreneurship, Mathematics and business studies.' },
-    { name: 'Languages', icon: 'fas fa-umbrella-beach', hod: 'Coming Soon....', teachers: 4, description: 'English, French, Literature, and cultural studies.' },
+    { name: 'Science Stream 2 Department', icon: 'fas fa-flask', hod: 'Coming Soon....', teachers: 5, description: 'Economics, entrepreneurship, Mathematics and business studies.' },
+    { name: 'Languages', icon: 'fas fa-language', hod: 'Coming Soon....', teachers: 4, description: 'English, French, Literature, and cultural studies.' },
     ];
 
 
