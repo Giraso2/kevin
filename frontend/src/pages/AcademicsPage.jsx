@@ -51,7 +51,7 @@ const AcademicsPage = () => {
     {
       id: 1,
       name: 'Arts And Humanities',
-      icon: 'fas fa-science',
+      icon: 'fas fa-scroll',
       subtitle: 'Humanites',
       subjects: ['History', 'Psychology', 'Literature', 'Geoagraphy'],
       careerPath: 'Psychologist, Mental Health Nurse, Teacher, Methodologist, etc.....',
