@@ -74,7 +74,7 @@ const Navbar = () => {
                 <li><button onClick={handleLogout} className="logout-nav-btn">Logout</button></li>
               </>
             ) : (
-              <li><Link to="/portal/login" onClick={() => setMobileMenuOpen(false)}><i className="fas fa-sign-in-alt"></i>  Portal</Link></li>
+              <li><Link to="/portal/login" onClick={() => setMobileMenuOpen(false)}><i className="fas fa-sign-in-alt"></i> Portal Login</Link></li>
             )}
           </ul>
         </div>

@@ -63,7 +63,7 @@ const HomePage = () => {
     },
     { 
       id: 2, 
-      name: 'Music Club', 
+      name: 'Media Club', 
       icon: 'fas fa-music', 
       img: musicClubImg, 
       description: 'Learn instruments, choir singing, and modern music production. Annual concerts and school performances.',
@@ -106,7 +106,7 @@ const HomePage = () => {
 
   // Counter animation
   useEffect(() => {
-    const targets = { students: 800, teachers: 20, years: 20 };
+    const targets = { students: 500, teachers: 20, years: 26 };
     const duration = 2000;
     const stepTime = 20;
     const steps = duration / stepTime;
@@ -175,7 +175,7 @@ const HomePage = () => {
             <i className="fas fa-star-of-life"></i> EXCELLENCE IN EDUCATION
           </div>
           <h1>Shaping Futures, <span className="highlight">Building Leaders</span></h1>
-          <p>Welcome to ESSA Nyarugunga – a center of academic excellence, discipline, and holistic development in Kigali.</p>
+          <p>Welcome to LYMAR a center of academic excellence, discipline, and holistic development in Kayonza.</p>
           <div className="hero-buttons">
             <Link to="/admissions" className="btn btn-primary"><i className="fas fa-user-graduate"></i> Apply Now</Link>
             <Link to="/about" className="btn btn-secondary"><i className="fas fa-play-circle"></i> Learn More</Link>
@@ -198,13 +198,13 @@ const HomePage = () => {
       <section className="about">
         <div className="container">
           <div className="section-title">
-            <h2><i className="fas fa-school"></i> About ESSA Nyarugunga</h2>
+            <h2><i className="fas fa-school"></i> About Lycee St Marcel De Rukara</h2>
             <div className="underline"></div>
           </div>
           <div className="about-grid">
             <div className="about-text">
-              <p>Founded with a mission to provide quality education, ESSA Nyarugunga is one of the respected secondary schools in Kigali's Kicukiro District. We offer a nurturing environment where students grow academically, socially, and spiritually.</p>
-              <p>Our dedicated staff and modern facilities ensure that every learner reaches their full potential. We follow the Rwandan national curriculum with a focus on Economics, technology, and character formation.</p>
+              <p>Founded in 2000 with a mission to provide quality education and Discipline Approach, LYMAR is one of the Qualified secondary schools in Kayonza District. We offer a nurturing environment where students grow academically, socially, and spiritually.</p>
+              <p>Our dedicated staff and modern facilities ensure that every learner reaches their full potential. We follow the Rwandan national curriculum with a focus on Economics, Humanity, and character formation.</p>
               <div className="features">
                 <div><i className="fas fa-check-circle"></i> Modern Facilities</div>
                 <div><i className="fas fa-check-circle"></i> Computer Lab with Internet</div>
@@ -244,26 +244,20 @@ const HomePage = () => {
           <div className="cards">
             <div className="card">
               <div className="card-icon"><i className="fas fa-code"></i></div>
-              <h3>SOFTWARE DEVELOPMENT</h3>
-              <p>A software development class teaches how to design, build, test, and maintain computer programs using programming languages and tools.</p>
+              <h3>Arts and Humanities</h3>
+              <p>Deals with History, Geography, Pschology, Literature</p>
               <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
             </div>
-            <div className="card">
-              <div className="card-icon"><i className="fas fa-calculator"></i></div>
-              <h3>ACCOUNTING</h3>
-              <p>An accounting class teaches how to record, organize, and analyze financial transactions for individuals or businesses.</p>
-              <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
-            </div>
+           
             <div className="card">
               <div className="card-icon"><i className="fas fa-microchip"></i></div>
-              <h3>COMPUTER SYSTEMS</h3>
-              <p>A computer systems and architecture class explains how computer hardware and software interact.</p>
-              <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
+              <h3>Science Stream 2</h3>
+              <p>Deals with Mathematics , Economics , Geograpgy , History</p> <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
             </div>
             <div className="card">
               <div className="card-icon"><i className="fas fa-hotel"></i></div>
-              <h3>TOURISM</h3>
-              <p>Learn about the travel and hospitality industry, customer service, and cultural awareness.</p>
+              <h3>Languages</h3>
+              <p>Deals with Professional English , French , Kinyarwanda and Swahili</p>
               <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
             </div>
           </div>
@@ -277,7 +271,7 @@ const HomePage = () => {
       <section className="student-life">
         <div className="container">
           <div className="section-title">
-            <h2><i className="fas fa-users"></i> Student Life at ESSA</h2>
+            <h2><i className="fas fa-users"></i> Student Life at LYMAR</h2>
             <div className="underline"></div>
             <p className="section-subtitle">Beyond academics – discover, grow, and belong</p>
           </div>
@@ -361,21 +355,21 @@ const HomePage = () => {
           <div className="admissions-grid">
             <div className="admissions-info">
               <h3>Join Our Family</h3>
-              <p>Applications are open for the 2026-2027 academic year. Limited seats available in Technology, Economics, and Computer Science combinations.</p>
+              <p>Applications are open for the coming academic year. Limited seats available in Arts and Humanities, Sciences, and Languages combinations.</p>
               <div className="info-boxes">
                 <div className="info-box">
                   <i className="fas fa-calendar-alt"></i>
                   <h4>Application Period</h4>
-                  <p>January – September 2026</p>
+                  <p>January – September </p>
                 </div>
                 <div className="info-box">
                   <i className="fas fa-file-alt"></i>
                   <h4>Requirements</h4>
-                  <p>Report cards, birth certificate, entrance exam</p>
+                  <p>Report cards, Passport Photos, entrance exam</p>
                 </div>
                 <div className="info-box">
                   <i className="fas fa-dollar-sign"></i>
-                  <h4>Scholarships</h4>
+                  <h4>Free Waiver</h4>
                   <p>Merit-based & need-based available</p>
                 </div>
               </div>

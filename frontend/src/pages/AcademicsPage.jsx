@@ -50,10 +50,10 @@ const AcademicsPage = () => {
   const combinations = [
     {
       id: 1,
-      name: 'Software Development',
-      icon: 'fas fa-code',
-      subtitle: 'ICT Option',
-      subjects: ['Computer Science', 'Mathematics', 'Physics', 'Programming Languages'],
+      name: 'Arts And Humanities',
+      icon: 'fas fa-science',
+      subtitle: 'Humanites',
+      subjects: ['History', 'Psychology', 'Literature', 'Geoagraphy'],
       careerPath: 'Software Engineer, Web Developer, IT Consultant, Database Administrator',
       color: '#3498db'
     },
@@ -75,33 +75,9 @@ const AcademicsPage = () => {
       careerPath: 'Network Engineer, Systems Administrator, Hardware Engineer, IT Support',
       color: '#9b59b6'
     },
-    {
-      id: 4,
-      name: 'Tourism & Hospitality',
-      icon: 'fas fa-umbrella-beach',
-      subtitle: 'Languages Option',
-      subjects: ['Tourism', 'Hospitality Management', 'French', 'English'],
-      careerPath: 'Tour Operator, Hotel Manager, Travel Agent, Event Planner',
-      color: '#e74c3c'
-    },
-    {
-      id: 5,
-      name: 'Building and Construction',
-      icon: 'fas fa-building',
-      subtitle: 'BDC Option',
-      subjects: ['Stone Structure', 'Building Management', 'Physics', 'Mathematics'],
-      careerPath: 'Building Engineer, Construction Manager, Site Supervisor',
-      color: '#f39c12'
-    },
-    {
-      id: 6,
-      name: 'Food and Beverages Operation',
-      icon: 'fas fa-utensils',
-      subtitle: 'FBO Option',
-      subjects: ['Food Preparation', 'Beverages Management', 'French', 'English'],
-      careerPath: 'Kitchen Operator, Cook, Restaurant Manager, Event Planner',
-      color: '#1abc9c'
-    }
+  
+    
+    
   ];
 
   const departments = [
@@ -143,19 +119,19 @@ const AcademicsPage = () => {
           <div className="hero-badge">
             <i className="fas fa-graduation-cap"></i> ACADEMIC EXCELLENCE
           </div>
-          <h1>Academics at <span className="highlight">ESSA Nyarugunga</span></h1>
+          <h1>Academics at <span className="highlight">Lycee Saint Marcel De Rukara</span></h1>
           <p>Excellence in Education | Diverse Programs | Holistic Development</p>
           <div className="hero-stats">
             <div className="hero-stat">
-              <span className="stat-number">95%</span>
+              <span className="stat-number">90%</span>
               <span className="stat-label">Pass Rate</span>
             </div>
             <div className="hero-stat">
-              <span className="stat-number">6+</span>
+              <span className="stat-number">3+</span>
               <span className="stat-label">Programs</span>
             </div>
             <div className="hero-stat">
-              <span className="stat-number">30+</span>
+              <span className="stat-number">20+</span>
               <span className="stat-label">Teachers</span>
             </div>
           </div>
@@ -169,25 +145,22 @@ const AcademicsPage = () => {
             <div className="overview-content">
               <div className="section-badge">Academic Excellence</div>
               <h2>Quality Education <span className="highlight">For Every Student</span></h2>
-              <p>At ESSA Nyarugunga, we follow the Rwandan national curriculum enhanced with modern teaching methodologies. Our academic programs are designed to develop critical thinking, problem-solving skills, and practical knowledge.</p>
+              <p>At LYMAR, we follow the Rwandan national curriculum enhanced with modern teaching methodologies. Our academic programs are designed to develop critical thinking, problem-solving skills, and practical knowledge.</p>
               <p>We offer both Ordinary Level (S1-S3) and Advanced Level (S4-S6) programs with various combinations to suit different career paths.</p>
               <div className="academic-stats">
                 <div className="stat-item">
-                  <span className="stat-number">95%</span>
+                  <span className="stat-number">90%</span>
                   <span className="stat-label">Pass Rate</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-number">6+</span>
+                  <span className="stat-number">3+</span>
                   <span className="stat-label">Programs</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-number">30+</span>
+                  <span className="stat-number">20+</span>
                   <span className="stat-label">Teachers</span>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-number">1:15</span>
-                  <span className="stat-label">Teacher Ratio</span>
-                </div>
+                
               </div>
             </div>
             <div className="overview-image">
@@ -211,7 +184,7 @@ const AcademicsPage = () => {
               Ordinary Level (S1-S3)
             </button>
             <button className={`tab-btn ${activeTab === 'advanced' ? 'active' : ''}`} onClick={() => setActiveTab('advanced')}>
-              Advanced Level (L3-L5)
+              Advanced Level (S4-S6)
             </button>
           </div>
 
@@ -515,6 +488,7 @@ const AcademicsPage = () => {
         .hero-stat .stat-label {
           font-size: 0.8rem;
           opacity: 0.8;
+          color:white
         }
         
         /* Overview Section */

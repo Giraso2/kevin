@@ -40,14 +40,14 @@ const Footer = () => {
               <h3>Lycee St Marcel De Rukara</h3>
             </div>
             <p className="footer-description">
-              École Secondaire Des Science et Administrative (ESSA) NYARUGUNGA - Committed to excellence in education, character formation, and holistic development.
+             LYMAR Committed to excellence in education, character formation, and holistic development.
             </p>
             <div className="footer-badges">
               <span className="badge">
                 <i className="fas fa-graduation-cap"></i> Ministry of Education
               </span>
               <span className="badge">
-                <i className="fas fa-certificate"></i> RTB Accredited
+                <i className="fas fa-certificate"></i> REB Accredited
               </span>
             </div>
             <div className="social-links">
@@ -92,7 +92,7 @@ const Footer = () => {
                 <div>
                   <strong>Address</strong>
                   <a href="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.477860813629!2d30.109888!3d-1.977408!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x19dca76c8d5b5b5b%3A0x8b5b5b5b5b5b5b5b!2sNyarugunga%2C%20Kigali!5e0!3m2!1sen!2srw!4v1700000000000!5m2!1sen!2srw" target="_blank" rel="noopener noreferrer">
-                    Nyarugunga Sector, Kicukiro District, Kigali, Rwanda
+                    Rukara Sector, Kayonza District, Rwanda
                   </a>
                 </div>
               </li>
@@ -100,7 +100,7 @@ const Footer = () => {
                 <i className="fas fa-envelope"></i>
                 <div>
                   <strong>Email Us</strong>
-                  <a href="mailto:info@essanyarugunga.rw">info@essanyarugunga.rw</a>
+                  <a href="mailto:info@lyceesaintmarcelderukara.rw">info@lyceesaintmarcelderukar.rw</a>
                 </div>
               </li>
               <li>
@@ -121,7 +121,7 @@ const Footer = () => {
                 <i className="fas fa-globe"></i>
                 <div>
                   <strong>Website</strong>
-                  <a href="https://www.essanyarugunga.rw" target="_blank" rel="noopener noreferrer">www.essanyarugunga.rw</a>
+                  <a href="https://www.lyceesaintmarcelderukara.rw" target="_blank" rel="noopener noreferrer">www.lyceesaintmarcelderukara.rw</a>
                 </div>
               </li>
             </ul>
@@ -163,7 +163,7 @@ const Footer = () => {
         <div className="footer-bottom">
           <div className="copyright">
             <p>
-              &copy; {new Date().getFullYear()} ESSA Nyarugunga School. 
+              &copy; {new Date().getFullYear()} Lycee Saint Marcel De Rukara. 
               <span className="separator">|</span> 
               All rights reserved. 
               <span className="separator">|</span>

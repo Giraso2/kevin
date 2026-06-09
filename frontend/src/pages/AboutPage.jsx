@@ -27,42 +27,43 @@ const AboutPage = () => {
 
   const leadershipTeam = [
     { 
-      name: 'Ingabire Jolly', 
-      title: 'Headmistress / Director', 
+      name: 'Father Cassien', 
+      title: 'Headmaster / Director', 
       image: campusImage,
       education: 'Experienced in Educational Leadership',
       experience: '10+ years experience'
     },
+   
     { 
-      name: 'Linah', 
-      title: 'Assistant Administrator', 
-      image: studentsImage,
-      education: 'Experience in Educational and Social Affairs Management',
-      experience: '10+ years experience'
-    },
-    { 
-      name: 'Kabutore Boniface', 
+      name: 'Kamatari Canisius', 
       title: 'Director of Studies', 
       image: graduationImg,
       education: 'Experience in Curriculum Development and Academic Management',
       experience: '12+ years experience'
     },
+      { 
+      name: 'Habiyambere Adrien', 
+      title: 'General Secretary ', 
+      image: graduationImg,
+      education: 'Experience in Record Keeping and Data Management',
+      experience: '10+ years experience'
+    },
     { 
-      name: 'AineByoona James', 
+      name: 'Uwizeye Charles', 
       title: 'Dean of Discipline', 
       image: graduationImg,
       education: 'Experience in Behaviours Management and Discipline Conduct',
-      experience: '15+ years experience'
+      experience: '5+ years experience'
     },
     { 
-      name: 'Coming Soon.....', 
+      name: 'Uwayisenga Donature', 
       title: 'Dean of Discipline', 
       image: graduationImg,
       education: 'Experience in Behaviours Management and Discipline Conduct',
       experience: '11+ years experience'
     },
     { 
-      name: 'Coming Soon.....', 
+      name: 'Angelique', 
       title: 'Accountant', 
       image: graduationImg,
       education: 'Experience in Accounting and Budgeting',
@@ -106,7 +107,7 @@ const AboutPage = () => {
       } else if (result.dismiss === Swal.DismissReason.cancel) {
         Swal.fire({
           title: 'Email Us',
-          text: 'Send an email to admissions@essanyarugunga.rw',
+          text: 'Send an email to admissions@lyceesaintmarcelderukara.rw',
           icon: 'info',
           confirmButtonColor: '#1e3c72'
         });
@@ -123,7 +124,7 @@ const AboutPage = () => {
           <p><strong>Education:</strong> ${leader.education}</p>
           <p><strong>Experience:</strong> ${leader.experience}</p>
           <hr>
-          <p>${leader.name} is dedicated to providing quality education and leadership at ESSA Nyarugunga.</p>
+          <p>${leader.name} is dedicated to providing quality education and leadership at LYMAR.</p>
         </div>
       `,
       icon: 'info',
@@ -178,28 +179,28 @@ const AboutPage = () => {
           </div>
           <div className="story-grid">
             <div className="story-text">
-              <p>ESSA Nyarugunga (Ecole Secondaire des Sciences et Administrative) was established in <strong>2006</strong> with a vision to provide quality secondary education in Kigali's Kicukiro District. What started as a small institution has now grown into one of the most respected secondary schools in Rwanda.</p>
+              <p>Lycee Saint Marcel De Rukara was established in <strong>2000</strong> with a vision to provide quality secondary education in Kayonza District. What started as a small institution has now grown into one of the most respected secondary schools in Rwanda.</p>
               <p>Over the years, we have consistently produced outstanding graduates who have gone on to excel in top universities and various professional fields. Our commitment to <strong>academic excellence, character formation, and holistic development</strong> has made us a school of choice for parents seeking quality education for their children.</p>
-              <p>Today, ESSA Nyarugunga serves over <strong>800 students</strong> with a dedicated team of <strong>30+ qualified teachers</strong>, offering programs in Software Development, Accounting, Computer Systems and Architecture, Building and Construction, Food and Beverages Operation, and Tourism & Hospitality.</p>
+              <p>Today, LYMAR serves over <strong>500 students</strong> with a dedicated team of <strong>20+ qualified teachers</strong>, offering programs in Arts and Humanities, Science and Languages and also Ordinary Level</p>
               <div className="story-highlights">
                 <div className="highlight-item">
                   <i className="fas fa-trophy"></i>
                   <div>
                     <h4>Rank Recognition</h4>
-                    <p>Ranked among top schools in Kigali for Technology education</p>
+                    <p>Ranked among top schools in Rwanda for Quality education</p>
                   </div>
                 </div>
                 <div className="highlight-item">
                   <i className="fas fa-award"></i>
                   <div>
                     <h4>Ministry Accredited</h4>
-                    <p>Fully accredited by the Ministry of Education, REB, and RTB</p>
+                    <p>Fully accredited by the Ministry of Education, and REB</p>
                   </div>
                 </div>
               </div>
             </div>
             <div className="story-image">
-              <img src={campusImage} alt="ESSA Nyarugunga Campus" />
+              <img src={campusImage} alt="Campus" />
               <div className="experience-badge">
                 <span>20+</span>
                 <p>Years of Excellence</p>
@@ -225,7 +226,7 @@ const AboutPage = () => {
                 <i className="fas fa-eye"></i>
               </div>
               <h3>Our Vision</h3>
-              <p>To be a center of excellence in Technology and Administrative Education, producing graduates who are innovative, ethical, and ready to contribute to national development.</p>
+              <p>To be a center of excellence in Science and Administrative Education, producing graduates who are innovative, ethical, and ready to contribute to national development.</p>
             </div>
             <div className="mvv-card values">
               <div className="mvv-icon">
@@ -303,10 +304,10 @@ const AboutPage = () => {
           <div className="student-life-grid">
             <div className="student-life-content">
               <div className="section-title left">
-                <h2><i className="fas fa-users"></i> Student Life at ESSA</h2>
+                <h2><i className="fas fa-users"></i> Student Life at LYMAR</h2>
                 <div className="underline left-underline"></div>
               </div>
-              <p>At ESSA Nyarugunga, we believe education extends beyond the classroom. Our students enjoy a vibrant campus life with numerous opportunities for personal growth, leadership, and recreation.</p>
+              <p>At LYMAR, we believe education extends beyond the classroom. Our students enjoy a vibrant campus life with numerous opportunities for personal growth, leadership, and recreation.</p>
               <div className="activities-list">
                 <div className="activity-item">
                   <i className="fas fa-microphone-alt"></i>
@@ -340,7 +341,7 @@ const AboutPage = () => {
               <Link to="/gallery" className="btn btn-outline">View Gallery <i className="fas fa-arrow-right"></i></Link>
             </div>
             <div className="student-life-image">
-              <img src={studentsImage} alt="Students at ESSA" />
+              <img src={studentsImage} alt="Student" />
               <div className="floating-card">
                 <i className="fas fa-smile"></i>
                 <p>95% Student Satisfaction</p>
@@ -354,8 +355,8 @@ const AboutPage = () => {
       <section className="cta-section">
         <div className="container">
           <div className="cta-content">
-            <h2>Ready to Join ESSA Nyarugunga?</h2>
-            <p>Take the first step towards a bright future. Applications are now open for the 2026-2027 academic year.</p>
+            <h2>Ready to Join LYMAR?</h2>
+            <p>Take the first step towards a bright future. Applications are now open for the coming academic year.</p>
             <div className="cta-buttons">
               <Link to="/admissions" className="btn btn-primary"><i className="fas fa-user-graduate"></i> Apply Now</Link>
               <Link to="/contact" className="btn btn-secondary"><i className="fas fa-calendar-alt"></i> Schedule a Visit</Link>
