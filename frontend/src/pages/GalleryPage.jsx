@@ -280,7 +280,7 @@ const GalleryPage = () => {
                 <i className="fas fa-images"></i>
               </div>
               <h3>No Photos in Gallery Yet</h3>
-              <p>There are currently no photos in the gallery. Please check back later for updates from ESSA Nyarugunga.</p>
+              <p>There are currently no photos in the gallery. Please check back later for updates from LYMAR.</p>
               <div className="no-gallery-illustration">
                 <i className="fas fa-camera"></i>
                 <span>Moments will be captured and shared soon!</span>
@@ -352,7 +352,7 @@ const GalleryPage = () => {
                     </div>
                     <div className="gallery-info">
                       <h3>{item.title}</h3>
-                      <p>{item.description || 'Beautiful moment captured at ESSA Nyarugunga'}</p>
+                      <p>{item.description || 'Beautiful moment captured at LYMAR'}</p>
                       <div className="gallery-meta">
                         <span><i className="fas fa-calendar-alt"></i> {formatDate(item.date)}</span>
                         <span><i className="fas fa-camera"></i> {item.photographer || 'School Media Team'}</span>
@@ -392,7 +392,7 @@ const GalleryPage = () => {
               <img src={selectedImage.image} alt={selectedImage.title} />
               <div className="lightbox-caption">
                 <h3>{selectedImage.title}</h3>
-                <p>{selectedImage.description || 'Beautiful moment at ESSA Nyarugunga'}</p>
+                <p>{selectedImage.description || 'Beautiful moment at LYMAR'}</p>
                 <div className="lightbox-meta">
                   <span><i className="fas fa-calendar-alt"></i> {formatDate(selectedImage.date)}</span>
                   <span><i className="fas fa-camera"></i> {selectedImage.photographer || 'School Media Team'}</span>
