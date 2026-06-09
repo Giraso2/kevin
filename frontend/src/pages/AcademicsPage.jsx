@@ -54,25 +54,25 @@ const AcademicsPage = () => {
       icon: 'fas fa-science',
       subtitle: 'Humanites',
       subjects: ['History', 'Psychology', 'Literature', 'Geoagraphy'],
-      careerPath: 'Software Engineer, Web Developer, IT Consultant, Database Administrator',
+      careerPath: 'Psychologist, Mental Health Nurse, Teacher, Methodologist, etc.....',
       color: '#3498db'
     },
     {
       id: 2,
-      name: 'Accounting',
-      icon: 'fas fa-chart-line',
-      subtitle: 'Economics Option',
-      subjects: ['Accounting', 'Economics', 'Mathematics', 'Entrepreneurship'],
-      careerPath: 'Accountant, Auditor, Financial Analyst, Tax Consultant, Banker',
+      name: 'Science Stream 2',
+      icon: 'fas fa-science',
+      subtitle: 'Science',
+      subjects: ['Mathematics', 'Economics', 'Geography', 'Entrepreneurship'],
+      careerPath: 'Accountant, Teacher, Financial Analyst, Auditor, Banker , etc....',
       color: '#27ae60'
     },
     {
       id: 3,
-      name: 'Computer Systems & Architecture',
+      name: 'Languages',
       icon: 'fas fa-microchip',
-      subtitle: 'ICT Option',
-      subjects: ['Computer Architecture', 'Networking', 'Mathematics', 'Electronics'],
-      careerPath: 'Network Engineer, Systems Administrator, Hardware Engineer, IT Support',
+      subtitle: 'Languages',
+      subjects: ['Professional English', 'French', 'Swahili', 'Literature'],
+      careerPath: 'Tour Guder, Receptionist, Teacher, Interpreter, etc....',
       color: '#9b59b6'
     },
   
@@ -81,25 +81,12 @@ const AcademicsPage = () => {
   ];
 
   const departments = [
-    { name: 'ICT Department', icon: 'fas fa-laptop-code', hod: 'Mr. Elissa Ntihinduka', teachers: 6, description: 'Programming, networking, database management, and computer maintenance.' },
-    { name: 'Economics Department', icon: 'fas fa-chart-line', hod: 'Coming Soon....', teachers: 5, description: 'Accounting, economics, entrepreneurship, and business studies.' },
-    { name: 'Tourism Department', icon: 'fas fa-umbrella-beach', hod: 'Coming Soon....', teachers: 4, description: 'Tourism management, hospitality, customer service, and cultural studies.' },
-    { name: 'Food and Beverages', icon: 'fas fa-utensils', hod: 'Mama Culinary', teachers: 4, description: 'Food Preparation, Kitchen Management, Beverages Operation.' },
-    { name: 'Building and Construction', icon: 'fas fa-building', hod: 'Delphin and Phocus', teachers: 5, description: 'Cement Workflows, Stone Structure, Chemistry, Physics, Mathematics.' },
-    { name: 'Ordinary Level', icon: 'fas fa-book', hod: 'Coming Soon......', teachers: 10, description: 'Biology, Physics, Chemistry, Mathematics, History, Geography, etc.' }
-  ];
+    { name: 'Arts and Humanities Departments', icon: 'fas fa-laptop-code', hod: 'coming Soon.....', teachers: 6, description: 'History, Literature and PSychology' },
+    { name: 'Science Stream 2 Department', icon: 'fas fa-chart-line', hod: 'Coming Soon....', teachers: 5, description: 'Economics, entrepreneurship, Mathematics and business studies.' },
+    { name: 'Languages', icon: 'fas fa-umbrella-beach', hod: 'Coming Soon....', teachers: 4, description: 'English, French, Literature, and cultural studies.' },
+    ];
 
-  const calendarEvents = [
-    { month: 'Sept', day: '10', title: 'Term 1 Begins', description: 'Opening ceremony and classes commence' },
-    { month: 'Nov', day: '25-30', title: 'Term 1 Exams', description: 'End of term examinations' },
-    { month: 'Jan', day: '10', title: 'Term 2 Begins', description: 'Start of second term' },
-    { month: 'Mar', day: '10-20', title: 'Term 2 Exams', description: 'Mid-year examinations' },
-    { month: 'April', day: '20', title: 'Term 3 Begins', description: 'Final term of the academic year' },
-    { month: 'June', day: '1-5', title: 'National Practical Exams', description: 'L3 & L5 National Practical Examinations' },
-    { month: 'June', day: '15', title: 'NESA School Exams', description: 'End of Year NESA prepared Exams' },
-    { month: 'July', day: '12', title: 'National Theory Exams', description: 'All Candidates Theory National Examinations' },
-    { month: 'Aug', day: '5', title: 'Academic Year Ends', description: 'End of year closure' }
-  ];
+
 
   const resources = [
     { name: 'School Library', icon: 'fas fa-book', description: 'Over 5,000 books including textbooks, references, fiction, and periodicals.', detail: 'Mon-Fri: 8AM - 5PM' },
@@ -293,33 +280,7 @@ const AcademicsPage = () => {
         </div>
       </section>
 
-      {/* Academic Calendar */}
-      <section className="academics-calendar">
-        <div className="container">
-          <div className="section-title">
-            <h2><i className="fas fa-calendar-alt"></i> Academic Calendar 2026</h2>
-            <div className="underline"></div>
-          </div>
-          <div className="calendar-grid">
-            {calendarEvents.map((event, index) => (
-              <div key={index} className="calendar-item">
-                <div className="calendar-date">
-                  <span className="month">{event.month}</span>
-                  <span className="day">{event.day}</span>
-                </div>
-                <div className="calendar-event">
-                  <h4>{event.title}</h4>
-                  <p>{event.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="calendar-note">
-            <i className="fas fa-info-circle"></i>
-            <p>Dates are subject to change. Parents and students will be notified of any changes.</p>
-          </div>
-        </div>
-      </section>
+     
 
       {/* Grading System */}
       <section className="academics-grading">
@@ -336,17 +297,17 @@ const AcademicsPage = () => {
                   <tr><th>Grade</th><th>Percentage</th><th>Description</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>A</td><td>80-100%</td><td>Excellent</td></tr>
-                  <tr><td>B</td><td>70-79%</td><td>Very Good</td></tr>
-                  <tr><td>C</td><td>60-69%</td><td>Good</td></tr>
-                  <tr><td>D</td><td>50-59%</td><td>Satisfactory</td></tr>
-                  <tr><td>E</td><td>40-49%</td><td>Pass</td></tr>
-                  <tr><td>F</td><td>Below 40%</td><td>Fail</td></tr>
+                  <tr><td>A</td><td>90-100%</td><td>Excellent</td></tr>
+                  <tr><td>B</td><td>80-89%</td><td>Very Good</td></tr>
+                  <tr><td>C</td><td>70-79%</td><td>Good</td></tr>
+                  <tr><td>D</td><td>60-69%</td><td>Satisfactory</td></tr>
+                  <tr><td>E</td><td>50-59%</td><td>Pass</td></tr>
+                  <tr><td>F</td><td>Below 50%</td><td>Fail</td></tr>
                 </tbody>
               </table>
             </div>
             <div className="grading-card">
-              <h3>Advanced Level (L3-L5)</h3>
+              <h3>Advanced Level (S4-S6)</h3>
               <table className="grading-table">
                 <thead>
                   <tr><th>Grade</th><th>Points</th><th>Description</th></tr>
