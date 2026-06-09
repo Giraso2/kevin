@@ -51,7 +51,7 @@ const AcademicsPage = () => {
     {
       id: 1,
       name: 'Arts And Humanities',
-      icon: 'fas fa-scroll',
+      icon: 'fas fa-landmark',
       subtitle: 'Humanites',
       subjects: ['History', 'Psychology', 'Literature', 'Geoagraphy'],
       careerPath: 'Psychologist, Mental Health Nurse, Teacher, Methodologist, etc.....',
@@ -60,7 +60,7 @@ const AcademicsPage = () => {
     {
       id: 2,
       name: 'Science Stream 2',
-      icon: 'fas fa-science',
+      icon: 'fas fa-flask',
       subtitle: 'Science',
       subjects: ['Mathematics', 'Economics', 'Geography', 'Entrepreneurship'],
       careerPath: 'Accountant, Teacher, Financial Analyst, Auditor, Banker , etc....',
@@ -69,7 +69,7 @@ const AcademicsPage = () => {
     {
       id: 3,
       name: 'Languages',
-      icon: 'fas fa-microchip',
+      icon: 'fas fa-language',
       subtitle: 'Languages',
       subjects: ['Professional English', 'French', 'Swahili', 'Literature'],
       careerPath: 'Tour Guder, Receptionist, Teacher, Interpreter, etc....',
