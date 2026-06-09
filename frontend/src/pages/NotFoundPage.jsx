@@ -416,7 +416,7 @@ const NotFoundPage = () => {
 
           {/* Footer */}
           <div className="error-footer">
-            <p>© {new Date().getFullYear()} ESSA Nyarugunga School | All rights reserved</p>
+            <p>© {new Date().getFullYear()} LYMAR | All rights reserved</p>
             <div className="footer-links">
               <Link to="/privacy-policy">Privacy Policy</Link>
               <Link to="/terms-of-use">Terms of Use</Link>

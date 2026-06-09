@@ -48,7 +48,7 @@ const PrivacyPolicy = () => {
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        window.location.href = 'mailto:privacy@essanyarugunga.rw';
+        window.location.href = 'mailto:privacy@lyceesaintmarcelderukara.rw';
         Swal.fire({
           title: 'Email Client Opening',
           text: 'Your email client will open shortly.',
@@ -238,7 +238,7 @@ const PrivacyPolicy = () => {
                 <i className="fas fa-flag-checkered"></i>
               </div>
               <h2>Introduction</h2>
-              <p>Welcome to <span className="gold-text">ESSA Nyarugunga School</span> — where excellence meets integrity. We are deeply committed to protecting your personal information and your right to privacy. This comprehensive Privacy Policy explains how we collect, use, disclose, and safeguard your information when you interact with our website and school services.</p>
+              <p>Welcome to <span className="gold-text">Lycee Saint Marcel De Rukara</span> — where excellence meets integrity. We are deeply committed to protecting your personal information and your right to privacy. This comprehensive Privacy Policy explains how we collect, use, disclose, and safeguard your information when you interact with our website and school services.</p>
               <div className="info-box blue-bg">
                 <i className="fas fa-info-circle"></i>
                 <div>
@@ -543,7 +543,7 @@ const PrivacyPolicy = () => {
                 <div className="contact-card">
                   <i className="fas fa-map-marker-alt"></i>
                   <h4>Visit Us</h4>
-                  <p>ESSA Nyarugunga School<br />Nyarugunga Sector<br />Kicukiro District, Kigali<br />Rwanda</p>
+                  <p>LYMAR<br />Rukara Sector<br />Kayonza District<br />Rwanda</p>
                   <button onClick={() => window.open('https://maps.google.com', '_blank')} className="contact-card-btn">
                     Get Directions <i className="fas fa-arrow-right"></i>
                   </button>
@@ -552,8 +552,8 @@ const PrivacyPolicy = () => {
                 <div className="contact-card">
                   <i className="fas fa-envelope"></i>
                   <h4>Email Us</h4>
-                  <p><strong>Privacy Matters:</strong><br /><a href="mailto:privacy@essanyarugunga.rw">privacy@essanyarugunga.rw</a></p>
-                  <p><strong>General Inquiries:</strong><br /><a href="mailto:info@essanyarugunga.rw">info@essanyarugunga.rw</a></p>
+                  <p><strong>Privacy Matters:</strong><br /><a href="mailto:privacy@lyceesaintmarcelderukara.rw">privacy@lyceesaintmarcelderukara.rw</a></p>
+                  <p><strong>General Inquiries:</strong><br /><a href="mailto:info@lyceesaintmarcelderukara.rw">info@lyceesaintmarcelderukara.rw</a></p>
                   <button onClick={() => handleContactClick('Privacy')} className="contact-card-btn gold">
                     Send Email <i className="fas fa-paper-plane"></i>
                   </button>
@@ -584,8 +584,8 @@ const PrivacyPolicy = () => {
                 </div>
                 <div className="dpo-info">
                   <h4>Data Protection Officer (DPO)</h4>
-                  <p><strong>John Niyomugabo</strong> - Certified Data Protection Professional</p>
-                  <p><i className="fas fa-envelope"></i> <a href="mailto:dpo@essanyarugunga.rw">dpo@essanyarugunga.rw</a></p>
+                  <p><strong>Habiyambere Adrien</strong> - Certified Data Protection Professional</p>
+                  <p><i className="fas fa-envelope"></i> <a href="mailto:dpo@lyceesaintmarcelderukara.rw">dpo@lyceesaintmarcelderukara.rw</a></p>
                   <p><i className="fas fa-phone"></i> <a href="tel:+250788123456">+250 788 123 456</a></p>
                   <button onClick={() => handleContactClick('DPO')} className="dpo-contact-btn">
                     Contact DPO Directly
@@ -1302,7 +1302,7 @@ const PrivacyPolicy = () => {
         .dpo-section {
           display: flex;
           gap: 1.5rem;
-          background: linear-gradient(135deg, #1e3a8a, #2a4a9a);
+          background: linear-gradient(135deg, rgb(183, 189, 205), rgb(79, 81, 85));
           padding: 2rem;
           border-radius: 20px;
           margin: 2rem 0;

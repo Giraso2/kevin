@@ -106,7 +106,7 @@ const TermsOfUse = () => {
   };
 
   const handleCopySection = (sectionTitle) => {
-    navigator.clipboard.writeText(`${sectionTitle}\n\nFrom ESSA Nyarugunga Terms of Use`);
+    navigator.clipboard.writeText(`${sectionTitle}\n\nFrom LYMAR Terms of Use`);
     Swal.fire({
       title: 'Section Copied!',
       text: `${sectionTitle} has been copied to clipboard`,
@@ -267,7 +267,7 @@ const TermsOfUse = () => {
             <div className="terms-notice">
               <i className="fas fa-info-circle"></i>
               <div>
-                <strong>Important Legal Notice:</strong> These Terms of Use constitute a binding agreement between you and ESSA Nyarugunga School. By accessing our website, you acknowledge that you have read, understood, and agree to be bound by these terms.
+                <strong>Important Legal Notice:</strong> These Terms of Use constitute a binding agreement between you and LYMAR School. By accessing our website, you acknowledge that you have read, understood, and agree to be bound by these terms.
               </div>
             </div>
 
@@ -276,7 +276,7 @@ const TermsOfUse = () => {
                 <i className="fas fa-handshake"></i>
               </div>
               <h2>Legal Agreement</h2>
-              <p>Welcome to <span className="gold-text">ESSA Nyarugunga School</span> ("we," "our," "us"). These Terms of Use ("Terms") govern your access to and use of our website, applications, and services (collectively, the "Services"). By using our Services, you agree to be bound by these Terms and our Privacy Policy.</p>
+              <p>Welcome to <span className="gold-text">LYMAR School</span> ("we," "our," "us"). These Terms of Use ("Terms") govern your access to and use of our website, applications, and services (collectively, the "Services"). By using our Services, you agree to be bound by these Terms and our Privacy Policy.</p>
               <div className="info-box gold-bg">
                 <i className="fas fa-gavel"></i>
                 <div>
@@ -413,12 +413,12 @@ const TermsOfUse = () => {
                 <i className="fas fa-copyright"></i>
               </div>
               <h2>Intellectual Property</h2>
-              <p>All content on our Services, including text, graphics, logos, images, software, and educational materials, is the property of ESSA Nyarugunga School or its licensors and is protected by intellectual property laws.</p>
+              <p>All content on our Services, including text, graphics, logos, images, software, and educational materials, is the property of LYMAR School or its licensors and is protected by intellectual property laws.</p>
               <div className="ip-grid">
                 <div className="ip-card">
                   <i className="fas fa-registered"></i>
                   <h4>Trademarks</h4>
-                  <p>The ESSA Nyarugunga name, logo, and related marks are registered trademarks. Unauthorized use is prohibited.</p>
+                  <p>The LYMAR name, logo, and related marks are registered trademarks. Unauthorized use is prohibited.</p>
                 </div>
                 <div className="ip-card">
                   <i className="fas fa-file-alt"></i>
@@ -518,7 +518,7 @@ const TermsOfUse = () => {
                 <i className="fas fa-exclamation-triangle"></i>
               </div>
               <h2>Limitation of Liability</h2>
-              <p>To the maximum extent permitted by law, ESSA Nyarugunga School shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of our Services.</p>
+              <p>To the maximum extent permitted by law, LYMAR School shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of our Services.</p>
               <div className="liability-box">
                 <div className="liability-item">
                   <i className="fas fa-ban"></i>
@@ -593,15 +593,15 @@ const TermsOfUse = () => {
                   <i className="fas fa-map-marker-alt"></i>
                   <div>
                     <strong>Physical Address</strong>
-                    <p>ESSA Nyarugunga School<br />Nyarugunga Sector, Kicukiro District<br />Kigali, Rwanda</p>
+                    <p>LYMAR School<br />Nyarugunga Sector, Kicukiro District<br />Kigali, Rwanda</p>
                   </div>
                 </div>
                 <div className="contact-info-item">
                   <i className="fas fa-envelope"></i>
                   <div>
                     <strong>Email Address</strong>
-                    <p><a href="mailto:legal@essanyarugunga.rw">legal@essanyarugunga.rw</a> (Legal Matters)<br />
-                    <a href="mailto:info@essanyarugunga.rw">info@essanyarugunga.rw</a> (General Inquiries)</p>
+                    <p><a href="mailto:legal@lymar.rw">legal@lymar.rw</a> (Legal Matters)<br />
+                    <a href="mailto:info@lymar.rw">info@lymar.rw</a> (General Inquiries)</p>
                   </div>
                 </div>
                 <div className="contact-info-item">
@@ -618,7 +618,7 @@ const TermsOfUse = () => {
                 <i className="fas fa-users"></i>
                 <div>
                   <h4>Legal Team Contact</h4>
-                  <p><strong>Legal Counsel:</strong> Marie Uwimana, Esq.</p>
+                  <p><strong>Legal Counsel:</strong> Uwizeye Charles</p>
                   <p><strong>Direct Line:</strong> +250 788 123 457</p>
                   <p><strong>Office Hours:</strong> Monday-Friday, 9:00 AM - 4:00 PM</p>
                 </div>
@@ -1375,7 +1375,7 @@ const TermsOfUse = () => {
         .legal-team {
           display: flex;
           gap: 1rem;
-          background: linear-gradient(135deg, #1e3a8a, #2a4a9a);
+          background: linear-gradient(135deg, rgb(158, 164, 179), rgb(83, 85, 89));
           padding: 1.5rem;
           border-radius: 16px;
           color: white;

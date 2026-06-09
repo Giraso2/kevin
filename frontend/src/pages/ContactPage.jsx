@@ -131,7 +131,7 @@ const ContactPage = () => {
   const handleEmailClick = () => {
     Swal.fire({
       title: 'Email Us',
-      text: 'Click OK to send an email to info@essanyarugunga.rw',
+      text: 'Click OK to send an email to info@lyceesaintmarcelderukara.rw',
       icon: 'info',
       showCancelButton: true,
       confirmButtonText: 'Send Email',
@@ -139,7 +139,7 @@ const ContactPage = () => {
       confirmButtonColor: '#3498db'
     }).then((result) => {
       if (result.isConfirmed) {
-        window.location.href = 'mailto:info@essanyarugunga.rw';
+        window.location.href = 'mailto:info@lyceesaintmarcelderukara.rw';
       }
     });
   };
@@ -151,7 +151,7 @@ const ContactPage = () => {
   const handleDirectionClick = () => {
     Swal.fire({
       title: 'Get Directions',
-      text: 'Open Google Maps for directions to ESSA Nyarugunga?',
+      text: 'Open Google Maps for directions to LYMAR?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Open Maps',
@@ -159,7 +159,7 @@ const ContactPage = () => {
       confirmButtonColor: '#1e3c72'
     }).then((result) => {
       if (result.isConfirmed) {
-        window.open('https://maps.google.com/?q=Nyarugunga+Sector+Kicukiro+District+Kigali+Rwanda', '_blank');
+        window.open('https://maps.google.com/?q=Rukara+Sector+Kayonza+District+Rwanda', '_blank');
       }
     });
   };
@@ -198,7 +198,7 @@ const ContactPage = () => {
     {
       icon: 'fas fa-map-marker-alt',
       title: 'Visit Us',
-      details: ['Nyarugunga Sector, Kicukiro District', 'Kigali, Rwanda'],
+      details: ['Rukara Sector, Kayonza District', 'Rwanda'],
       action: 'Get Directions',
       actionHandler: handleDirectionClick,
       color: '#e74c3c',
@@ -216,7 +216,7 @@ const ContactPage = () => {
     {
       icon: 'fas fa-envelope',
       title: 'Email Us',
-      details: ['info@essanyarugunga.rw', 'admissions@essanyarugunga.rw'],
+      details: ['info@lyceesaintmarcelderukara.rw', 'info@lyceesaintmarcelderukara.rw'],
       action: 'Send Email',
       actionHandler: handleEmailClick,
       color: '#3498db',
@@ -442,7 +442,7 @@ const ContactPage = () => {
                 <h3><i className="fas fa-map-marked-alt"></i> Find Us</h3>
                 <div className="map-wrapper">
                   <iframe
-                    title="ESSA Nyarugunga Location"
+                    title="LYMAR"
                     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.4756!2d30.0935!3d-1.9444!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x19dca76c8d1e2e5b%3A0x4f5c7e3b2a1d8e9f!2sKigali%2C%20Rwanda!5e0!3m2!1sen!2s!4v1700000000000!5m2!1sen!2s"
                     width="100%"
                     height="300"
@@ -459,7 +459,7 @@ const ContactPage = () => {
                   )}
                 </div>
                 <div className="map-address">
-                  <p><i className="fas fa-location-dot"></i> Nyarugunga Sector, Kicukiro District, Kigali, Rwanda</p>
+                  <p><i className="fas fa-location-dot"></i> Rukara Sector Kayonza District, Rwanda</p>
                   <button onClick={handleDirectionClick} className="directions-btn">
                     <i className="fas fa-directions"></i> Get Directions
                   </button>
