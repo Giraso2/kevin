@@ -384,11 +384,7 @@ const AboutPage = () => {
           left: 0;
           width: 100%;
           height: 100%;
-          background: linear-gradient(
-            135deg,
-            rgba(30, 60, 114, 0.85) 0%,
-            rgba(42, 82, 152, 0.75) 100%
-          );
+         
           z-index: 1;
         }
         
