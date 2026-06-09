@@ -75,7 +75,7 @@ const AboutPage = () => {
     { number: '2006', label: 'Year Founded', icon: 'fas fa-calendar-alt' },
     { number: '800+', label: 'Current Students', icon: 'fas fa-user-graduate' },
     { number: '20+', label: 'Qualified Teachers', icon: 'fas fa-chalkboard-user' },
-    { number: '8  5%', label: 'Pass Rate', icon: 'fas fa-chart-line' }
+    { number: '85%', label: 'Pass Rate', icon: 'fas fa-chart-line' }
   ];
 
   const facilities = [
@@ -136,9 +136,8 @@ const AboutPage = () => {
     <>
       <Navbar />
       
-      {/* Hero Section - Centered */}
+      {/* Hero Section - with background overlay */}
       <section className="about-hero" style={{ backgroundImage: `url(${heroBg})` }}>
-       
         <div className="about-hero-overlay"></div>
         <div className="container about-hero-content">
           <div className="hero-badge">
@@ -151,7 +150,6 @@ const AboutPage = () => {
             <Link to="/admissions" className="btn btn-secondary"><i className="fas fa-user-graduate"></i> Apply Now</Link>
           </div>
         </div>
-        
       </section>
 
       {/* Stats Bar Section */}
@@ -369,61 +367,34 @@ const AboutPage = () => {
 
       {/* Styles for alignment */}
       <style>{`
-    
-      
-       /* ========== HERO SLIDER STYLES ========== */
-        .hero {
+        /* Hero Section with Overlay */
+        .about-hero {
           position: relative;
           min-height: 90vh;
           display: flex;
           align-items: center;
-          overflow: hidden;
-        }
-        
-        .hero-slider {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 0;
-        }
-        
-        .hero-slide {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
-          opacity: 0;
-          transition: opacity 1.2s ease-in-out;
         }
         
-        .hero-slide.active {
-          opacity: 1;
-          z-index: 1;
-        }
-        
-        .hero-overlay {
+        .about-hero-overlay {
           position: absolute;
           top: 0;
           left: 0;
           width: 100%;
           height: 100%;
-    background: linear-gradient(
-  135deg,
-  hsla(220, 60%, 18%, 0.80) 0%,
-  hsla(45, 90%, 70%, 0.45) 100%
-);
-          z-index: 2;
+          background: linear-gradient(
+            135deg,
+            rgba(30, 60, 114, 0.85) 0%,
+            rgba(42, 82, 152, 0.75) 100%
+          );
+          z-index: 1;
         }
         
-        .hero-content {
+        .about-hero-content {
           position: relative;
-          z-index: 3;
+          z-index: 2;
           text-align: center;
           color: white;
           width: 100%;
@@ -431,7 +402,7 @@ const AboutPage = () => {
         
         .hero-badge {
           display: inline-block;
-          background: rgba(255,193,7,0.2);
+          background: rgba(255, 193, 7, 0.2);
           color: #ffc107;
           padding: 8px 20px;
           border-radius: 30px;
@@ -440,16 +411,16 @@ const AboutPage = () => {
           backdrop-filter: blur(5px);
         }
         
-        .hero-content h1 {
+        .about-hero-content h1 {
           font-size: 3rem;
           margin-bottom: 1rem;
         }
         
-        .hero-content .highlight {
+        .about-hero-content .highlight {
           color: #ffc107;
         }
         
-        .hero-content p {
+        .about-hero-content p {
           font-size: 1.2rem;
           opacity: 0.95;
           margin-bottom: 2rem;
@@ -476,6 +447,8 @@ const AboutPage = () => {
           display: inline-flex;
           align-items: center;
           gap: 8px;
+          border: none;
+          cursor: pointer;
         }
         
         .btn-primary:hover {
@@ -502,6 +475,26 @@ const AboutPage = () => {
           color: #1e3c72;
           transform: translateY(-2px);
         }
+        
+        .btn-outline {
+          background: transparent;
+          color: #1e3c72;
+          padding: 10px 24px;
+          border-radius: 30px;
+          text-decoration: none;
+          font-weight: 600;
+          border: 2px solid #1e3c72;
+          transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .btn-outline:hover {
+          background: #1e3c72;
+          color: white;
+        }
+        
         /* Stats Bar Section */
         .stats-bar {
           background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -515,7 +508,6 @@ const AboutPage = () => {
           gap: 2rem;
           text-align: center;
         }
-          
         
         .stat-item i {
           font-size: 2rem;
@@ -847,6 +839,13 @@ const AboutPage = () => {
           margin: 10px 0 0 0;
         }
         
+        .underline {
+          width: 60px;
+          height: 3px;
+          background: #ffc107;
+          margin: 10px auto 20px;
+        }
+        
         .activities-list {
           margin: 1.5rem 0;
         }
@@ -942,6 +941,28 @@ const AboutPage = () => {
           background: #f8f9fa;
         }
         
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+        
+        .section-title {
+          text-align: center;
+          margin-bottom: 3rem;
+        }
+        
+        .section-title h2 {
+          color: #1e3c72;
+          font-size: 2rem;
+          margin-bottom: 0.5rem;
+        }
+        
+        .section-subtitle {
+          color: #666;
+          font-size: 1rem;
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
           .stats-grid {
@@ -982,6 +1003,14 @@ const AboutPage = () => {
           
           .facilities-grid {
             grid-template-columns: 1fr;
+          }
+          
+          .about-hero-content h1 {
+            font-size: 2rem;
+          }
+          
+          .about-hero-content p {
+            font-size: 1rem;
           }
         }
       `}</style>

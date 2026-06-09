@@ -154,7 +154,7 @@ const AdmissionsPage = () => {
           title: 'Application Submitted!',
           html: `
             <div style="text-align: left;">
-              <p>Thank you <strong>${formData.fullName}</strong> for applying to ESSA Nyarugunga.</p>
+              <p>Thank you <strong>${formData.fullName}</strong> for applying to LYMAR.</p>
               <p><strong>Application Number:</strong> ${data.applicationNumber}</p>
               <p><strong>Status:</strong> <span style="color: #ffc107;">Pending Review</span></p>
               <hr>
@@ -220,7 +220,7 @@ const AdmissionsPage = () => {
     { q: 'Is there an entrance examination?', a: 'Yes, entrance examinations are held weekly on Saturdays. The exam covers English, Mathematics, and General Knowledge.' },
     { q: 'Can I pay fees in installments?', a: 'Yes, we offer flexible payment plans. Please contact the finance office to discuss an installment plan that works for your family.' },
     { q: 'Is accommodation available?', a: 'Yes, we offer boarding facilities for students who live far from the school. Limited spaces available.' },
-    { q: 'What is the school uniform policy?', a: 'All students are required to wear the official ESSA Nyarugunga uniform. Uniforms can be purchased from the school store.' },
+    { q: 'What is the school uniform policy?', a: 'All students are required to wear the official LYMAR uniform. Uniforms can be purchased from the school store.' },
     { q: 'How do I check my application status?', a: 'You can check your application status by contacting the admissions office via phone or email with your application reference number.' }
   ];
 
@@ -247,7 +247,7 @@ const AdmissionsPage = () => {
           <div className="hero-badge">
             <i className="fas fa-door-open"></i> BEGIN YOUR JOURNEY
           </div>
-          <h1>Begin Your Journey to <span className="highlight">Excellence</span> at ESSA Nyarugunga</h1>
+          <h1>Begin Your Journey to <span className="highlight">Excellence</span> at LYMAR</h1>
           <div className="hero-notice">
             <i className="fas fa-exclamation-triangle"></i> Limited Seats Available - Apply Early!
           </div>
@@ -259,7 +259,7 @@ const AdmissionsPage = () => {
         <div className="container">
           <div className="welcome-card">
             <h2><i className="fas fa-star-of-life"></i> Welcome Future Leaders!</h2>
-            <p>We are delighted that you are considering ESSA Nyarugunga for your secondary education. Our admissions process is designed to be simple, transparent, and accessible to all qualified students. We look forward to welcoming you to our family!</p>
+            <p>We are delighted that you are considering LYMAR for your secondary education. Our admissions process is designed to be simple, transparent, and accessible to all qualified students. We look forward to welcoming you to our family!</p>
           </div>
         </div>
       </section>
@@ -308,7 +308,7 @@ const AdmissionsPage = () => {
               <i className="fas fa-file-alt"></i>
               <h3>Required Documents</h3>
               <ul>
-                <li><i className="fas fa-check"></i> Birth Certificate (2 copies)</li>
+                <li><i className="fas fa-check"></i> Health Insuarance</li>
                 <li><i className="fas fa-check"></i> Last 2 years' Report Cards</li>
                 <li><i className="fas fa-check"></i> 4 Passport Photos</li>
                 <li><i className="fas fa-check"></i> Medical Certificate</li>
@@ -322,53 +322,14 @@ const AdmissionsPage = () => {
                 <li><i className="fas fa-check"></i> Applications Open: Jan 10, 2026</li>
                 <li><i className="fas fa-check"></i> Deadline: Sept 30, 2026</li>
                 <li><i className="fas fa-check"></i> Entrance Exams: Weekly on Saturdays</li>
-                <li><i className="fas fa-check"></i> Classes Begin: Oct 15, 2026</li>
+                <li><i className="fas fa-check"></i> Classes Begin: ⚠️ NESA announces</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Fee Structure */}
-      <section className="fee-structure">
-        <div className="container">
-          <div className="section-title">
-            <h2><i className="fas fa-money-bill-wave"></i> Fee Structure</h2>
-            <div className="underline"></div>
-            <p className="section-subtitle">Affordable quality education - 2026 Academic Year</p>
-          </div>
-          <div className="fee-grid">
-            {feeStructures.map((fee, index) => (
-              <div key={index} className={`fee-card ${fee.popular ? 'popular' : ''}`}>
-                {fee.popular && <div className="popular-badge">Most Popular</div>}
-                <div className="fee-header">
-                  <h3>{fee.level}</h3>
-                  <p className="fee-grades">{fee.grades}</p>
-                  <div className="fee-amount">
-                    <span className="currency">RWF</span>
-                    <span className="amount">{fee.amount}</span>
-                    <span className="period">per term</span>
-                  </div>
-                </div>
-                <div className="fee-features">
-                  <ul>
-                    {fee.features.map((feature, idx) => (
-                      <li key={idx}><i className="fas fa-check-circle"></i> {feature}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="fee-note">
-                  <p>{fee.note}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="payment-methods">
-            <p><i className="fas fa-university"></i> Bank Transfer: Bank of Kigali - Account: 000123456789</p>
-            <p><i className="fas fa-mobile-alt"></i> Mobile Money: Airtel Money | MoMo Pay</p>
-          </div>
-        </div>
-      </section>
+    
 
       {/* Financial Aid */}
       <section className="financial-aid">
@@ -376,7 +337,7 @@ const AdmissionsPage = () => {
           <div className="aid-header">
             <i className="fas fa-hand-holding-heart"></i>
             <h2>Scholarships & Financial Aid</h2>
-            <p>ESSA Nyarugunga believes that every talented student deserves access to quality education regardless of financial background.</p>
+            <p>LYMAR believes that every talented student deserves access to quality education regardless of financial background.</p>
           </div>
           <div className="aid-grid">
             <div className="aid-card">
@@ -826,7 +787,7 @@ const AdmissionsPage = () => {
             <p>Contact our admissions office for assistance. We're here to help you every step of the way.</p>
             <div className="support-contact">
               <div><i className="fas fa-phone-alt"></i> +250 788 123 456</div>
-              <div><i className="fas fa-envelope"></i> admissions@essanyarugunga.rw</div>
+              <div><i className="fas fa-envelope"></i> admissions@lyceesaintmarcelderukara.rw</div>
               <div><i className="fas fa-clock"></i> Mon-Fri: 8AM - 5PM</div>
             </div>
             <Link to="/contact" className="btn btn-primary">Contact Us <i className="fas fa-arrow-right"></i></Link>
