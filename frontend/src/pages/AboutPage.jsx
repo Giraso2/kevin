@@ -72,8 +72,8 @@ const AboutPage = () => {
   ];
 
   const stats = [
-    { number: '2006', label: 'Year Founded', icon: 'fas fa-calendar-alt' },
-    { number: '800+', label: 'Current Students', icon: 'fas fa-user-graduate' },
+    { number: '2000', label: 'Year Founded', icon: 'fas fa-calendar-alt' },
+    { number: '500+', label: 'Current Students', icon: 'fas fa-user-graduate' },
     { number: '20+', label: 'Qualified Teachers', icon: 'fas fa-chalkboard-user' },
     { number: '85%', label: 'Pass Rate', icon: 'fas fa-chart-line' }
   ];
