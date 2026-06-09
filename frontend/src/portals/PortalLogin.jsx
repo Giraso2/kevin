@@ -122,10 +122,10 @@ const PortalLogin = () => {
         <div className="brand-section">
           <div className="school-badge">
             <i className="fas fa-graduation-cap" aria-hidden="true" />
-            <h1>ESSA Nyarugunga</h1>
+            <h1>Lycee St Marcel De Rukara</h1>
           </div>
           <p className="tagline">
-            École Secondaire des Sciences et Administrative
+           DO THE RIGHT THING IN THE RIGHT PLACE AT THE RIGHT TIME
           </p>
           <div className="brand-divider" />
           <div className="quote">
