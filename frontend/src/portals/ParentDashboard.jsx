@@ -271,7 +271,7 @@ const ParentDashboard = () => {
           {!sidebarCollapsed && (
             <div className="logo-area">
               <div className="logo-icon"><i className="fas fa-users"></i></div>
-              <div className="logo-text"><h3>ESSA Portal</h3><p>Parent</p></div>
+              <div className="logo-text"><h3>LYMAR Portal</h3><p>Parent</p></div>
             </div>
           )}
           <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
