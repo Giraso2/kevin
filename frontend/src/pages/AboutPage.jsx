@@ -10,9 +10,16 @@ import campusImage from '../assets/campus.png';
 import studentsImage from '../assets/students.png';
 import classroomImg from '../assets/classroom.png';
 import libraryImg from '../assets/library.png';
+import labImg from '../assets/clab.png'
+import hm from '../assets/master.png'
+import dos from '../assets/dos.png'
+import sec from '../assets/sec.png'
+import pat from '../assets/charles.jpg'
+import mat from '../assets/matron.png'
+import acc from '../assets/bursary.png'
 import footballImg from '../assets/football.png';
 import basketballImg from '../assets/basketball.png';
-import scienceLabImg from '../assets/science-lab.png';
+import Beds from '../assets/BEDS.png';
 import musicImg from '../assets/music.png';
 import artImg from '../assets/art.png';
 import graduationImg from '../assets/graduation.png';
@@ -27,9 +34,9 @@ const AboutPage = () => {
 
   const leadershipTeam = [
     { 
-      name: 'Father Cassien', 
+      name: 'Father Cassien Kubwimana', 
       title: 'Headmaster / Director', 
-      image: campusImage,
+      image: hm,
       education: 'Experienced in Educational Leadership',
       experience: '10+ years experience'
     },
@@ -37,35 +44,35 @@ const AboutPage = () => {
     { 
       name: 'Kamatari Canisius', 
       title: 'Director of Studies', 
-      image: graduationImg,
+      image: dos,
       education: 'Experience in Curriculum Development and Academic Management',
       experience: '12+ years experience'
     },
       { 
       name: 'Habiyambere Adrien', 
       title: 'General Secretary ', 
-      image: graduationImg,
+      image: sec,
       education: 'Experience in Record Keeping and Data Management',
       experience: '10+ years experience'
     },
     { 
       name: 'Uwizeye Charles', 
       title: 'Dean of Discipline', 
-      image: graduationImg,
+      image: pat,
       education: 'Experience in Behaviours Management and Discipline Conduct',
       experience: '5+ years experience'
     },
     { 
       name: 'Uwayisenga Donature', 
       title: 'Dean of Discipline', 
-      image: graduationImg,
+      image: mat,
       education: 'Experience in Behaviours Management and Discipline Conduct',
       experience: '11+ years experience'
     },
     { 
       name: 'Angelique', 
       title: 'Accountant', 
-      image: graduationImg,
+      image: acc,
       education: 'Experience in Accounting and Budgeting',
       experience: '12+ years experience'
     }
@@ -80,8 +87,8 @@ const AboutPage = () => {
 
   const facilities = [
     { name: 'Modern Classrooms', description: 'Spacious, well-lit classrooms with smart boards for interactive learning', icon: 'fas fa-chalkboard', image: classroomImg },
-    { name: 'Modern Dormitories', description: 'Comfortable boarding facilities for both boys and girls with 24/7 supervision', icon: 'fas fa-bed', image: scienceLabImg },
-    { name: 'Computer Lab', description: 'State-of-the-art computers with high-speed internet and modern software', icon: 'fas fa-laptop-code', image: libraryImg },
+    { name: 'Modern Dormitories', description: 'Comfortable boarding facilities for both boys and girls with 24/7 supervision', icon: 'fas fa-bed', image: Beds },
+    { name: 'Computer Lab', description: 'State-of-the-art computers with high-speed internet and modern software', icon: 'fas fa-laptop-code', image: labImg },
     { name: 'Library', description: 'Well-stocked library with reference books, textbooks, and e-resources', icon: 'fas fa-book', image: libraryImg },
     { name: 'Sports Complex', description: 'Football field, basketball court, volleyball court, and athletic facilities', icon: 'fas fa-futbol', image: footballImg },
     { name: 'Main Hall', description: '500+ seat multipurpose hall for assemblies, events, and meetings', icon: 'fas fa-building', image: graduationImg }
@@ -143,7 +150,7 @@ const AboutPage = () => {
           <div className="hero-badge">
             <i className="fas fa-info-circle"></i> ABOUT OUR SCHOOL
           </div>
-          <h1>Excellence in <span className="highlight">Technology & Administrative</span> Education</h1>
+          <h1>Excellence in <span className="highlight">Quality & Administrative</span> Education</h1>
           <p>For over 20 years, we have been shaping the future leaders of Rwanda through quality education, discipline, and holistic development.</p>
           <div className="hero-buttons">
             <button onClick={handleContactClick} className="btn btn-primary"><i className="fas fa-phone-alt"></i> Contact Admissions</button>

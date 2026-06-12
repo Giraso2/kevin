@@ -243,19 +243,19 @@ const HomePage = () => {
           </div>
           <div className="cards">
             <div className="card">
-              <div className="card-icon"><i className="fas fa-code"></i></div>
+              <div className="card-icon"><i className="fas fa-landmark"></i></div>
               <h3>Arts and Humanities</h3>
               <p>Deals with History, Geography, Pschology, Literature</p>
               <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
             </div>
            
             <div className="card">
-              <div className="card-icon"><i className="fas fa-microchip"></i></div>
+              <div className="card-icon"><i className="fas fa-dna"></i></div>
               <h3>Science Stream 2</h3>
               <p>Deals with Mathematics , Economics , Geograpgy , History</p> <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>
             </div>
             <div className="card">
-              <div className="card-icon"><i className="fas fa-hotel"></i></div>
+              <div className="card-icon"><i className="fas fa-language"></i></div>
               <h3>Languages</h3>
               <p>Deals with Professional English , French , Kinyarwanda and Swahili</p>
               <Link to="/academics" className="card-link">Learn More <i className="fas fa-arrow-right"></i></Link>

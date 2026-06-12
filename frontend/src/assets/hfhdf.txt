@@ -1,0 +1,5 @@
+DAB enterprise ltd is a company specialized in seling building tools  and construction materials located on kigal city, rwanda  the company manages employee records and keeps track of purchase 
+and sales recors using a manual system in its daily operationd. however , the current system is autdated , slow, and not flexible enough to support growing business needs 
+most activities are handled separately, which causes data duplication,delays,and difficulty in tracking daily transaction record 
+to improve transaction processing , the company has decided to develop a web based application that will manage all its operation and eliminates duplications
+,ensure data consistenscy and support  decision making

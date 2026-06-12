@@ -25,7 +25,7 @@ body {
   background: #1a3a5c;
   color: white;
   padding: 0.8rem 0;
-  position: sticky;
+  position: fixed;
   top: 0;
   z-index: 1000;
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);

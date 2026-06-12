@@ -159,7 +159,7 @@ const ContactPage = () => {
       confirmButtonColor: '#1e3c72'
     }).then((result) => {
       if (result.isConfirmed) {
-        window.open('https://maps.google.com/?q=Rukara+Sector+Kayonza+District+Rwanda', '_blank');
+        window.open('https://mapcarta.com/fr/W236387959');
       }
     });
   };
@@ -443,7 +443,7 @@ const ContactPage = () => {
                 <div className="map-wrapper">
                   <iframe
                     title="LYMAR"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.4756!2d30.0935!3d-1.9444!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x19dca76c8d1e2e5b%3A0x4f5c7e3b2a1d8e9f!2sKigali%2C%20Rwanda!5e0!3m2!1sen!2s!4v1700000000000!5m2!1sen!2s"
+                    src="https://mapcarta.com/fr/W236387959"
                     width="100%"
                     height="300"
                     style={{ border: 0, borderRadius: '12px' }}

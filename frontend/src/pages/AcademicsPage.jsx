@@ -90,8 +90,8 @@ const AcademicsPage = () => {
 
   const resources = [
     { name: 'School Library', icon: 'fas fa-book', description: 'Over 5,000 books including textbooks, references, fiction, and periodicals.', detail: 'Mon-Fri: 8AM - 5PM' },
-    { name: 'Computer Labs', icon: 'fas fa-laptop', description: 'Three modern computer labs with 50+ computers and high-speed internet.', detail: '3 Labs | 50+ PCs' },
-    { name: 'Science Laboratory', icon: 'fas fa-flask', description: 'Fully equipped Physics, Chemistry, and Biology laboratories.', detail: '3 Specialized Labs' },
+    { name: 'Computer Labs', icon: 'fas fa-laptop', description: 'Modern computer labs with 40+ computers and high-speed internet.', detail: 'Modern Lab' },
+    { name: 'Science Laboratory', icon: 'fas fa-flask', description: 'Fully equipped Physics, Chemistry, and Biology laboratory.', detail: 'Specialized Science Lab' },
     { name: 'E-Learning Platform', icon: 'fas fa-wifi', description: 'Access to online resources, digital assignments, and virtual classrooms.', detail: '24/7 Access' }
   ];
 
