@@ -22,6 +22,7 @@ import TeacherDashboard from './portals/TeacherDashboard';
 import StudentDashboard from './portals/StudentDashboard';
 import ParentDashboard from './portals/ParentDashboard';
 import AccountsAdminDashboard from './portals/AccountsAdminDashboard';
+import SecretaryAdminDashboard from './portals/SecretaryAdminDashboard';
 import DisciplineAdminDashboard from './portals/DisciplineAdminDashboard'; 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -81,6 +82,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['discipline_admin']}>
               <DisciplineAdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        {/* Protected Routes - Secretary Admin */}
+        <Route 
+          path="/portal/secretary-admin" 
+          element={
+            <ProtectedRoute allowedRoles={['secretary_admin']}>
+              <SecretaryAdminDashboard />
             </ProtectedRoute>
           } 
         />

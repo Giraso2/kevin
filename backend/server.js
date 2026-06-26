@@ -115,6 +115,29 @@ const teacherProfileSchema = new mongoose.Schema({
   experience: String,
   createdAt: { type: Date, default: Date.now }
 });
+// ==================== VISITOR SCHEMA ====================
+const visitorSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: String,
+  phone: String,
+  purpose: { type: String, required: true },
+  personToVisit: String,
+  arrivalTime: { type: Date, default: Date.now },
+  departureTime: Date,
+  createdAt: { type: Date, default: Date.now }
+});
+
+// ==================== EVENT SCHEMA ====================
+const eventSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  date: { type: Date, required: true },
+  time: String,
+  location: String,
+  organizer: String,
+  permissionRequired: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
 
 const studentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -467,7 +490,8 @@ studentSchema.pre('save', async function (next) {
   }
   next();
 });
-
+const Visitor = mongoose.model('Visitor', visitorSchema);
+const Event = mongoose.model('Event', eventSchema);
 // Auto-generate receipt number
 feePaymentSchema.pre('save', async function (next) {
   if (!this.receiptNo) {
@@ -2385,6 +2409,181 @@ app.get('/api/parent/children/:childId/dashboard', authMiddleware, requireRole('
       fees,
       className: child.classId ? `${child.classId.grade} ${child.classId.className}` : 'Not Assigned'
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+// ==================== SECRETARY ADMIN ROUTES ====================
+
+// ==================== VISITOR MANAGEMENT ====================
+app.get('/api/secretary/visitors', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const visitors = await Visitor.find().sort({ arrivalTime: -1 });
+    res.json(visitors);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/secretary/visitors', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const visitor = await Visitor.create({
+      ...req.body,
+      arrivalTime: req.body.arrivalTime || new Date()
+    });
+    res.json({ success: true, visitor });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/secretary/visitors/:id/checkout', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const visitor = await Visitor.findByIdAndUpdate(
+      req.params.id,
+      { departureTime: new Date() },
+      { new: true }
+    );
+    if (!visitor) return res.status(404).json({ message: 'Visitor not found' });
+    res.json({ success: true, visitor });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== EVENT MANAGEMENT ====================
+app.get('/api/secretary/events', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const events = await Event.find().sort({ date: 1 });
+    res.json(events);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/secretary/events', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const event = await Event.create(req.body);
+    res.json({ success: true, event });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/secretary/events/:id', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    await Event.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/secretary/events/:id', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json({ success: true, event });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== NEWS MANAGEMENT (SECRETARY) ====================
+app.get('/api/secretary/news', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const news = await News.find().sort({ date: -1 });
+    res.json(news);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/secretary/news', authMiddleware, requireRole('secretary_admin', 'super_admin'), uploadNews.single('image'), async (req, res) => {
+  try {
+    const { title, summary, content, category, tags } = req.body;
+    const currentUser = await User.findById(req.userId);
+    const imageUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/news/${req.file.filename}` : null;
+    
+    const news = await News.create({
+      title,
+      summary,
+      content: content || summary,
+      image: imageUrl,
+      category: category || 'news',
+      tags: tags ? tags.split(',').map(t => t.trim()) : [],
+      author: currentUser?.fullName || 'Secretary',
+      date: new Date(),
+      isPublished: true
+    });
+    res.json({ success: true, news, imageUrl });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/secretary/news/:id', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    await News.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== GALLERY MANAGEMENT (SECRETARY) ====================
+app.get('/api/secretary/gallery', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const gallery = await Gallery.find().sort({ date: -1 });
+    res.json(gallery);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/secretary/gallery', authMiddleware, requireRole('secretary_admin', 'super_admin'), uploadGallery.single('image'), async (req, res) => {
+  try {
+    const { title, category, description } = req.body;
+    const imageUrl = req.file ? `${req.protocol}://${req.get('host')}/uploads/gallery/${req.file.filename}` : null;
+    
+    if (!imageUrl) return res.status(400).json({ message: 'Image is required' });
+    
+    const galleryItem = await Gallery.create({
+      title,
+      image: imageUrl,
+      category: category || 'events',
+      description: description || '',
+      isPublished: true
+    });
+    res.json({ success: true, gallery: galleryItem, imageUrl });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/secretary/gallery/:id', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    await Gallery.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== ADMISSION APPLICATIONS (SECRETARY VIEW) ====================
+app.get('/api/secretary/applications', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const applications = await AdmissionApplication.find().sort({ createdAt: -1 });
+    res.json(applications);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== FEE PAYMENTS (SECRETARY VIEW) ====================
+app.get('/api/secretary/payments', authMiddleware, requireRole('secretary_admin', 'super_admin'), async (req, res) => {
+  try {
+    const payments = await FeePayment.find().populate('studentId', 'fullName studentId').sort({ paymentDate: -1 });
+    res.json(payments);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
