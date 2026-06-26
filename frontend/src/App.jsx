@@ -14,23 +14,29 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
 import NotFoundPage from './pages/NotFoundPage';
 
-// Portals
+// Portals - Standard Login
 import PortalLogin from './portals/PortalLogin';
+
+// Portals - Parent OTP Login (import from parent folder)
+import ParentLogin from './portals/parent/ParentLogin';
+
+// Dashboards
 import SuperAdminDashboard from './portals/SuperAdminDashboard';
 import AcademicAdminDashboard from './portals/AcademicAdminDashboard';
 import TeacherDashboard from './portals/TeacherDashboard';
 import StudentDashboard from './portals/StudentDashboard';
-import ParentDashboard from './portals/ParentDashboard';
+import ParentDashboard from './portals/parent/ParentDashboard';
 import AccountsAdminDashboard from './portals/AccountsAdminDashboard';
 import SecretaryAdminDashboard from './portals/SecretaryAdminDashboard';
-import DisciplineAdminDashboard from './portals/DisciplineAdminDashboard'; 
+import DisciplineAdminDashboard from './portals/DisciplineAdminDashboard';
+
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
+        {/* ==================== PUBLIC ROUTES ==================== */}
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/academics" element={<AcademicsPage />} />
@@ -43,10 +49,17 @@ function App() {
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
         
-        {/* Portal Login */}
+        {/* ==================== PORTAL LOGIN ROUTES ==================== */}
+        
+        {/* Standard Login for Admins, Teachers, Students */}
         <Route path="/portal/login" element={<PortalLogin />} />
         
-        {/* Protected Routes - Super Admin */}
+        {/* Parent Specific Login - OTP Based */}
+        <Route path="/portal/parent-login" element={<ParentLogin />} />
+        
+        {/* ==================== PROTECTED ROUTES ==================== */}
+        
+        {/* Super Admin */}
         <Route 
           path="/portal/super-admin" 
           element={
@@ -56,7 +69,7 @@ function App() {
           } 
         />
         
-        {/* Protected Routes - Academic Admin */}
+        {/* Academic Admin */}
         <Route 
           path="/portal/academic-admin" 
           element={
@@ -66,7 +79,7 @@ function App() {
           } 
         />
         
-        {/* Protected Routes - Accounts Admin - FIXED */}
+        {/* Accounts Admin */}
         <Route 
           path="/portal/accounts-admin" 
           element={
@@ -76,7 +89,7 @@ function App() {
           } 
         />
         
-        {/* Protected Routes - Discipline Admin */}
+        {/* Discipline Admin */}
         <Route 
           path="/portal/discipline-admin" 
           element={
@@ -85,7 +98,8 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        {/* Protected Routes - Secretary Admin */}
+        
+        {/* Secretary Admin */}
         <Route 
           path="/portal/secretary-admin" 
           element={
@@ -95,7 +109,7 @@ function App() {
           } 
         />
         
-        {/* Protected Routes - Teacher */}
+        {/* Teacher */}
         <Route 
           path="/portal/teacher" 
           element={
@@ -105,7 +119,7 @@ function App() {
           } 
         />
         
-        {/* Protected Routes - Student */}
+        {/* Student */}
         <Route 
           path="/portal/student" 
           element={
@@ -115,7 +129,7 @@ function App() {
           } 
         />
         
-        {/* Protected Routes - Parent */}
+        {/* Parent Dashboard - Protected */}
         <Route 
           path="/portal/parent" 
           element={
