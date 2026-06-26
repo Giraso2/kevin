@@ -247,92 +247,98 @@ const SecretaryAdminDashboard = () => {
   const fetchNews = () => api('/secretary/news').then(d => setNews(Array.isArray(d) ? d : [])).catch(() => {});
   const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.isArray(d) ? d : [])).catch(() => {});
 
- // ─── ACTIONS ──────────────────────────────────────────────────────
+  // ─── STUDENT MANAGEMENT ──────────────────────────────────────────
+  const createStudent = async () => {
+    if (!studentForm.fullName) { 
+      Swal.fire('Missing Fields', 'Student name is required', 'warning'); 
+      return; 
+    }
+    setSaving(true);
+    try {
+      const result = await api('/academic-admin/students', { 
+        method: 'POST', 
+        body: JSON.stringify({
+          ...studentForm,
+          password: studentForm.password || undefined
+        }) 
+      });
+      
+      const studentId = result.student.studentId;
+      const password = result.generatedPassword || 'student123';
+      const email = result.student.email || studentForm.email || 'Not provided';
+      
+      // Display success message with student ID and credentials
+      Swal.fire({
+        title: '✅ Student Registered Successfully!',
+        html: `
+          <div style="text-align: left; padding: 10px 0; font-size: 14px;">
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+              <span style="color: #666;"><strong>Full Name</strong></span>
+              <span style="font-weight: 600;">${studentForm.fullName}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+              <span style="color: #666;"><strong>Student ID</strong></span>
+              <span style="background: #1a3a5c; color: white; padding: 2px 12px; border-radius: 4px; font-weight: 700; font-size: 15px;">${studentId}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+              <span style="color: #666;"><strong>Email</strong></span>
+              <span>${email}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+              <span style="color: #666;"><strong>Password</strong></span>
+              <span style="background: #27ae60; color: white; padding: 2px 12px; border-radius: 4px; font-weight: 700;">${password}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+              <span style="color: #666;"><strong>Class</strong></span>
+              <span>${studentForm.classId ? classes.find(c => c._id === studentForm.classId)?.grade + ' ' + classes.find(c => c._id === studentForm.classId)?.className : 'Not assigned'}</span>
+            </div>
+          </div>
+          <div style="margin-top: 12px; display: flex; gap: 10px; justify-content: center;">
+            <button onclick="navigator.clipboard.writeText('Student ID: ${studentId}\\nPassword: ${password}')" 
+              style="background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">
+              <i class="fas fa-copy"></i> Copy Credentials
+            </button>
+          </div>
+          <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 8px; font-size: 12px; color: #e67e22; text-align: left;">
+            <i class="fas fa-info-circle" style="margin-right: 6px;"></i> 
+            <strong>IMPORTANT:</strong> Please save these credentials and share them with the student.
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonText: '✅ Done',
+        confirmButtonColor: '#00bcd4',
+        width: 520,
+        backdrop: 'rgba(0,0,0,0.4)',
+        padding: '20px'
+      });
+      
+      // Reset form and close modal
+      setStudentModal(false); 
+      setStudentForm({ 
+        fullName: '', email: '', classId: '', parentName: '', parentPhone: '', 
+        dateOfBirth: '', gender: 'other', address: '', password: '' 
+      });
+      fetchStudents();
+      
+    } catch (e) { 
+      Swal.fire({
+        title: '❌ Registration Failed',
+        text: e.message || 'Failed to register student. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#e74c3c'
+      }); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
 
-// In the Swal.fire html, add a copy button:
-const createStudent = async () => {
-  if (!studentForm.fullName) { 
-    Swal.fire('Missing Fields', 'Student name required', 'warning'); 
-    return; 
-  }
-  setSaving(true);
-  try {
-    const result = await api('/academic-admin/students', { 
-      method: 'POST', 
-      body: JSON.stringify({
-        ...studentForm,
-        password: studentForm.password || undefined
-      }) 
-    });
-    
-    const studentId = result.student.studentId;
-    const password = result.generatedPassword || 'student123';
-    const email = result.student.email || studentForm.email || 'Not provided';
-    
-    // Display success message with student ID and credentials
-    Swal.fire({
-      title: '✅ Student Registered Successfully!',
-      html: `
-        <div style="text-align: left; padding: 10px 0; font-size: 14px;">
-          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-            <span style="color: #666;"><strong>Full Name</strong></span>
-            <span style="font-weight: 600;">${studentForm.fullName}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-            <span style="color: #666;"><strong>Student ID</strong></span>
-            <span style="background: #1a3a5c; color: white; padding: 2px 12px; border-radius: 4px; font-weight: 700; font-size: 15px;">${studentId}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-            <span style="color: #666;"><strong>Email</strong></span>
-            <span>${email}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-            <span style="color: #666;"><strong>Password</strong></span>
-            <span style="background: #27ae60; color: white; padding: 2px 12px; border-radius: 4px; font-weight: 700;">${password}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-            <span style="color: #666;"><strong>Class</strong></span>
-            <span>${studentForm.classId ? classes.find(c => c._id === studentForm.classId)?.grade + ' ' + classes.find(c => c._id === studentForm.classId)?.className : 'Not assigned'}</span>
-          </div>
-        </div>
-        <div style="margin-top: 12px; display: flex; gap: 10px; justify-content: center;">
-          <button onclick="navigator.clipboard.writeText('ID: ${studentId}\\nPassword: ${password}')" 
-            style="background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">
-            <i class="fas fa-copy"></i> Copy Credentials
-          </button>
-        </div>
-        <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 8px; font-size: 12px; color: #e67e22; text-align: left;">
-          <i class="fas fa-info-circle" style="margin-right: 6px;"></i> 
-          <strong>IMPORTANT:</strong> Please save these credentials and share them with the student.
-        </div>
-      `,
-      icon: 'success',
-      confirmButtonText: '✅ Done',
-      confirmButtonColor: '#00bcd4',
-      width: 520,
-      backdrop: 'rgba(0,0,0,0.4)',
-      padding: '20px'
-    });
-    
-    // Reset form and close modal
-    setStudentModal(false); 
-    setStudentForm({ 
-      fullName: '', email: '', classId: '', parentName: '', parentPhone: '', 
-      dateOfBirth: '', gender: 'other', address: '', password: '' 
-    });
-    fetchStudents();
-    
-  } catch (e) { 
-    Swal.fire({
-      title: '❌ Registration Failed',
-      text: e.message || 'Failed to register student. Please try again.',
-      icon: 'error',
-      confirmButtonColor: '#e74c3c'
-    }); 
-  } finally { 
-    setSaving(false); 
-  }
-};
+  const deleteStudent = async (s) => {
+    const ok = await Swal.fire({ title: `Remove ${s.fullName}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/academic-admin/students/${s._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchStudents();
+  };
+
   // Visitor Management
   const addVisitor = async () => {
     if (!visitorForm.name || !visitorForm.purpose) { Swal.fire('Missing Fields', 'Name and purpose required', 'warning'); return; }
@@ -688,30 +694,30 @@ const createStudent = async () => {
             </div>
           )}
 
-         {/* ══ STUDENT DIRECTORY ══ */}
-{activeTab === 'students' && (
-  <div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-      <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Student Directory</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{students.length} students enrolled</p></div>
-      <Btn onClick={() => setStudentModal(true)} icon="fas fa-user-plus" color="#00bcd4">Register Student</Btn>
-    </div>
-    <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)', overflowX: 'auto' }}>
-      <Table cols={['Student', 'ID', 'Class', 'Parent', 'Contact', 'Actions']} emptyMsg="No students enrolled yet."
-        rows={students.map(s => (
-          <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><Avatar name={s.fullName} size={30} /><div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.fullName}</div></div></div></TD>
-            <TD><Badge text={s.studentId || '—'} color="#1a3a5c" bg="#e8f0fb" /></TD>
-            <TD>{s.classId ? <Badge text={`${s.classId.grade || ''} ${s.classId.className || ''}`} color="#3498db" bg="#e3f2fd" /> : <span style={{ color: '#aaa', fontSize: 12 }}>Not assigned</span>}</TD>
-            <TD style={{ fontSize: 12 }}>{s.parentName || '—'}</TD>
-            <TD style={{ fontSize: 12 }}>{s.parentPhone || '—'}</TD>
-            <TD><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <Btn small icon="fas fa-comment" color="#3498db" onClick={() => { setSelectedUser(s); setActiveTab('messages'); }}>Message</Btn>
-              <Btn small danger icon="fas fa-trash" onClick={() => deleteStudent(s)} />
-            </div></TD></>
-        ))}
-      />
-    </div>
-  </div>
-)}
+          {/* ══ STUDENT DIRECTORY ══ */}
+          {activeTab === 'students' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Student Directory</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{students.length} students enrolled</p></div>
+                <Btn onClick={() => setStudentModal(true)} icon="fas fa-user-plus" color="#00bcd4">Register Student</Btn>
+              </div>
+              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)', overflowX: 'auto' }}>
+                <Table cols={['Student', 'ID', 'Class', 'Parent', 'Contact', 'Actions']} emptyMsg="No students enrolled yet."
+                  rows={students.map(s => (
+                    <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><Avatar name={s.fullName} size={30} /><div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.fullName}</div></div></div></TD>
+                      <TD><Badge text={s.studentId || '—'} color="#1a3a5c" bg="#e8f0fb" /></TD>
+                      <TD>{s.classId ? <Badge text={`${s.classId.grade || ''} ${s.classId.className || ''}`} color="#3498db" bg="#e3f2fd" /> : <span style={{ color: '#aaa', fontSize: 12 }}>Not assigned</span>}</TD>
+                      <TD style={{ fontSize: 12 }}>{s.parentName || '—'}</TD>
+                      <TD style={{ fontSize: 12 }}>{s.parentPhone || '—'}</TD>
+                      <TD><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <Btn small icon="fas fa-comment" color="#3498db" onClick={() => { setSelectedUser(s); setActiveTab('messages'); }}>Message</Btn>
+                        <Btn small danger icon="fas fa-trash" onClick={() => deleteStudent(s)} />
+                      </div></TD></>
+                  ))}
+                />
+              </div>
+            </div>
+          )}
 
           {/* ══ ADMISSIONS ══ */}
           {activeTab === 'admissions' && (
@@ -1009,31 +1015,121 @@ const createStudent = async () => {
 
       {/* ─── MODALS ─── */}
 
-      {/* Student Registration Modal */}
-      <Modal open={studentModal} onClose={() => setStudentModal(false)} title="Register New Student" width={520}>
-        <Field label="Full Name" required><Inp value={studentForm.fullName} placeholder="Student full name" onChange={e => setStudentForm(p => ({ ...p, fullName: e.target.value }))} /></Field>
-        <Field label="Email"><Inp type="email" value={studentForm.email} placeholder="student@essa.rw" onChange={e => setStudentForm(p => ({ ...p, email: e.target.value }))} /></Field>
+      {/* Student Registration Modal WITH ID FIELD */}
+      <Modal open={studentModal} onClose={() => setStudentModal(false)} title="Register New Student" width={550}>
+        <div style={{ 
+          background: '#e8f0fb', 
+          padding: '10px 14px', 
+          borderRadius: 8, 
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 13,
+          color: '#1a3a5c'
+        }}>
+          <i className="fas fa-info-circle" style={{ color: '#3498db', fontSize: 16 }} />
+          <span>Student ID will be <strong>auto-generated</strong> upon registration (e.g., STU20260001)</span>
+        </div>
+        
+        <Field label="Full Name" required>
+          <Inp 
+            value={studentForm.fullName} 
+            placeholder="e.g. Jean Pierre Habimana" 
+            onChange={e => setStudentForm(p => ({ ...p, fullName: e.target.value }))} 
+          />
+        </Field>
+        
+        <Field label="Email">
+          <Inp 
+            type="email" 
+            value={studentForm.email} 
+            placeholder="student@essa.rw" 
+            onChange={e => setStudentForm(p => ({ ...p, email: e.target.value }))} 
+          />
+        </Field>
+        
         <Field label="Class">
-          <Sel value={studentForm.classId} onChange={e => setStudentForm(p => ({ ...p, classId: e.target.value }))}>
+          <Sel 
+            value={studentForm.classId} 
+            onChange={e => setStudentForm(p => ({ ...p, classId: e.target.value }))}
+          >
             <option value="">— Select Class —</option>
-            {classes.map(c => <option key={c._id} value={c._id}>{c.grade} {c.className}</option>)}
+            {classes.map(c => (
+              <option key={c._id} value={c._id}>{c.grade} {c.className}</option>
+            ))}
           </Sel>
         </Field>
-        <Field label="Gender">
-          <Sel value={studentForm.gender} onChange={e => setStudentForm(p => ({ ...p, gender: e.target.value }))}>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </Sel>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Gender">
+            <Sel 
+              value={studentForm.gender} 
+              onChange={e => setStudentForm(p => ({ ...p, gender: e.target.value }))}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </Sel>
+          </Field>
+          <Field label="Date of Birth">
+            <Inp 
+              type="date" 
+              value={studentForm.dateOfBirth} 
+              onChange={e => setStudentForm(p => ({ ...p, dateOfBirth: e.target.value }))} 
+            />
+          </Field>
+        </div>
+        
+        <Field label="Parent/Guardian Name">
+          <Inp 
+            value={studentForm.parentName} 
+            placeholder="Parent/Guardian full name" 
+            onChange={e => setStudentForm(p => ({ ...p, parentName: e.target.value }))} 
+          />
         </Field>
-        <Field label="Date of Birth"><Inp type="date" value={studentForm.dateOfBirth} onChange={e => setStudentForm(p => ({ ...p, dateOfBirth: e.target.value }))} /></Field>
-        <Field label="Parent Name"><Inp value={studentForm.parentName} placeholder="Parent/Guardian name" onChange={e => setStudentForm(p => ({ ...p, parentName: e.target.value }))} /></Field>
-        <Field label="Parent Phone"><Inp value={studentForm.parentPhone} placeholder="+250 788 000 000" onChange={e => setStudentForm(p => ({ ...p, parentPhone: e.target.value }))} /></Field>
-        <Field label="Address"><Inp value={studentForm.address} placeholder="Home address" onChange={e => setStudentForm(p => ({ ...p, address: e.target.value }))} /></Field>
-        <Field label="Password"><Inp type="password" value={studentForm.password} placeholder="Leave blank for auto-generate" onChange={e => setStudentForm(p => ({ ...p, password: e.target.value }))} /></Field>
+        
+        <Field label="Parent Phone">
+          <Inp 
+            value={studentForm.parentPhone} 
+            placeholder="+250 788 000 000" 
+            onChange={e => setStudentForm(p => ({ ...p, parentPhone: e.target.value }))} 
+          />
+        </Field>
+        
+        <Field label="Address">
+          <Inp 
+            value={studentForm.address} 
+            placeholder="Home address" 
+            onChange={e => setStudentForm(p => ({ ...p, address: e.target.value }))} 
+          />
+        </Field>
+        
+        <Field label="Password">
+          <Inp 
+            type="password" 
+            value={studentForm.password} 
+            placeholder="Leave blank for auto-generate" 
+            onChange={e => setStudentForm(p => ({ ...p, password: e.target.value }))} 
+          />
+        </Field>
+        
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-          <Btn onClick={() => setStudentModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
-          <Btn onClick={createStudent} icon="fas fa-user-graduate" color="#00bcd4" disabled={saving}>{saving ? 'Saving…' : 'Register Student'}</Btn>
+          <Btn 
+            onClick={() => setStudentModal(false)} 
+            color="#f0f0f0" 
+            textColor="#666"
+          >
+            Cancel
+          </Btn>
+          <Btn 
+            onClick={createStudent} 
+            icon="fas fa-user-graduate" 
+            color="#00bcd4" 
+            disabled={saving}
+          >
+            {saving ? '⏳ Saving…' : '🎓 Register Student'}
+          </Btn>
         </div>
       </Modal>
 

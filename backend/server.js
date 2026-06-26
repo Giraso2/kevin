@@ -1227,6 +1227,11 @@ app.get('/api/super-admin/stats', authMiddleware, requireRole('super_admin'), as
 // ==================== TEACHERS ====================
 app.get('/api/academic-admin/teachers-list', authMiddleware, async (req, res) => {
   try {
+    // Allow authorized roles to view teachers
+    if (!['super_admin', 'academic_admin', 'secretary_admin', 'teacher'].includes(req.userRole)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const teachers = await TeacherProfile.find().sort({ fullName: 1 });
     res.json(teachers);
   } catch (error) {
@@ -1234,114 +1239,236 @@ app.get('/api/academic-admin/teachers-list', authMiddleware, async (req, res) =>
   }
 });
 
-app.post('/api/academic-admin/create-teacher-credentials', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
-  try {
-    const { fullName, email, password, subject, phone, qualification, experience } = req.body;
-    if (await User.findOne({ email })) return res.status(400).json({ message: 'Email already exists' });
-    const finalPassword = password || 'teacher123';
-    const hashedPassword = await bcrypt.hash(finalPassword, 10);
-    const teacherUser = await User.create({
-      fullName,
-      email,
-      password: hashedPassword,
-      role: 'teacher',
-      phone: phone || '',
-      createdBy: req.userId
-    });
-    const teacherProfile = await TeacherProfile.create({
-      userId: teacherUser._id,
-      fullName,
-      email,
-      subject: subject || 'General',
-      phone: phone || '',
-      qualification,
-      experience
-    });
-    sendWelcomeEmail({ fullName, email, role: 'teacher', tempPassword: finalPassword }).catch(console.error);
-    res.json({ success: true, teacher: teacherProfile, password: finalPassword });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+app.post(
+  '/api/academic-admin/create-teacher-credentials',
+  authMiddleware,
+  requireRole('academic_admin', 'super_admin'),
+  async (req, res) => {
+    try {
+      const {
+        fullName,
+        email,
+        password,
+        subject,
+        phone,
+        qualification,
+        experience
+      } = req.body;
 
-app.put('/api/academic-admin/teachers/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
-  try {
-    const { fullName, email, subject, phone, qualification, experience } = req.body;
-    const teacher = await TeacherProfile.findByIdAndUpdate(
-      req.params.id,
-      { fullName, email, subject, phone, qualification, experience },
-      { new: true }
-    );
-    if (teacher?.userId) await User.findByIdAndUpdate(teacher.userId, { fullName, email, phone });
-    res.json({ success: true, teacher });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+      if (await User.findOne({ email })) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
 
-app.delete('/api/academic-admin/teachers/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
-  try {
-    const teacher = await TeacherProfile.findById(req.params.id);
-    if (teacher?.userId) await User.findByIdAndDelete(teacher.userId);
-    await TeacherProfile.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+      const finalPassword = password || 'teacher123';
+      const hashedPassword = await bcrypt.hash(finalPassword, 10);
+
+      const teacherUser = await User.create({
+        fullName,
+        email,
+        password: hashedPassword,
+        role: 'teacher',
+        phone: phone || '',
+        createdBy: req.userId
+      });
+
+      const teacherProfile = await TeacherProfile.create({
+        userId: teacherUser._id,
+        fullName,
+        email,
+        subject: subject || 'General',
+        phone: phone || '',
+        qualification,
+        experience
+      });
+
+      sendWelcomeEmail({
+        fullName,
+        email,
+        role: 'teacher',
+        tempPassword: finalPassword
+      }).catch(console.error);
+
+      res.json({
+        success: true,
+        teacher: teacherProfile,
+        password: finalPassword
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
   }
-});
+);
+
+app.put(
+  '/api/academic-admin/teachers/:id',
+  authMiddleware,
+  requireRole('academic_admin', 'super_admin'),
+  async (req, res) => {
+    try {
+      const {
+        fullName,
+        email,
+        subject,
+        phone,
+        qualification,
+        experience
+      } = req.body;
+
+      const teacher = await TeacherProfile.findByIdAndUpdate(
+        req.params.id,
+        {
+          fullName,
+          email,
+          subject,
+          phone,
+          qualification,
+          experience
+        },
+        { new: true }
+      );
+
+      if (teacher?.userId) {
+        await User.findByIdAndUpdate(teacher.userId, {
+          fullName,
+          email,
+          phone
+        });
+      }
+
+      res.json({
+        success: true,
+        teacher
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+app.delete(
+  '/api/academic-admin/teachers/:id',
+  authMiddleware,
+  requireRole('academic_admin', 'super_admin'),
+  async (req, res) => {
+    try {
+      const teacher = await TeacherProfile.findById(req.params.id);
+
+      if (teacher?.userId) {
+        await User.findByIdAndDelete(teacher.userId);
+      }
+
+      await TeacherProfile.findByIdAndDelete(req.params.id);
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
 
 // ==================== CLASSES ====================
 app.get('/api/academic-admin/classes', authMiddleware, async (req, res) => {
   try {
+    // Allow only authorized roles to view classes
+    if (!['super_admin', 'academic_admin', 'secretary_admin', 'teacher'].includes(req.userRole)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const classes = await Class.find().lean();
+
     for (const cls of classes) {
       if (cls.teacherId) {
         const teacher = await TeacherProfile.findOne({ userId: cls.teacherId });
-        if (teacher) cls.teacherInfo = { _id: cls.teacherId, fullName: teacher.fullName };
+        if (teacher) {
+          cls.teacherInfo = {
+            _id: cls.teacherId,
+            fullName: teacher.fullName
+          };
+        }
       }
     }
+
     res.json(classes);
-  } catch {
+  } catch (error) {
+    console.error(error);
     res.json([]);
   }
 });
 
-app.post('/api/academic-admin/classes', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
-  try {
-    const { className, grade, academicYear, teacherId, capacity, subjects } = req.body;
-    const newClass = await Class.create({
-      className,
-      grade,
-      academicYear,
-      teacherId: teacherId || null,
-      students: [],
-      capacity: capacity || 40,
-      subjects: subjects || []
-    });
-    res.json({ success: true, class: newClass });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+app.post(
+  '/api/academic-admin/classes',
+  authMiddleware,
+  requireRole('academic_admin', 'super_admin'),
+  async (req, res) => {
+    try {
+      const {
+        className,
+        grade,
+        academicYear,
+        teacherId,
+        capacity,
+        subjects
+      } = req.body;
 
-app.put('/api/academic-admin/classes/:classId/assign-teacher', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
-  try {
-    const classItem = await Class.findByIdAndUpdate(
-      req.params.classId,
-      { teacherId: req.body.teacherId },
-      { new: true }
-    );
-    if (!classItem) return res.status(404).json({ message: 'Class not found' });
-    res.json({ success: true, class: classItem });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+      const newClass = await Class.create({
+        className,
+        grade,
+        academicYear,
+        teacherId: teacherId || null,
+        students: [],
+        capacity: capacity || 40,
+        subjects: subjects || []
+      });
 
-app.delete('/api/academic-admin/classes/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
-  await Class.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
+      res.json({
+        success: true,
+        class: newClass
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+app.put(
+  '/api/academic-admin/classes/:classId/assign-teacher',
+  authMiddleware,
+  requireRole('academic_admin', 'super_admin'),
+  async (req, res) => {
+    try {
+      const classItem = await Class.findByIdAndUpdate(
+        req.params.classId,
+        { teacherId: req.body.teacherId },
+        { new: true }
+      );
+
+      if (!classItem) {
+        return res.status(404).json({ message: 'Class not found' });
+      }
+
+      res.json({
+        success: true,
+        class: classItem
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+app.delete(
+  '/api/academic-admin/classes/:id',
+  authMiddleware,
+  requireRole('academic_admin', 'super_admin'),
+  async (req, res) => {
+    try {
+      await Class.findByIdAndDelete(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
 
 // ==================== SUBJECTS (NEW) ====================
 app.get('/api/academic-admin/subjects', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
@@ -1437,10 +1564,14 @@ app.put('/api/academic-admin/timetables/:id', authMiddleware, requireRole('acade
     res.status(500).json({ message: error.message });
   }
 });
-
 // ==================== STUDENTS ====================
+// GET students - allow secretary_admin to view
 app.get('/api/academic-admin/students', authMiddleware, async (req, res) => {
   try {
+    // Allow super_admin, academic_admin, and secretary_admin to view students
+    if (!['super_admin', 'academic_admin', 'secretary_admin', 'teacher'].includes(req.userRole)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
     const students = await Student.find().populate('classId', 'grade className').sort({ fullName: 1 });
     res.json(students);
   } catch (error) {
@@ -1448,11 +1579,12 @@ app.get('/api/academic-admin/students', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/academic-admin/students', authMiddleware, requireRole('academic_admin', 'super_admin', 'teacher'), async (req, res) => {
+// POST students - allow secretary_admin to create students
+app.post('/api/academic-admin/students', authMiddleware, requireRole('academic_admin', 'super_admin', 'teacher', 'secretary_admin'), async (req, res) => {
   try {
     if (req.body.classId) {
       const classItem = await Class.findById(req.body.classId);
-      if (req.userRole !== 'super_admin' && req.userRole !== 'academic_admin') {
+      if (req.userRole !== 'super_admin' && req.userRole !== 'academic_admin' && req.userRole !== 'secretary_admin') {
         if (classItem.teacherId?.toString() !== req.userId) {
           return res.status(403).json({ message: 'You can only add students to your assigned classes' });
         }
@@ -1495,7 +1627,8 @@ app.post('/api/academic-admin/students', authMiddleware, requireRole('academic_a
   }
 });
 
-app.delete('/api/academic-admin/students/:id', authMiddleware, requireRole('academic_admin', 'super_admin'), async (req, res) => {
+// DELETE students - allow secretary_admin to delete students
+app.delete('/api/academic-admin/students/:id', authMiddleware, requireRole('academic_admin', 'super_admin', 'secretary_admin'), async (req, res) => {
   try {
     await Student.findByIdAndDelete(req.params.id);
     res.json({ success: true });
@@ -1503,7 +1636,6 @@ app.delete('/api/academic-admin/students/:id', authMiddleware, requireRole('acad
     res.status(500).json({ message: error.message });
   }
 });
-
 // ==================== PERFORMANCE ====================
 app.get('/api/academic-admin/students-performance', authMiddleware, async (req, res) => {
   try {
@@ -2408,6 +2540,300 @@ app.get('/api/parent/children/:childId/dashboard', authMiddleware, requireRole('
       attendance,
       fees,
       className: child.classId ? `${child.classId.grade} ${child.classId.className}` : 'Not Assigned'
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+// ==================== PARENT PORTAL ROUTES ====================
+
+// Generate and send OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Store OTPs temporarily (in production, use Redis or database)
+const otpStore = new Map();
+
+app.post('/api/parent/send-otp', async (req, res) => {
+  try {
+    const { phone, email } = req.body;
+    const identifier = phone || email;
+    
+    if (!identifier) {
+      return res.status(400).json({ message: 'Phone or email is required' });
+    }
+
+    const otp = generateOTP();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+    
+    otpStore.set(identifier, { otp, expiresAt, attempts: 0 });
+    
+    // Send OTP via SMS or Email
+    // For now, we'll just return it for testing
+    console.log(`📱 OTP for ${identifier}: ${otp}`);
+    
+    // In production, send SMS/Email here
+    // await sendSMS(phone, `Your OTP is: ${otp}`);
+    // await sendEmail(email, `Your OTP is: ${otp}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'OTP sent successfully',
+      // Remove this in production - only for testing
+      otp: otp 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/parent/verify-otp', async (req, res) => {
+  try {
+    const { phone, email, otp } = req.body;
+    const identifier = phone || email;
+    
+    if (!identifier || !otp) {
+      return res.status(400).json({ message: 'Identifier and OTP are required' });
+    }
+
+    const storedData = otpStore.get(identifier);
+    
+    if (!storedData) {
+      return res.status(400).json({ message: 'OTP expired or not found. Please request a new OTP.' });
+    }
+
+    if (Date.now() > storedData.expiresAt) {
+      otpStore.delete(identifier);
+      return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
+    }
+
+    if (storedData.attempts >= 3) {
+      otpStore.delete(identifier);
+      return res.status(400).json({ message: 'Too many failed attempts. Please request a new OTP.' });
+    }
+
+    if (storedData.otp !== otp) {
+      storedData.attempts += 1;
+      otpStore.set(identifier, storedData);
+      return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
+    }
+
+    // OTP verified - check if parent exists or create new parent
+    let parent = await User.findOne({ phone: phone, role: 'parent' });
+    
+    if (!parent && email) {
+      parent = await User.findOne({ email: email, role: 'parent' });
+    }
+
+    if (!parent) {
+      // Create new parent account
+      const hashedPassword = await bcrypt.hash(Math.random().toString(36).slice(-8), 10);
+      parent = await User.create({
+        fullName: 'Parent',
+        email: email || `${phone}@parent.essa.rw`,
+        password: hashedPassword,
+        role: 'parent',
+        phone: phone,
+        isActive: true
+      });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { id: parent._id, role: parent.role, name: parent.fullName },
+      process.env.JWT_SECRET || 'secretkey',
+      { expiresIn: '7d' }
+    );
+
+    // Find linked students
+    const linkedStudents = await Student.find({ parentPhone: phone }).populate('classId', 'grade className');
+
+    otpStore.delete(identifier);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        _id: parent._id,
+        fullName: parent.fullName,
+        email: parent.email,
+        phone: parent.phone,
+        role: parent.role
+      },
+      hasLinkedStudents: linkedStudents.length > 0,
+      linkedStudents: linkedStudents
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Resend OTP
+app.post('/api/parent/resend-otp', async (req, res) => {
+  try {
+    const { phone, email } = req.body;
+    const identifier = phone || email;
+    
+    if (!identifier) {
+      return res.status(400).json({ message: 'Phone or email is required' });
+    }
+
+    const otp = generateOTP();
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+    
+    otpStore.set(identifier, { otp, expiresAt, attempts: 0 });
+    
+    console.log(`📱 New OTP for ${identifier}: ${otp}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'New OTP sent successfully',
+      otp: otp // Remove in production
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Link student to parent
+app.post('/api/parent/link-student', authMiddleware, requireRole('parent'), async (req, res) => {
+  try {
+    const { studentId } = req.body;
+    
+    if (!studentId) {
+      return res.status(400).json({ message: 'Student ID is required' });
+    }
+
+    // Find student by studentId
+    const student = await Student.findOne({ studentId: studentId }).populate('classId', 'grade className');
+    
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found. Please check the ID and try again.' });
+    }
+
+    // Check if student already has a parent linked
+    if (student.parentPhone && student.parentPhone !== '') {
+      // Check if current parent is trying to link
+      const parent = await User.findById(req.userId);
+      if (student.parentPhone !== parent.phone) {
+        return res.status(400).json({ 
+          message: 'This student is already linked to another parent account.' 
+        });
+      }
+    }
+
+    // Link student to parent
+    const parent = await User.findById(req.userId);
+    student.parentPhone = parent.phone;
+    student.parentEmail = parent.email;
+    student.parentName = parent.fullName;
+    await student.save();
+
+    res.json({
+      success: true,
+      message: 'Student linked successfully!',
+      student: {
+        _id: student._id,
+        fullName: student.fullName,
+        studentId: student.studentId,
+        className: student.classId ? `${student.classId.grade} ${student.classId.className}` : 'Not assigned'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get linked students
+app.get('/api/parent/students', authMiddleware, requireRole('parent'), async (req, res) => {
+  try {
+    const parent = await User.findById(req.userId);
+    const students = await Student.find({ 
+      parentPhone: parent.phone 
+    }).populate('classId', 'grade className');
+    
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Remove linked student
+app.delete('/api/parent/students/:studentId', authMiddleware, requireRole('parent'), async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.studentId);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    const parent = await User.findById(req.userId);
+    if (student.parentPhone !== parent.phone) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    
+    student.parentPhone = '';
+    student.parentEmail = '';
+    student.parentName = '';
+    await student.save();
+    
+    res.json({ success: true, message: 'Student unlinked successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get child dashboard data
+app.get('/api/parent/child/:childId/dashboard', authMiddleware, requireRole('parent'), async (req, res) => {
+  try {
+    const child = await Student.findById(req.params.childId).populate('classId', 'grade className');
+    if (!child) {
+      return res.status(404).json({ message: 'Child not found' });
+    }
+
+    const parent = await User.findById(req.userId);
+    if (child.parentPhone !== parent.phone) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    const [grades, attendance, assignments, fees, timetable] = await Promise.all([
+      Grade.find({ studentId: child._id }).sort({ createdAt: -1 }).limit(20),
+      Attendance.find({ studentId: child._id }).sort({ date: -1 }).limit(30),
+      Assignment.find({ classId: child.classId }).sort({ dueDate: 1 }).limit(10),
+      FeePayment.find({ studentId: child._id }).sort({ paymentDate: -1 }),
+      Timetable.find({ classId: child.classId })
+    ]);
+
+    // Calculate statistics
+    const totalFees = fees.reduce((sum, f) => sum + f.amount, 0);
+    const paidFees = fees.filter(f => f.status === 'completed').reduce((sum, f) => sum + f.amount, 0);
+    const attendanceRate = attendance.length > 0 
+      ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100) 
+      : 0;
+    const avgGrade = grades.length > 0 
+      ? Math.round(grades.reduce((sum, g) => sum + g.score, 0) / grades.length) 
+      : 0;
+
+    res.json({
+      success: true,
+      child: {
+        _id: child._id,
+        fullName: child.fullName,
+        studentId: child.studentId,
+        className: child.classId ? `${child.classId.grade} ${child.classId.className}` : 'Not assigned'
+      },
+      stats: {
+        totalFees,
+        paidFees,
+        balance: totalFees - paidFees,
+        attendanceRate,
+        avgGrade,
+        assignmentsPending: assignments.filter(a => !a.submissions || a.submissions.length === 0).length,
+        assignmentsSubmitted: assignments.filter(a => a.submissions && a.submissions.length > 0).length
+      },
+      recentGrades: grades.slice(0, 5),
+      recentAttendance: attendance.slice(0, 10),
+      upcomingAssignments: assignments.filter(a => new Date(a.dueDate) > new Date()).slice(0, 5)
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
