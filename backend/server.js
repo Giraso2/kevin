@@ -16,6 +16,7 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios'); // For SMS gateway HTTP requests
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,54 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ==================== SMS CONFIGURATION (Generic SMS Gateway) ====================
+const SMS_API_KEY = process.env.SMS_API_KEY || 'your-api-key';
+const SMS_GATEWAY_URL = process.env.SMS_GATEWAY_URL || 'https://your-sms-gateway.com/send';
+const SMS_SENDER_ID = process.env.SMS_SENDER_ID || 'LYMAR';
+
+// Send SMS via Generic HTTP Gateway
+const sendOTPviaSMS = async (phoneNumber, otp) => {
+  try {
+    // Format phone number (remove spaces)
+    const formattedPhone = phoneNumber.replace(/\s/g, '');
+    
+    // Prepare the message
+    const message = `Your LYMAR Portal verification code is: ${otp}. Valid for 10 minutes.`;
+    
+    // Prepare the request payload - Adjust based on your SMS provider's API
+    const payload = {
+      apiKey: SMS_API_KEY,
+      to: formattedPhone,
+      message: message,
+      sender: SMS_SENDER_ID,
+      // Add any additional parameters your gateway requires
+      // type: 'sms',
+      // route: 'transactional',
+    };
+
+    console.log(`📤 Sending SMS to ${formattedPhone}: ${message}`);
+
+    // Send the SMS via HTTP POST
+    const response = await axios.post(SMS_GATEWAY_URL, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      timeout: 10000 // 10 second timeout
+    });
+
+    console.log('✅ SMS sent successfully:', response.data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('❌ SMS sending failed:', error.message);
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+    }
+    return { success: false, error: error.message };
+  }
+};
 
 // ==================== FILE UPLOAD CONFIGURATION ====================
 const uploadDirs = ['./uploads', './uploads/news', './uploads/gallery', './uploads/profile', './uploads/assignments', './uploads/lessons'];
@@ -115,6 +164,7 @@ const teacherProfileSchema = new mongoose.Schema({
   experience: String,
   createdAt: { type: Date, default: Date.now }
 });
+
 // ==================== VISITOR SCHEMA ====================
 const visitorSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -490,8 +540,7 @@ studentSchema.pre('save', async function (next) {
   }
   next();
 });
-const Visitor = mongoose.model('Visitor', visitorSchema);
-const Event = mongoose.model('Event', eventSchema);
+
 // Auto-generate receipt number
 feePaymentSchema.pre('save', async function (next) {
   if (!this.receiptNo) {
@@ -529,6 +578,8 @@ const Budget = mongoose.model('Budget', budgetSchema);
 const Income = mongoose.model('Income', incomeSchema);
 const Expense = mongoose.model('Expense', expenseSchema);
 const LessonPlan = mongoose.model('LessonPlan', lessonPlanSchema);
+const Visitor = mongoose.model('Visitor', visitorSchema);
+const Event = mongoose.model('Event', eventSchema);
 
 // ==================== MIDDLEWARE ====================
 const authMiddleware = async (req, res, next) => {
@@ -2545,9 +2596,10 @@ app.get('/api/parent/children/:childId/dashboard', authMiddleware, requireRole('
     res.status(500).json({ message: error.message });
   }
 });
-// ==================== PARENT PORTAL ROUTES ====================
 
-// Generate and send OTP
+// ==================== PARENT PORTAL ROUTES (with SMS) ====================
+
+// Generate OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -2555,86 +2607,144 @@ const generateOTP = () => {
 // Store OTPs temporarily (in production, use Redis or database)
 const otpStore = new Map();
 
+// Send OTP via SMS
 app.post('/api/parent/send-otp', async (req, res) => {
   try {
-    const { phone, email } = req.body;
-    const identifier = phone || email;
+    const { phone } = req.body;
     
-    if (!identifier) {
-      return res.status(400).json({ message: 'Phone or email is required' });
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+
+    // Clean phone number
+    const cleanPhone = phone.replace(/\s/g, '');
+    
+    // Basic phone number validation (Rwandan format: +250XXXXXXXXX)
+    const phoneRegex = /^\+250[0-9]{9}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      return res.status(400).json({ 
+        message: 'Invalid phone number. Please use format: +250788123456' 
+      });
     }
 
     const otp = generateOTP();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     
-    otpStore.set(identifier, { otp, expiresAt, attempts: 0 });
+    // Store OTP
+    otpStore.set(cleanPhone, { otp, expiresAt, attempts: 0 });
     
-    // Send OTP via SMS or Email
-    // For now, we'll just return it for testing
-    console.log(`📱 OTP for ${identifier}: ${otp}`);
+    console.log(`📱 OTP for ${cleanPhone}: ${otp}`);
     
-    // In production, send SMS/Email here
-    // await sendSMS(phone, `Your OTP is: ${otp}`);
-    // await sendEmail(email, `Your OTP is: ${otp}`);
+    // Send SMS via Gateway
+    const smsResult = await sendOTPviaSMS(cleanPhone, otp);
+    
+    if (!smsResult.success) {
+      console.error('SMS sending failed:', smsResult.error);
+      // Still return success to user but log error
+      return res.json({ 
+        success: true, 
+        message: 'OTP sent successfully. Please check your phone.',
+        // Remove in production
+        otp: otp 
+      });
+    }
     
     res.json({ 
       success: true, 
-      message: 'OTP sent successfully',
-      // Remove this in production - only for testing
+      message: 'OTP sent successfully to your phone.',
+      // Remove in production - only for testing
       otp: otp 
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Send OTP error:', error);
+    res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
   }
 });
 
-app.post('/api/parent/verify-otp', async (req, res) => {
+// Resend OTP
+app.post('/api/parent/resend-otp', async (req, res) => {
   try {
-    const { phone, email, otp } = req.body;
-    const identifier = phone || email;
+    const { phone } = req.body;
     
-    if (!identifier || !otp) {
-      return res.status(400).json({ message: 'Identifier and OTP are required' });
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
     }
 
-    const storedData = otpStore.get(identifier);
+    const cleanPhone = phone.replace(/\s/g, '');
+    const otp = generateOTP();
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+    
+    otpStore.set(cleanPhone, { otp, expiresAt, attempts: 0 });
+    
+    console.log(`📱 New OTP for ${cleanPhone}: ${otp}`);
+    
+    // Send SMS via Gateway
+    const smsResult = await sendOTPviaSMS(cleanPhone, otp);
+    
+    if (!smsResult.success) {
+      console.error('SMS sending failed:', smsResult.error);
+      return res.json({ 
+        success: true, 
+        message: 'OTP resent successfully.',
+        otp: otp 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'New OTP sent to your phone.',
+      otp: otp // Remove in production
+    });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ message: 'Failed to resend OTP.' });
+  }
+});
+
+// Verify OTP
+app.post('/api/parent/verify-otp', async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    
+    if (!phone || !otp) {
+      return res.status(400).json({ message: 'Phone number and OTP are required' });
+    }
+
+    const cleanPhone = phone.replace(/\s/g, '');
+    const storedData = otpStore.get(cleanPhone);
     
     if (!storedData) {
       return res.status(400).json({ message: 'OTP expired or not found. Please request a new OTP.' });
     }
 
     if (Date.now() > storedData.expiresAt) {
-      otpStore.delete(identifier);
+      otpStore.delete(cleanPhone);
       return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
     }
 
     if (storedData.attempts >= 3) {
-      otpStore.delete(identifier);
+      otpStore.delete(cleanPhone);
       return res.status(400).json({ message: 'Too many failed attempts. Please request a new OTP.' });
     }
 
     if (storedData.otp !== otp) {
       storedData.attempts += 1;
-      otpStore.set(identifier, storedData);
+      otpStore.set(cleanPhone, storedData);
       return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
     }
 
     // OTP verified - check if parent exists or create new parent
-    let parent = await User.findOne({ phone: phone, role: 'parent' });
-    
-    if (!parent && email) {
-      parent = await User.findOne({ email: email, role: 'parent' });
-    }
+    let parent = await User.findOne({ phone: cleanPhone, role: 'parent' });
 
     if (!parent) {
       // Create new parent account
       const hashedPassword = await bcrypt.hash(Math.random().toString(36).slice(-8), 10);
       parent = await User.create({
         fullName: 'Parent',
-        email: email || `${phone}@parent.essa.rw`,
+        email: `${cleanPhone}@parent.essa.rw`,
         password: hashedPassword,
         role: 'parent',
-        phone: phone,
+        phone: cleanPhone,
         isActive: true
       });
     }
@@ -2647,9 +2757,9 @@ app.post('/api/parent/verify-otp', async (req, res) => {
     );
 
     // Find linked students
-    const linkedStudents = await Student.find({ parentPhone: phone }).populate('classId', 'grade className');
+    const linkedStudents = await Student.find({ parentPhone: cleanPhone }).populate('classId', 'grade className');
 
-    otpStore.delete(identifier);
+    otpStore.delete(cleanPhone);
 
     res.json({
       success: true,
@@ -2665,33 +2775,7 @@ app.post('/api/parent/verify-otp', async (req, res) => {
       linkedStudents: linkedStudents
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Resend OTP
-app.post('/api/parent/resend-otp', async (req, res) => {
-  try {
-    const { phone, email } = req.body;
-    const identifier = phone || email;
-    
-    if (!identifier) {
-      return res.status(400).json({ message: 'Phone or email is required' });
-    }
-
-    const otp = generateOTP();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
-    
-    otpStore.set(identifier, { otp, expiresAt, attempts: 0 });
-    
-    console.log(`📱 New OTP for ${identifier}: ${otp}`);
-    
-    res.json({ 
-      success: true, 
-      message: 'New OTP sent successfully',
-      otp: otp // Remove in production
-    });
-  } catch (error) {
+    console.error('Verify OTP error:', error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -2705,26 +2789,22 @@ app.post('/api/parent/link-student', authMiddleware, requireRole('parent'), asyn
       return res.status(400).json({ message: 'Student ID is required' });
     }
 
-    // Find student by studentId
     const student = await Student.findOne({ studentId: studentId }).populate('classId', 'grade className');
     
     if (!student) {
       return res.status(404).json({ message: 'Student not found. Please check the ID and try again.' });
     }
 
+    const parent = await User.findById(req.userId);
+    
     // Check if student already has a parent linked
-    if (student.parentPhone && student.parentPhone !== '') {
-      // Check if current parent is trying to link
-      const parent = await User.findById(req.userId);
-      if (student.parentPhone !== parent.phone) {
-        return res.status(400).json({ 
-          message: 'This student is already linked to another parent account.' 
-        });
-      }
+    if (student.parentPhone && student.parentPhone !== '' && student.parentPhone !== parent.phone) {
+      return res.status(400).json({ 
+        message: 'This student is already linked to another parent account.' 
+      });
     }
 
     // Link student to parent
-    const parent = await User.findById(req.userId);
     student.parentPhone = parent.phone;
     student.parentEmail = parent.email;
     student.parentName = parent.fullName;
@@ -2839,6 +2919,7 @@ app.get('/api/parent/child/:childId/dashboard', authMiddleware, requireRole('par
     res.status(500).json({ message: error.message });
   }
 });
+
 // ==================== SECRETARY ADMIN ROUTES ====================
 
 // ==================== VISITOR MANAGEMENT ====================
