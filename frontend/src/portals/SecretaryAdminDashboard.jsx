@@ -140,6 +140,8 @@ const SecretaryAdminDashboard = () => {
   const [schoolSettings, setSchoolSettings] = useState({});
   const [applications, setApplications] = useState([]);
   const [feePayments, setFeePayments] = useState([]);
+  const [news, setNews] = useState([]);
+  const [gallery, setGallery] = useState([]);
 
   // modals
   const [studentModal, setStudentModal] = useState(false);
@@ -147,55 +149,8 @@ const SecretaryAdminDashboard = () => {
   const [eventModal, setEventModal] = useState(false);
   const [announcementModal, setAnnouncementModal] = useState(false);
   const [contactModal, setContactModal] = useState(false);
-  // News Management
-const postNews = async () => {
-  if (!newsForm.title || !newsForm.summary) { Swal.fire('Missing Fields', 'Title and summary required', 'warning'); return; }
-  setSaving(true);
-  try {
-    const token = getToken();
-    const fd = new FormData();
-    Object.entries(newsForm).forEach(([k, v]) => fd.append(k, v));
-    if (newsImageFile) fd.append('image', newsImageFile);
-    const res = await fetch(`${API_URL}/secretary/news`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-    if (!res.ok) throw await res.json();
-    Swal.fire('✅ Published!', 'News posted successfully', 'success');
-    setNewsModal(false); setNewsForm({ title: '', summary: '', content: '', category: 'news', tags: '' }); setNewsImageFile(null);
-    fetchNews();
-  } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
-  finally { setSaving(false); }
-};
-
-const deleteNews = async (item) => {
-  const ok = await Swal.fire({ title: `Delete "${item.title}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
-  if (!ok.isConfirmed) return;
-  await api(`/secretary/news/${item._id}`, { method: 'DELETE' });
-  Swal.fire('Deleted!', '', 'success'); fetchNews();
-};
-
-// Gallery Management
-const addGalleryImage = async () => {
-  if (!galleryForm.title || !galleryImageFile) { Swal.fire('Missing Fields', 'Title and image required', 'warning'); return; }
-  setSaving(true);
-  try {
-    const token = getToken();
-    const fd = new FormData();
-    Object.entries(galleryForm).forEach(([k, v]) => fd.append(k, v));
-    fd.append('image', galleryImageFile);
-    const res = await fetch(`${API_URL}/secretary/gallery`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-    if (!res.ok) throw await res.json();
-    Swal.fire('✅ Added!', 'Image added to gallery', 'success');
-    setGalleryModal(false); setGalleryForm({ title: '', category: 'events', description: '' }); setGalleryImageFile(null);
-    fetchGallery();
-  } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
-  finally { setSaving(false); }
-};
-
-const deleteGallery = async (img) => {
-  const ok = await Swal.fire({ title: `Delete "${img.title}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
-  if (!ok.isConfirmed) return;
-  await api(`/secretary/gallery/${img._id}`, { method: 'DELETE' });
-  Swal.fire('Deleted!', '', 'success'); fetchGallery();
-};
+  const [newsModal, setNewsModal] = useState(false);
+  const [galleryModal, setGalleryModal] = useState(false);
 
   // forms
   const [studentForm, setStudentForm] = useState({ 
@@ -216,6 +171,10 @@ const deleteGallery = async (img) => {
   const [contactForm, setContactForm] = useState({ 
     fullName: '', email: '', phone: '', subject: '', message: '' 
   });
+  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'news', tags: '' });
+  const [galleryForm, setGalleryForm] = useState({ title: '', category: 'events', description: '' });
+  const [newsImageFile, setNewsImageFile] = useState(null);
+  const [galleryImageFile, setGalleryImageFile] = useState(null);
 
   // messaging
   const [msgUsers, setMsgUsers] = useState([]);
@@ -231,15 +190,6 @@ const deleteGallery = async (img) => {
 
   const userName = localStorage.getItem('userName') || 'Secretary Admin';
   const userId = localStorage.getItem('userId');
-  // Add these with other state variables
-const [news, setNews] = useState([]);
-const [gallery, setGallery] = useState([]);
-const [newsModal, setNewsModal] = useState(false);
-const [galleryModal, setGalleryModal] = useState(false);
-const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'news', tags: '' });
-const [galleryForm, setGalleryForm] = useState({ title: '', category: 'events', description: '' });
-const [newsImageFile, setNewsImageFile] = useState(null);
-const [galleryImageFile, setGalleryImageFile] = useState(null);
 
   // responsive
   useEffect(() => {
@@ -278,6 +228,7 @@ const [galleryImageFile, setGalleryImageFile] = useState(null);
     fetchStudents(), fetchClasses(), fetchTeachers(), fetchAnnouncements(),
     fetchContacts(), fetchVisitors(), fetchEvents(), fetchApplications(),
     fetchFeePayments(), fetchSchoolSettings(), fetchMsgUsers(), fetchUnread(),
+    fetchNews(), fetchGallery()
   ]).finally(() => setLoading(false));
 
   const fetchStudents = () => api('/academic-admin/students').then(d => setStudents(Array.isArray(d) ? d : [])).catch(() => {});
@@ -287,38 +238,101 @@ const [galleryImageFile, setGalleryImageFile] = useState(null);
   const fetchContacts = () => api('/admin/contacts').then(d => setContacts(Array.isArray(d) ? d : [])).catch(() => {});
   const fetchVisitors = () => api('/secretary/visitors').then(d => setVisitors(Array.isArray(d) ? d : [])).catch(() => {});
   const fetchEvents = () => api('/secretary/events').then(d => setEvents(Array.isArray(d) ? d : [])).catch(() => {});
- const fetchApplications = () => api('/secretary/applications').then(d => setApplications(Array.isArray(d) ? d : [])).catch(() => {});
- const fetchFeePayments = () => api('/secretary/payments').then(d => setFeePayments(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchApplications = () => api('/secretary/applications').then(d => setApplications(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchFeePayments = () => api('/secretary/payments').then(d => setFeePayments(Array.isArray(d) ? d : [])).catch(() => {});
   const fetchSchoolSettings = () => api('/school-settings').then(d => setSchoolSettings(d || {})).catch(() => {});
   const fetchMsgUsers = () => api('/messages/users').then(d => { const all = Object.values(d.users || d || {}).flat(); setMsgUsers(all); }).catch(() => {});
   const fetchUnread = () => api('/messages/unread-count').then(d => setUnread(d.count || 0)).catch(() => {});
   const fetchConversation = (uid) => api(`/messages/conversation/${uid}`).then(d => setMessages(Array.isArray(d.messages) ? d.messages : [])).catch(() => {});
   const fetchNews = () => api('/secretary/news').then(d => setNews(Array.isArray(d) ? d : [])).catch(() => {});
-const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.isArray(d) ? d : [])).catch(() => {});
+  const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.isArray(d) ? d : [])).catch(() => {});
 
-  // ─── ACTIONS ──────────────────────────────────────────────────────
+ // ─── ACTIONS ──────────────────────────────────────────────────────
 
-  // Student Management
-  const createStudent = async () => {
-    if (!studentForm.fullName) { Swal.fire('Missing Fields', 'Student name required', 'warning'); return; }
-    setSaving(true);
-    try {
-      await api('/academic-admin/students', { method: 'POST', body: JSON.stringify(studentForm) });
-      Swal.fire('✅ Student Added!', `Student ${studentForm.fullName} registered successfully. Password: ${studentForm.password || 'student123'}`, 'success');
-      setStudentModal(false); 
-      setStudentForm({ fullName: '', email: '', classId: '', parentName: '', parentPhone: '', dateOfBirth: '', gender: 'other', address: '', password: '' });
-      fetchStudents();
-    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const deleteStudent = async (s) => {
-    const ok = await Swal.fire({ title: `Remove ${s.fullName}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
-    if (!ok.isConfirmed) return;
-    await api(`/academic-admin/students/${s._id}`, { method: 'DELETE' });
-    Swal.fire('Deleted!', '', 'success'); fetchStudents();
-  };
-
+// In the Swal.fire html, add a copy button:
+const createStudent = async () => {
+  if (!studentForm.fullName) { 
+    Swal.fire('Missing Fields', 'Student name required', 'warning'); 
+    return; 
+  }
+  setSaving(true);
+  try {
+    const result = await api('/academic-admin/students', { 
+      method: 'POST', 
+      body: JSON.stringify({
+        ...studentForm,
+        password: studentForm.password || undefined
+      }) 
+    });
+    
+    const studentId = result.student.studentId;
+    const password = result.generatedPassword || 'student123';
+    const email = result.student.email || studentForm.email || 'Not provided';
+    
+    // Display success message with student ID and credentials
+    Swal.fire({
+      title: '✅ Student Registered Successfully!',
+      html: `
+        <div style="text-align: left; padding: 10px 0; font-size: 14px;">
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+            <span style="color: #666;"><strong>Full Name</strong></span>
+            <span style="font-weight: 600;">${studentForm.fullName}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+            <span style="color: #666;"><strong>Student ID</strong></span>
+            <span style="background: #1a3a5c; color: white; padding: 2px 12px; border-radius: 4px; font-weight: 700; font-size: 15px;">${studentId}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+            <span style="color: #666;"><strong>Email</strong></span>
+            <span>${email}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+            <span style="color: #666;"><strong>Password</strong></span>
+            <span style="background: #27ae60; color: white; padding: 2px 12px; border-radius: 4px; font-weight: 700;">${password}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+            <span style="color: #666;"><strong>Class</strong></span>
+            <span>${studentForm.classId ? classes.find(c => c._id === studentForm.classId)?.grade + ' ' + classes.find(c => c._id === studentForm.classId)?.className : 'Not assigned'}</span>
+          </div>
+        </div>
+        <div style="margin-top: 12px; display: flex; gap: 10px; justify-content: center;">
+          <button onclick="navigator.clipboard.writeText('ID: ${studentId}\\nPassword: ${password}')" 
+            style="background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">
+            <i class="fas fa-copy"></i> Copy Credentials
+          </button>
+        </div>
+        <div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 8px; font-size: 12px; color: #e67e22; text-align: left;">
+          <i class="fas fa-info-circle" style="margin-right: 6px;"></i> 
+          <strong>IMPORTANT:</strong> Please save these credentials and share them with the student.
+        </div>
+      `,
+      icon: 'success',
+      confirmButtonText: '✅ Done',
+      confirmButtonColor: '#00bcd4',
+      width: 520,
+      backdrop: 'rgba(0,0,0,0.4)',
+      padding: '20px'
+    });
+    
+    // Reset form and close modal
+    setStudentModal(false); 
+    setStudentForm({ 
+      fullName: '', email: '', classId: '', parentName: '', parentPhone: '', 
+      dateOfBirth: '', gender: 'other', address: '', password: '' 
+    });
+    fetchStudents();
+    
+  } catch (e) { 
+    Swal.fire({
+      title: '❌ Registration Failed',
+      text: e.message || 'Failed to register student. Please try again.',
+      icon: 'error',
+      confirmButtonColor: '#e74c3c'
+    }); 
+  } finally { 
+    setSaving(false); 
+  }
+};
   // Visitor Management
   const addVisitor = async () => {
     if (!visitorForm.name || !visitorForm.purpose) { Swal.fire('Missing Fields', 'Name and purpose required', 'warning'); return; }
@@ -362,6 +376,56 @@ const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.
     if (!ok.isConfirmed) return;
     await api(`/secretary/events/${e._id}`, { method: 'DELETE' });
     Swal.fire('Deleted!', '', 'success'); fetchEvents();
+  };
+
+  // News Management
+  const postNews = async () => {
+    if (!newsForm.title || !newsForm.summary) { Swal.fire('Missing Fields', 'Title and summary required', 'warning'); return; }
+    setSaving(true);
+    try {
+      const token = getToken();
+      const fd = new FormData();
+      Object.entries(newsForm).forEach(([k, v]) => fd.append(k, v));
+      if (newsImageFile) fd.append('image', newsImageFile);
+      const res = await fetch(`${API_URL}/secretary/news`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      if (!res.ok) throw await res.json();
+      Swal.fire('✅ Published!', 'News posted successfully', 'success');
+      setNewsModal(false); setNewsForm({ title: '', summary: '', content: '', category: 'news', tags: '' }); setNewsImageFile(null);
+      fetchNews();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteNews = async (item) => {
+    const ok = await Swal.fire({ title: `Delete "${item.title}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/secretary/news/${item._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchNews();
+  };
+
+  // Gallery Management
+  const addGalleryImage = async () => {
+    if (!galleryForm.title || !galleryImageFile) { Swal.fire('Missing Fields', 'Title and image required', 'warning'); return; }
+    setSaving(true);
+    try {
+      const token = getToken();
+      const fd = new FormData();
+      Object.entries(galleryForm).forEach(([k, v]) => fd.append(k, v));
+      fd.append('image', galleryImageFile);
+      const res = await fetch(`${API_URL}/secretary/gallery`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      if (!res.ok) throw await res.json();
+      Swal.fire('✅ Added!', 'Image added to gallery', 'success');
+      setGalleryModal(false); setGalleryForm({ title: '', category: 'events', description: '' }); setGalleryImageFile(null);
+      fetchGallery();
+    } catch (e) { Swal.fire('Error', e.message || 'Failed', 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const deleteGallery = async (img) => {
+    const ok = await Swal.fire({ title: `Delete "${img.title}"?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c', confirmButtonText: 'Delete' });
+    if (!ok.isConfirmed) return;
+    await api(`/secretary/gallery/${img._id}`, { method: 'DELETE' });
+    Swal.fire('Deleted!', '', 'success'); fetchGallery();
   };
 
   // Announcement Management
@@ -457,19 +521,19 @@ const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.
   };
 
   // ─── Menu Items ──────────────────────────────────────────────────
- const menuItems = [
-  { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
-  { id: 'students', label: 'Student Directory', icon: 'fas fa-user-graduate' },
-  { id: 'admissions', label: 'Admissions', icon: 'fas fa-file-alt' },
-  { id: 'visitors', label: 'Visitor Log', icon: 'fas fa-door-open' },
-  { id: 'events', label: 'Events & Calendar', icon: 'fas fa-calendar-alt' },
-  { id: 'news', label: 'News & Events', icon: 'fas fa-newspaper' },
-  { id: 'gallery', label: 'Gallery', icon: 'fas fa-images' },
-  { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn' },
-  { id: 'contacts', label: 'Contact Inquiries', icon: 'fas fa-envelope' },
-  { id: 'messages', label: 'Messages', icon: 'fas fa-comments', badge: unread },
-  { id: 'profile', label: 'Profile', icon: 'fas fa-user-shield' },
-];
+  const menuItems = [
+    { id: 'overview', label: 'Dashboard', icon: 'fas fa-chart-line' },
+    { id: 'students', label: 'Student Directory', icon: 'fas fa-user-graduate' },
+    { id: 'admissions', label: 'Admissions', icon: 'fas fa-file-alt' },
+    { id: 'visitors', label: 'Visitor Log', icon: 'fas fa-door-open' },
+    { id: 'events', label: 'Events & Calendar', icon: 'fas fa-calendar-alt' },
+    { id: 'news', label: 'News & Events', icon: 'fas fa-newspaper' },
+    { id: 'gallery', label: 'Gallery', icon: 'fas fa-images' },
+    { id: 'announcements', label: 'Announcements', icon: 'fas fa-bullhorn' },
+    { id: 'contacts', label: 'Contact Inquiries', icon: 'fas fa-envelope' },
+    { id: 'messages', label: 'Messages', icon: 'fas fa-comments', badge: unread },
+    { id: 'profile', label: 'Profile', icon: 'fas fa-user-shield' },
+  ];
 
   const filteredUsers = msgUsers.filter(u =>
     u.fullName?.toLowerCase().includes(msgSearch.toLowerCase()) || u.role?.toLowerCase().includes(msgSearch.toLowerCase())
@@ -600,63 +664,6 @@ const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.
                 <Btn small onClick={() => setEventModal(true)} icon="fas fa-calendar-plus" color="#27ae60">Add Event</Btn>
                 <Btn small onClick={() => setAnnouncementModal(true)} icon="fas fa-bullhorn" color="#e74c3c">Post Announcement</Btn>
               </div>
-              {/* ══ NEWS & EVENTS ══ */}
-{activeTab === 'news' && (
-  <div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-      <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>News & Events</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{news.length} articles published</p></div>
-      <Btn onClick={() => setNewsModal(true)} icon="fas fa-plus" color="#1a3a5c">Post News</Btn>
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {news.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-newspaper" style={{ fontSize: 36, marginBottom: 10, display: 'block', opacity: .3 }} />No news published yet</div>}
-      {news.map(n => (
-        <div key={n._id} style={{ background: 'white', borderRadius: 13, padding: '16px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', boxShadow: '0 2px 8px rgba(0,0,0,.05)' }}>
-          {n.image && <img src={n.image} alt={n.title} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c' }}>{n.title}</h3>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Badge text={n.category} color="#f39c12" bg="#fff3e0" />
-                <span style={{ fontSize: 11, color: '#aaa' }}>{fmt(n.date)}</span>
-                <Btn small danger icon="fas fa-trash" onClick={() => deleteNews(n)} />
-              </div>
-            </div>
-            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#666', lineHeight: 1.6 }}>{n.summary}</p>
-            <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#aaa' }}>
-              <span><i className="fas fa-eye" style={{ marginRight: 4 }} />{n.views || 0} views</span>
-              <span><i className="fas fa-user" style={{ marginRight: 4 }} />{n.author}</span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
-{/* ══ GALLERY ══ */}
-{activeTab === 'gallery' && (
-  <div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-      <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Photo Gallery</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{gallery.length} images</p></div>
-      <Btn onClick={() => setGalleryModal(true)} icon="fas fa-plus" color="#1a3a5c">Add Image</Btn>
-    </div>
-    {gallery.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-images" style={{ fontSize: 36, marginBottom: 10, display: 'block', opacity: .3 }} />No gallery images yet</div>}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
-      {gallery.map(img => (
-        <div key={img._id} style={{ borderRadius: 12, overflow: 'hidden', position: 'relative', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
-          <img src={img.image} alt={img.title} style={{ width: '100%', height: 150, objectFit: 'cover' }} />
-          <div style={{ padding: '10px 12px' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a3a5c' }}>{img.title}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-              <Badge text={img.category} color="#3498db" bg="#e3f2fd" size={10} />
-              <button onClick={() => deleteGallery(img)} style={{ background: '#fdecea', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#e74c3c', fontSize: 11 }}><i className="fas fa-trash" /></button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
 
               {/* Recent Announcements */}
               <div style={{ background: 'white', borderRadius: 14, padding: 18, boxShadow: '0 2px 10px rgba(0,0,0,.05)' }}>
@@ -681,30 +688,30 @@ const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.
             </div>
           )}
 
-          {/* ══ STUDENT DIRECTORY ══ */}
-          {activeTab === 'students' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Student Directory</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{students.length} students enrolled</p></div>
-                <Btn onClick={() => setStudentModal(true)} icon="fas fa-user-plus" color="#00bcd4">Register Student</Btn>
-              </div>
-              <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)', overflowX: 'auto' }}>
-                <Table cols={['Student', 'ID', 'Class', 'Parent', 'Contact', 'Actions']} emptyMsg="No students enrolled yet."
-                  rows={students.map(s => (
-                    <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><Avatar name={s.fullName} size={30} /><div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.fullName}</div></div></div></TD>
-                      <TD style={{ fontSize: 12 }}>{s.studentId || '—'}</TD>
-                      <TD>{s.classId ? <Badge text={`${s.classId.grade || ''} ${s.classId.className || ''}`} color="#3498db" bg="#e3f2fd" /> : <span style={{ color: '#aaa', fontSize: 12 }}>Not assigned</span>}</TD>
-                      <TD style={{ fontSize: 12 }}>{s.parentName || '—'}</TD>
-                      <TD style={{ fontSize: 12 }}>{s.parentPhone || '—'}</TD>
-                      <TD><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <Btn small icon="fas fa-comment" color="#3498db" onClick={() => { setSelectedUser(s); setActiveTab('messages'); }}>Message</Btn>
-                        <Btn small danger icon="fas fa-trash" onClick={() => deleteStudent(s)} />
-                      </div></TD></>
-                  ))}
-                />
-              </div>
-            </div>
-          )}
+         {/* ══ STUDENT DIRECTORY ══ */}
+{activeTab === 'students' && (
+  <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+      <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Student Directory</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{students.length} students enrolled</p></div>
+      <Btn onClick={() => setStudentModal(true)} icon="fas fa-user-plus" color="#00bcd4">Register Student</Btn>
+    </div>
+    <div style={{ background: 'white', borderRadius: 14, boxShadow: '0 2px 10px rgba(0,0,0,.05)', overflowX: 'auto' }}>
+      <Table cols={['Student', 'ID', 'Class', 'Parent', 'Contact', 'Actions']} emptyMsg="No students enrolled yet."
+        rows={students.map(s => (
+          <><TD><div style={{ display: 'flex', alignItems: 'center', gap: 9 }}><Avatar name={s.fullName} size={30} /><div><div style={{ fontWeight: 600, fontSize: 13 }}>{s.fullName}</div></div></div></TD>
+            <TD><Badge text={s.studentId || '—'} color="#1a3a5c" bg="#e8f0fb" /></TD>
+            <TD>{s.classId ? <Badge text={`${s.classId.grade || ''} ${s.classId.className || ''}`} color="#3498db" bg="#e3f2fd" /> : <span style={{ color: '#aaa', fontSize: 12 }}>Not assigned</span>}</TD>
+            <TD style={{ fontSize: 12 }}>{s.parentName || '—'}</TD>
+            <TD style={{ fontSize: 12 }}>{s.parentPhone || '—'}</TD>
+            <TD><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Btn small icon="fas fa-comment" color="#3498db" onClick={() => { setSelectedUser(s); setActiveTab('messages'); }}>Message</Btn>
+              <Btn small danger icon="fas fa-trash" onClick={() => deleteStudent(s)} />
+            </div></TD></>
+        ))}
+      />
+    </div>
+  </div>
+)}
 
           {/* ══ ADMISSIONS ══ */}
           {activeTab === 'admissions' && (
@@ -776,6 +783,64 @@ const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* ══ NEWS & EVENTS ══ */}
+          {activeTab === 'news' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>News & Events</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{news.length} articles published</p></div>
+                <Btn onClick={() => setNewsModal(true)} icon="fas fa-plus" color="#1a3a5c">Post News</Btn>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {news.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-newspaper" style={{ fontSize: 36, marginBottom: 10, display: 'block', opacity: .3 }} />No news published yet</div>}
+                {news.map(n => (
+                  <div key={n._id} style={{ background: 'white', borderRadius: 13, padding: '16px 18px', display: 'flex', gap: 14, alignItems: 'flex-start', boxShadow: '0 2px 8px rgba(0,0,0,.05)' }}>
+                    {n.image && <img src={n.image} alt={n.title} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        <h3 style={{ margin: 0, fontSize: 14, color: '#1a3a5c' }}>{n.title}</h3>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Badge text={n.category} color="#f39c12" bg="#fff3e0" />
+                          <span style={{ fontSize: 11, color: '#aaa' }}>{fmt(n.date)}</span>
+                          <Btn small danger icon="fas fa-trash" onClick={() => deleteNews(n)} />
+                        </div>
+                      </div>
+                      <p style={{ margin: '6px 0 0', fontSize: 12, color: '#666', lineHeight: 1.6 }}>{n.summary}</p>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: '#aaa' }}>
+                        <span><i className="fas fa-eye" style={{ marginRight: 4 }} />{n.views || 0} views</span>
+                        <span><i className="fas fa-user" style={{ marginRight: 4 }} />{n.author}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ══ GALLERY ══ */}
+          {activeTab === 'gallery' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+                <div><h2 style={{ margin: 0, fontSize: 19, color: '#1a3a5c', fontFamily: 'Georgia, serif' }}>Photo Gallery</h2><p style={{ margin: '3px 0 0', fontSize: 12, color: '#888' }}>{gallery.length} images</p></div>
+                <Btn onClick={() => setGalleryModal(true)} icon="fas fa-plus" color="#1a3a5c">Add Image</Btn>
+              </div>
+              {gallery.length === 0 && <div style={{ textAlign: 'center', padding: 50, background: 'white', borderRadius: 14, color: '#bbb' }}><i className="fas fa-images" style={{ fontSize: 36, marginBottom: 10, display: 'block', opacity: .3 }} />No gallery images yet</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
+                {gallery.map(img => (
+                  <div key={img._id} style={{ borderRadius: 12, overflow: 'hidden', position: 'relative', background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,.08)' }}>
+                    <img src={img.image} alt={img.title} style={{ width: '100%', height: 150, objectFit: 'cover' }} />
+                    <div style={{ padding: '10px 12px' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a3a5c' }}>{img.title}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                        <Badge text={img.category} color="#3498db" bg="#e3f2fd" size={10} />
+                        <button onClick={() => deleteGallery(img)} style={{ background: '#fdecea', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', color: '#e74c3c', fontSize: 11 }}><i className="fas fa-trash" /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1005,7 +1070,48 @@ const fetchGallery = () => api('/secretary/gallery').then(d => setGallery(Array.
           <Btn onClick={addEvent} icon="fas fa-calendar-plus" color="#27ae60" disabled={saving}>{saving ? 'Creating…' : 'Add Event'}</Btn>
         </div>
       </Modal>
-      
+
+      {/* News Modal */}
+      <Modal open={newsModal} onClose={() => setNewsModal(false)} title="Post News / Event" width={560}>
+        <Field label="Title" required><Inp value={newsForm.title} placeholder="News title" onChange={e => setNewsForm(p => ({ ...p, title: e.target.value }))} /></Field>
+        <Field label="Summary" required><Txt value={newsForm.summary} placeholder="Short summary…" rows={3} onChange={e => setNewsForm(p => ({ ...p, summary: e.target.value }))} /></Field>
+        <Field label="Full Content"><Txt value={newsForm.content} placeholder="Full content (optional)" rows={4} onChange={e => setNewsForm(p => ({ ...p, content: e.target.value }))} /></Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Category">
+            <Sel value={newsForm.category} onChange={e => setNewsForm(p => ({ ...p, category: e.target.value }))}>
+              <option value="news">📰 News</option>
+              <option value="event">🎉 Event</option>
+              <option value="announcement">📢 Announcement</option>
+              <option value="achievement">🏆 Achievement</option>
+            </Sel>
+          </Field>
+          <Field label="Tags"><Inp value={newsForm.tags} placeholder="tag1, tag2" onChange={e => setNewsForm(p => ({ ...p, tags: e.target.value }))} /></Field>
+        </div>
+        <Field label="Image (optional)"><input type="file" accept="image/*" onChange={e => setNewsImageFile(e.target.files[0])} style={{ fontSize: 13, padding: '8px 0' }} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setNewsModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={postNews} icon="fas fa-paper-plane" color="#1a3a5c" disabled={saving}>{saving ? 'Publishing…' : 'Publish'}</Btn>
+        </div>
+      </Modal>
+
+      {/* Gallery Modal */}
+      <Modal open={galleryModal} onClose={() => setGalleryModal(false)} title="Add Gallery Image">
+        <Field label="Title" required><Inp value={galleryForm.title} placeholder="Image title" onChange={e => setGalleryForm(p => ({ ...p, title: e.target.value }))} /></Field>
+        <Field label="Category">
+          <Sel value={galleryForm.category} onChange={e => setGalleryForm(p => ({ ...p, category: e.target.value }))}>
+            <option value="events">🎪 Events</option>
+            <option value="academic">📚 Academic</option>
+            <option value="sports">⚽ Sports</option>
+            <option value="cultural">🎭 Cultural</option>
+          </Sel>
+        </Field>
+        <Field label="Description"><Txt value={galleryForm.description} placeholder="Optional description" rows={3} onChange={e => setGalleryForm(p => ({ ...p, description: e.target.value }))} /></Field>
+        <Field label="Image" required><input type="file" accept="image/*" onChange={e => setGalleryImageFile(e.target.files[0])} style={{ fontSize: 13, padding: '8px 0' }} /></Field>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <Btn onClick={() => setGalleryModal(false)} color="#f0f0f0" textColor="#666">Cancel</Btn>
+          <Btn onClick={addGalleryImage} icon="fas fa-image" color="#1a3a5c" disabled={saving}>{saving ? 'Uploading…' : 'Add Image'}</Btn>
+        </div>
+      </Modal>
 
       {/* Announcement Modal */}
       <Modal open={announcementModal} onClose={() => setAnnouncementModal(false)} title="Post Announcement" width={540}>
